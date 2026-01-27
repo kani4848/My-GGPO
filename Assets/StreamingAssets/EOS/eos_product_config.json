@@ -1,0 +1,38 @@
+{
+  "ProductName": "EOS learning app",
+  "ProductId": "216cac8192fb42e898c157d8956942af",
+  "ProductVersion": "1.0",
+  "imported": true,
+  "Clients": [
+    {
+      "Value": {
+        "ClientId": "28dfcf2ea8954939bfb17a3641b62567",
+        "ClientSecret": "",
+        "EncryptionKey": "C9B532EB1D284B3D312F53351BE92D26D53C7742B35D4C82872D2D4FE35E5BA3"
+      },
+      "Name": "Client"
+    }
+  ],
+  "Environments": {
+    "Deployments": [
+      {
+        "Value": {
+          "SandboxId": {
+            "Value": "e1dc580180124b59866805577bc60256"
+          },
+          "DeploymentId": "81d3a64382dd472592b57d91491bde60"
+        },
+        "Name": "Deployment"
+      }
+    ],
+    "Sandboxes": [
+      {
+        "Value": {
+          "Value": "e1dc580180124b59866805577bc60256"
+        },
+        "Name": "Sandbox"
+      }
+    ]
+  },
+  "schemaVersion": "1.0"
+}

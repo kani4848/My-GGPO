@@ -1,0 +1,429 @@
+fileFormatVersion: 2
+guid: 4838ab2640c38ac4d8460f2e74745747
+TextureImporter:
+  internalIDToNameTable:
+  - first:
+      213: -2052119252768296663
+    second: Loading-PNG-Photo_0
+  - first:
+      213: -1805213396891014541
+    second: Loading-PNG-Photo_1
+  - first:
+      213: -7326500929186455245
+    second: Loading-PNG-Photo_2
+  - first:
+      213: -1633041547041833707
+    second: Loading-PNG-Photo_3
+  - first:
+      213: -4375978666308423847
+    second: Loading-PNG-Photo_4
+  - first:
+      213: 1001954523138163176
+    second: Loading-PNG-Photo_5
+  - first:
+      213: -5922437112886627743
+    second: Loading-PNG-Photo_6
+  - first:
+      213: 6372877338049027851
+    second: Loading-PNG-Photo_7
+  - first:
+      213: 6138764432867945653
+    second: Loading-PNG-Photo_8
+  - first:
+      213: -2453587863719912306
+    second: Loading-PNG-Photo_9
+  - first:
+      213: 4085040523761301307
+    second: Loading-PNG-Photo_10
+  - first:
+      213: 3106617502763106267
+    second: Loading-PNG-Photo_11
+  externalObjects: {}
+  serializedVersion: 13
+  mipmaps:
+    mipMapMode: 0
+    enableMipMap: 0
+    sRGBTexture: 1
+    linearTexture: 0
+    fadeOut: 0
+    borderMipMap: 0
+    mipMapsPreserveCoverage: 0
+    alphaTestReferenceValue: 0.5
+    mipMapFadeDistanceStart: 1
+    mipMapFadeDistanceEnd: 3
+  bumpmap:
+    convertToNormalMap: 0
+    externalNormalMap: 0
+    heightScale: 0.25
+    normalMapFilter: 0
+    flipGreenChannel: 0
+  isReadable: 0
+  streamingMipmaps: 0
+  streamingMipmapsPriority: 0
+  vTOnly: 0
+  ignoreMipmapLimit: 0
+  grayScaleToAlpha: 0
+  generateCubemap: 6
+  cubemapConvolution: 0
+  seamlessCubemap: 0
+  textureFormat: 1
+  maxTextureSize: 2048
+  textureSettings:
+    serializedVersion: 2
+    filterMode: 1
+    aniso: 1
+    mipBias: 0
+    wrapU: 0
+    wrapV: 0
+    wrapW: 0
+  nPOTScale: 0
+  lightmap: 0
+  compressionQuality: 50
+  spriteMode: 1
+  spriteExtrude: 1
+  spriteMeshType: 1
+  alignment: 0
+  spritePivot: {x: 0.5, y: 0.5}
+  spritePixelsToUnits: 100
+  spriteBorder: {x: 0, y: 0, z: 0, w: 0}
+  spriteGenerateFallbackPhysicsShape: 1
+  alphaUsage: 1
+  alphaIsTransparency: 1
+  spriteTessellationDetail: -1
+  textureType: 8
+  textureShape: 1
+  singleChannelComponent: 0
+  flipbookRows: 1
+  flipbookColumns: 1
+  maxTextureSizeSet: 0
+  compressionQualitySet: 0
+  textureFormatSet: 0
+  ignorePngGamma: 0
+  applyGammaDecoding: 0
+  swizzle: 50462976
+  cookieLightType: 0
+  platformSettings:
+  - serializedVersion: 4
+    buildTarget: DefaultTexturePlatform
+    maxTextureSize: 1024
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: Standalone
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  spriteSheet:
+    serializedVersion: 2
+    sprites:
+    - serializedVersion: 2
+      name: Loading-PNG-Photo_0
+      rect:
+        serializedVersion: 2
+        x: 46
+        y: 477
+        width: 185
+        height: 148
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 921710689686583e0800000000000000
+      internalID: -2052119252768296663
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Loading-PNG-Photo_1
+      rect:
+        serializedVersion: 2
+        x: 175
+        y: 569
+        width: 148
+        height: 185
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 37ae88edaf792f6e0800000000000000
+      internalID: -1805213396891014541
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Loading-PNG-Photo_2
+      rect:
+        serializedVersion: 2
+        x: 350
+        y: 602
+        width: 100
+        height: 198
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 331a54de83a035a90800000000000000
+      internalID: -7326500929186455245
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Loading-PNG-Photo_3
+      rect:
+        serializedVersion: 2
+        x: 477
+        y: 569
+        width: 148
+        height: 185
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 51dfd1d7d554659e0800000000000000
+      internalID: -1633041547041833707
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Loading-PNG-Photo_4
+      rect:
+        serializedVersion: 2
+        x: 568
+        y: 477
+        width: 186
+        height: 148
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 95faff186966543c0800000000000000
+      internalID: -4375978666308423847
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Loading-PNG-Photo_5
+      rect:
+        serializedVersion: 2
+        x: 0
+        y: 350
+        width: 198
+        height: 100
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 8e10fb88458a7ed00800000000000000
+      internalID: 1001954523138163176
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Loading-PNG-Photo_6
+      rect:
+        serializedVersion: 2
+        x: 602
+        y: 350
+        width: 198
+        height: 100
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 1627dc103d64fcda0800000000000000
+      internalID: -5922437112886627743
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Loading-PNG-Photo_7
+      rect:
+        serializedVersion: 2
+        x: 46
+        y: 175
+        width: 185
+        height: 148
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: b0f9c8b8c22017850800000000000000
+      internalID: 6372877338049027851
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Loading-PNG-Photo_8
+      rect:
+        serializedVersion: 2
+        x: 175
+        y: 46
+        width: 148
+        height: 185
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 5bc65e42ab5413550800000000000000
+      internalID: 6138764432867945653
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Loading-PNG-Photo_9
+      rect:
+        serializedVersion: 2
+        x: 350
+        y: 0
+        width: 100
+        height: 198
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: e8cd3cd66da13fdd0800000000000000
+      internalID: -2453587863719912306
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Loading-PNG-Photo_10
+      rect:
+        serializedVersion: 2
+        x: 477
+        y: 46
+        width: 148
+        height: 185
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: b373edf76baf0b830800000000000000
+      internalID: 4085040523761301307
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Loading-PNG-Photo_11
+      rect:
+        serializedVersion: 2
+        x: 568
+        y: 175
+        width: 186
+        height: 148
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: bdfb431c82cec1b20800000000000000
+      internalID: 3106617502763106267
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    outline: []
+    customData: 
+    physicsShape: []
+    bones: []
+    spriteID: 5e97eb03825dee720800000000000000
+    internalID: 0
+    vertices: []
+    indices: 
+    edges: []
+    weights: []
+    secondaryTextures: []
+    spriteCustomMetadata:
+      entries: []
+    nameFileIdTable:
+      Loading-PNG-Photo_0: -2052119252768296663
+      Loading-PNG-Photo_1: -1805213396891014541
+      Loading-PNG-Photo_10: 4085040523761301307
+      Loading-PNG-Photo_11: 3106617502763106267
+      Loading-PNG-Photo_2: -7326500929186455245
+      Loading-PNG-Photo_3: -1633041547041833707
+      Loading-PNG-Photo_4: -4375978666308423847
+      Loading-PNG-Photo_5: 1001954523138163176
+      Loading-PNG-Photo_6: -5922437112886627743
+      Loading-PNG-Photo_7: 6372877338049027851
+      Loading-PNG-Photo_8: 6138764432867945653
+      Loading-PNG-Photo_9: -2453587863719912306
+  mipmapLimitGroupName: 
+  pSDRemoveMatte: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 

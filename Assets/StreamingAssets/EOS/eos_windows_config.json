@@ -1,0 +1,34 @@
+{
+  "deployment": {
+    "SandboxId": {
+      "Value": "e1dc580180124b59866805577bc60256"
+    },
+    "DeploymentId": "81d3a64382dd472592b57d91491bde60"
+  },
+  "clientCredentials": {
+    "ClientId": "xyza7891TUcKJe2t1b81ZNSAWFvVYbkW",
+    "ClientSecret": "0RixLwJXGYSVn4EMRmoa3gsmnDwuNYYabIhXuKjJjos",
+    "EncryptionKey": "C9B532EB1D284B3D312F53351BE92D26D53C7742B35D4C82872D2D4FE35E5BA3"
+  },
+  "isServer": false,
+  "platformOptionsFlags": "None",
+  "authScopeOptionsFlags": "BasicProfile, FriendsList, Presence",
+  "integratedPlatformManagementFlags": "Disabled",
+  "tickBudgetInMilliseconds": 0,
+  "taskNetworkTimeoutSeconds": 0.0,
+  "threadAffinity": {
+    "NetworkWork": 0,
+    "StorageIo": 0,
+    "WebSocketIo": 0,
+    "P2PIo": 0,
+    "HttpRequestIo": 0,
+    "RTCIo": 0,
+    "EmbeddedOverlayMainThread": 0,
+    "EmbeddedOverlayWorkerThreads": 0
+  },
+  "alwaysSendInputToOverlay": false,
+  "initialButtonDelayForOverlay": 0.0,
+  "repeatButtonDelayForOverlay": 0.0,
+  "toggleFriendsButtonCombination": "SpecialLeft",
+  "schemaVersion": "1.0"
+}
