@@ -90,11 +90,19 @@ public sealed class LobbyUIManager : MonoBehaviour
                 avairableLobby.Deactivated();
                 break;
 
-            case LobbyState.CreatingAndJoinLobby:
+            case LobbyState.CreateLobbyAndJoin:
                 systemMessage.text = "Creating Lobby...";
                 Loading.SetActive(true);
                 avairableLobby.Deactivated();
                 break;
+
+
+            case LobbyState.Joining:
+                systemMessage.text = "Joining Lobby...";
+                Loading.SetActive(true);
+                avairableLobby.Deactivated();
+                break;
+
 
             case LobbyState.InLobby:
                 systemMessage.text = "In Lobby";
@@ -120,9 +128,9 @@ public sealed class LobbyUIManager : MonoBehaviour
         joinedLobby.Activated(lobbyData.path, lobbyData.id, memberDatas);
     }
 
-    public void RefreshAvailableLobby(List<LobbyData> lobbyDatas)
+    public void RefreshAvailableLobby(List<LobbyData> lobbyDatas, Action<LobbyData> joinAction)
     {
-        avairableLobby.RefreshList(lobbyDatas);
+        avairableLobby.RefreshList(lobbyDatas, joinAction);
     }
 
     public string GetUserName()

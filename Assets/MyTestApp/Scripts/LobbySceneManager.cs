@@ -18,8 +18,10 @@ public enum LobbyState
 
     LoggingOut = 25,
 
-    CreatingAndJoinLobby = 30,
+    CreateLobbyAndJoin = 30,
     
+    Joining = 40,
+
     Searching = 50,
     InLobby = 60,
     LeavingLobby = 70,
@@ -134,10 +136,12 @@ public class LobbySceneManager : MonoBehaviour
 
     async UniTask CreateAndJoinLobbyAsync()
     {
-        state = LobbyState.CreatingAndJoinLobby;
+        state = LobbyState.CreateLobbyAndJoin;
         autoReflesh = false;
 
-        LobbyData lobbyData = await lobbyService.CreateAsync(lobbyUI.GetLobbyPath_Create(), cts.Token);
+        LobbyData lobbyData = await lobbyService.CreateAndJoinAsync(lobbyUI.GetLobbyPath_Create(), cts.Token);
+
+        await lobbyService.SetMyLobbyDisplayName(cts.Token);
 
         state = LobbyState.InLobby;
         lobbyUI.SwitchJoinedLobbyScreen(lobbyData, lobbyService.GetCurrentLobbyMemberDatas());
@@ -158,8 +162,33 @@ public class LobbySceneManager : MonoBehaviour
 
         state = LobbyState.LoggedIn;
         autoReflesh = true;
-        lobbyUI.RefreshAvailableLobby(datas);
+        lobbyUI.RefreshAvailableLobby(datas, JoinLobby);
     }
+
+    void JoinLobby(LobbyData lobbyData)
+    {
+        JoinLobbyAsync(lobbyData).Forget();
+    }
+
+    async UniTask JoinLobbyAsync(LobbyData lobbyData)
+    {
+        state = LobbyState.Joining;
+
+        bool joinSuccess = await lobbyService.JoinWithLobbyDetails(lobbyData.id,lobbyData.details);
+
+        if (!joinSuccess)
+        {
+            Debug.Log("ÉçÉrÅ[éQâ¡é∏îs");
+            state = LobbyState.LoggedIn;
+            return;
+        }
+
+        await lobbyService.SetMyLobbyDisplayName(cts.Token);
+
+        state = LobbyState.InLobby;
+        lobbyUI.SwitchJoinedLobbyScreen(lobbyData, lobbyService.GetCurrentLobbyMemberDatas());
+    }
+
 
     public void LeaveLobby()
     {
@@ -182,7 +211,7 @@ public class LobbySceneManager : MonoBehaviour
 
         state = LobbyState.LoggedIn;
         autoReflesh = true;
-        lobbyUI.RefreshAvailableLobby(datas);
+        lobbyUI.RefreshAvailableLobby(datas, JoinLobby);
     }
 }
 

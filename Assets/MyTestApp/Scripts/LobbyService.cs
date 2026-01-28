@@ -18,8 +18,8 @@ public struct LobbyData
     public string id;
     public uint maxLobbyMembers;
     public uint avairableSlots;
-    public Action joinAction;
     public List<ProductUserId> PUIDs;
+    public LobbyDetails details;
 }
 
 public static class LobbyMemberEvent
@@ -76,7 +76,7 @@ public sealed class LobbyService : MonoBehaviour
 
     private void OnLobbyMemberUpdated(string lobbyId, ProductUserId changedMemberId)
     {
-        Debug.Log("ロビーメンバーアップデート");
+        Debug.Log("うおおお");
         var lobby = _lobbyManager.GetCurrentLobby();
         if (lobby == null || !lobby.IsValid()) return;
         if (lobby.Id != lobbyId) return;
@@ -114,7 +114,7 @@ public sealed class LobbyService : MonoBehaviour
     void OnLobbyUpdated()
     {
         currentLobby = _lobbyManager.GetCurrentLobby();
-
+        
         if (currentLobby == null) return;
         if (LobbySceneManager.myPUID == null) return;
 
@@ -122,7 +122,7 @@ public sealed class LobbyService : MonoBehaviour
     }
 
     // ---- Host: Create ----
-    public async UniTask<LobbyData> CreateAsync(string lobbyPath, CancellationToken token)
+    public async UniTask<LobbyData> CreateAndJoinAsync(string lobbyPath, CancellationToken token)
     {
         var lobbySettings = new Lobby
         {
@@ -166,17 +166,6 @@ public sealed class LobbyService : MonoBehaviour
             avairableSlots = myLobby.AvailableSlots,
         };
 
-
-        SetMyLobbyDisplayName();
-
-        await UniTask.WhenAny(
-            UniTask.Delay(TimeSpan.FromSeconds(5), cancellationToken: token),
-            UniTask.WaitUntil(() => {
-                if (myMemberData == null) return false;
-                return myMemberData.DisplayName == LobbySceneManager.localUserName;
-                }, cancellationToken: token)
-        );
-
         return myLobbyData;
 
         UniTask<Lobby> CreateLobbyAwait(Lobby lobbyProps)
@@ -205,58 +194,14 @@ public sealed class LobbyService : MonoBehaviour
         }
     }
 
-    // ---- Client: Join (LobbyId -> Search -> Join) ----
-    public void JoinByLobbyId()
+    public UniTask<bool> JoinWithLobbyDetails(string lobbyId, LobbyDetails lobbyDetails)
     {
-        if (!EOSManager.Instance.GetProductUserId().IsValid())
-        {
-            Debug.LogError("Not logged in (ProductUserId invalid).");
-            return;
-        }
+        var tcs = new UniTaskCompletionSource<bool>(); 
 
-        if (string.IsNullOrEmpty(joinLobbyId))
-        {
-            Debug.LogError("joinLobbyId is empty.");
-            return;
-        }
-
-        // 1) LobbyIdで検索して LobbyDetails を得る
-        _lobbyManager.SearchByLobbyId(joinLobbyId, searchResult =>
-        {
-            Debug.Log($"SearchByLobbyId result={searchResult}");
-
-            if (searchResult != Result.Success)
-                return;
-
-            // 2) SearchResults から LobbyDetails を取り出す
-            //    SearchResults: Dictionary<Lobby, LobbyDetails>
-            var results = _lobbyManager.GetSearchResults();
-            var found = results.Keys.FirstOrDefault(l => string.Equals(l.Id, joinLobbyId, StringComparison.OrdinalIgnoreCase));
-
-            if (found == null)
-            {
-                Debug.LogError("Search succeeded but lobby not found in results.");
-                return;
-            }
-
-            LobbyDetails lobbyDetails = results[found];
-            if (lobbyDetails == null)
-            {
-                Debug.LogError("LobbyDetails is null.");
-                return;
-            }
-
-            // 3) Join
-            _lobbyManager.JoinLobby(found.Id, lobbyDetails, presenceEnabled: false, JoinCompleted);
-        });
-    }
-
-    public void JoinWithLobbyDetails(string lobbyId, LobbyDetails lobbyDetails)
-    {
         if (string.IsNullOrEmpty(lobbyId) || lobbyDetails == null)
         {
             Debug.LogError("JoinWithLobbyDetails: invalid args.");
-            return;
+            tcs.TrySetResult(false);
         }
 
         _lobbyManager.JoinLobby(lobbyId, lobbyDetails, presenceEnabled: false, result =>
@@ -264,24 +209,17 @@ public sealed class LobbyService : MonoBehaviour
             Debug.Log($"JoinLobby result={result}");
             var current = _lobbyManager.GetCurrentLobby();
             Debug.Log($"CurrentLobbyId={current?.Id}");
+
+            tcs.TrySetResult(result == Result.Success);    
         });
+
+        return tcs.Task;
     }
 
-    private void JoinCompleted(Result result)
+    public async UniTask SetMyLobbyDisplayName(CancellationToken token)
     {
-        Debug.Log($"JoinLobby result={result}");
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(token);
 
-        var current = _lobbyManager.GetCurrentLobby();
-        Debug.Log($"CurrentLobbyId={current?.Id}");
-
-        if(result == Result.Success)
-        {
-            SetMyLobbyDisplayName();
-        }
-    }
-
-    public void SetMyLobbyDisplayName()
-    {
         var attr = new LobbyAttribute()
         {
             Key = LobbyMember.DisplayNameKey, // "DISPLAYNAME"
@@ -291,6 +229,17 @@ public sealed class LobbyService : MonoBehaviour
         };
 
         _lobbyManager.SetMemberAttribute(attr);
+
+        await UniTask.WhenAny(
+            UniTask.Delay(TimeSpan.FromSeconds(5), cancellationToken: token),
+            UniTask.WaitUntil(() => {
+                if (myMemberData == null) return false;
+                return myMemberData.DisplayName == LobbySceneManager.localUserName;
+            }, cancellationToken: token)
+        );
+
+        cts.Cancel();
+        cts.Dispose();
     }
 
     // ---- Any: Leave ----
@@ -360,12 +309,12 @@ public sealed class LobbyService : MonoBehaviour
 
         EOSManager.Instance.GetProductUserId();
 
-        LobbyData lobbyData = new ()
+        LobbyData lobbyData = new()
         {
             id = lobby.Id,
             maxLobbyMembers = lobby.MaxNumLobbyMembers,
             avairableSlots = lobby.AvailableSlots,
-            joinAction = () => JoinWithLobbyDetails(lobbyId, details),
+            details = details,
         };
 
         return lobbyData;

@@ -31,6 +31,10 @@ public class JoinedLobbyUI : MonoBehaviour
 
     [SerializeField] Button leaveButton;
 
+    [SerializeField] Transform memberRoot;
+    [SerializeField] Transform logRoot;
+    [SerializeField] TextMeshPro logText;
+
     public void Activated(string lobbyPath, string lobbyId, List<LobbyMemberData> memberDatas)
     {
         gameObject.SetActive(true);
@@ -55,7 +59,7 @@ public class JoinedLobbyUI : MonoBehaviour
             }
             else
             {
-                LobbyMemberDataDisplay memberDisplay = Instantiate(lobbyMemberDisplayPrefab, transform);
+                LobbyMemberDataDisplay memberDisplay = Instantiate(lobbyMemberDisplayPrefab, memberRoot);
                 memberDisplay.SetInfo(member.name, member.puid);
             }
         }
@@ -67,11 +71,15 @@ public class JoinedLobbyUI : MonoBehaviour
     public void OnJoined(ProductUserId puid, string name)
     {
         Debug.Log(name + joinedMessage);
+        var log = Instantiate(logText, logRoot);
+        log.text = $"{name} enter the lobby.";
     }
 
 
     public void OnLeft(ProductUserId puid, string name)
     {
         Debug.Log(name + leftMessage);
+        var log = Instantiate(logText, logRoot);
+        log.text = $"{name} leave the lobby.";
     }
 }

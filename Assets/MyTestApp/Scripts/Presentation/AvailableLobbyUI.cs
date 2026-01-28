@@ -4,6 +4,7 @@ using Epic.OnlineServices.Lobby;
 using NUnit.Framework;
 using PlayEveryWare.EpicOnlineServices.Samples;
 using System.Collections.Generic;
+using System;
 
 public class AvairableLobbyUI : MonoBehaviour
 {
@@ -29,27 +30,26 @@ public class AvairableLobbyUI : MonoBehaviour
         gameObject.SetActive(false);
     }
     
-    public void RefreshList(List<LobbyData> lobbyDatas)
+    public void RefreshList(List<LobbyData> lobbyDatas, Action<LobbyData> joinAction)
     {
         foreach (var lobbyData in lobbyDatas)
         {
-            CreateLobbyButton(lobbyData);
+            CreateLobbyButton(lobbyData, joinAction);
         }
 
         ActivatedButtons();
     }
 
-    private void CreateLobbyButton(LobbyData lobbyData)
+    private void CreateLobbyButton(LobbyData lobbyData, Action<LobbyData> joinAction)
     {
         var btn = Instantiate(buttonPrefab, contentRoot);
         var text = btn.GetComponentInChildren<TextMeshProUGUI>();
 
-        text.text = $"{lobbyData.id} ({lobbyData.avairableSlots}/{lobbyData.maxLobbyMembers})";
+        text.text = $"({lobbyData.avairableSlots}/{lobbyData.maxLobbyMembers})";
 
-        btn.onClick.RemoveAllListeners();
         btn.onClick.AddListener(() =>
         {
-            lobbyData.joinAction();
+            joinAction(lobbyData);
         });
     }
 
