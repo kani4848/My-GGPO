@@ -11,6 +11,7 @@ using Cysharp.Threading;
 using Cysharp.Threading.Tasks;
 using System.Threading;
 using System.Runtime.ConstrainedExecution;
+using Unity.VisualScripting;
 
 public struct LobbyData
 {
@@ -24,12 +25,18 @@ public struct LobbyData
 
 public static class LobbyMemberEvent
 {
-    public delegate void MemberChanged(ProductUserId puid, string displayName);
+    public delegate void MemberJoined(ProductUserId puid, string userName);
+    public static event MemberJoined AppliedUserName;
+    public static void RaiseAppliedUserName(ProductUserId puid, string name) => AppliedUserName?.Invoke(puid, name);
+
+    public delegate void MemberChanged(ProductUserId puid);
     public static event MemberChanged Joined;
     public static event MemberChanged Left;
+    public static event MemberChanged OwnerChanged;
 
-    public static void RaiseJoined(ProductUserId puid, string name) => Joined?.Invoke(puid, name);
-    public static void RaiseLeft(ProductUserId puid, string name) => Left?.Invoke(puid, name);
+    public static void RaiseJoined(ProductUserId puid) => Joined?.Invoke(puid);
+    public static void RaiseLeft(ProductUserId puid) => Left?.Invoke(puid);
+    public static void RaiseOwnerChanged(ProductUserId puid) => OwnerChanged?.Invoke(puid);
 }
 
 public sealed class LobbyService : MonoBehaviour
@@ -39,15 +46,20 @@ public sealed class LobbyService : MonoBehaviour
     [Header("Join")]
     [SerializeField] private string joinLobbyId = ""; // Hostが作成したLobbyIdを貼る
 
-    private EOSLobbyManager _lobbyManager;
+    [SerializeField] EOSLobbyManager _lobbyManager;
 
     // SearchResultsは Dictionary<Lobby, LobbyDetails>
     private Dictionary<Lobby, LobbyDetails> _cachedResults = new();
 
     Lobby currentLobby;
-    LobbyMember myMemberData;
 
     HashSet<ProductUserId> _prevMembers = new();
+
+    // Polling (crash / editor stop / network drop 対策)
+    [SerializeField] private float memberPollIntervalSec = 2.0f;
+    private CancellationTokenSource _memberPollCts;
+    private bool _memberSnapshotInitialized = false;
+
 
     public void Init(EOSLobbyManager lm)
     {
@@ -59,66 +71,120 @@ public sealed class LobbyService : MonoBehaviour
             Debug.Log($"[LobbyChanged] type={e.LobbyChangeType} lobbyId={e.LobbyId}");
         };
 
-    }
 
-    private void OnEnable()
-    {
         _lobbyManager.AddNotifyLobbyUpdate(OnLobbyUpdated);
-        _lobbyManager.AddNotifyMemberUpdateReceived(OnLobbyMemberUpdated);
+        _lobbyManager.AddNotifyMemberUpdateReceived(OnMemberUpdated);
+
+        _memberPollCts?.Cancel();
+        _memberPollCts?.Dispose();
+        _memberPollCts = new CancellationTokenSource();
+
+        // fire and forget
+        MemberPollLoop(_memberPollCts.Token).Forget();
+
     }
 
     private void OnDisable()
     {
         _lobbyManager.RemoveNotifyLobbyUpdate(OnLobbyUpdated);
-        _lobbyManager.RemoveNotifyMemberUpdate(OnLobbyMemberUpdated);
+        _lobbyManager.RemoveNotifyMemberUpdate(OnMemberUpdated);
+
+        _memberPollCts?.Cancel();
+        _memberPollCts?.Dispose();
+        _memberPollCts = null;
+
+        _memberSnapshotInitialized = false;
+        _prevMembers.Clear();
     }
-
-
-    private void OnLobbyMemberUpdated(string lobbyId, ProductUserId changedMemberId)
-    {
-        Debug.Log("うおおお");
-        var lobby = _lobbyManager.GetCurrentLobby();
-        if (lobby == null || !lobby.IsValid()) return;
-        if (lobby.Id != lobbyId) return;
-
-        RefreshMemberDiffAndRaiseEvents();
-
-        void RefreshMemberDiffAndRaiseEvents()
-        {
-            var lobby = _lobbyManager.GetCurrentLobby();
-            if (lobby == null || !lobby.IsValid()) return;
-
-            var current = new HashSet<ProductUserId>(lobby.Members.Select(m => m.ProductId));
-
-            // 入室（current に居て prev に居ない）
-            foreach (var added in current.Except(_prevMembers))
-            {
-                var name = lobby.Members.FirstOrDefault(m => m.ProductId == added)?.DisplayName ?? "";
-                LobbyMemberEvent.RaiseJoined(added, name);
-                Debug.Log($"[LobbyMember] Joined: {name} ({added})");
-            }
-
-            // 退室（prev に居て current に居ない）
-            foreach (var removed in _prevMembers.Except(current))
-            {
-                // 退室後は Members から名前が取れないことがあるので空文字許容
-                LobbyMemberEvent.RaiseLeft(removed, "");
-                Debug.Log($"[LobbyMember] Left: ({removed})");
-            }
-
-            _prevMembers = current;
-        }
-    }
-
 
     void OnLobbyUpdated()
     {
         currentLobby = _lobbyManager.GetCurrentLobby();
-        
+        Debug.Log("ロビーアップデート");
         if (currentLobby == null) return;
         if (LobbySceneManager.myPUID == null) return;
 
-        var myMemberData = currentLobby.Members.FirstOrDefault(m => m.ProductId == LobbySceneManager.myPUID);
+        RefreshMemberDiffAndRaiseEvents(currentLobby);
+    }
+
+    //ユーザー名適用のタイミングでJOINイベント発行
+    private void OnMemberUpdated(string LobbyId, ProductUserId MemberId)
+    {
+        string userName = currentLobby.Members.Find(m=>m.ProductId == MemberId).DisplayName;
+        LobbyMemberEvent.RaiseAppliedUserName(MemberId, userName);
+
+        var lobby = _lobbyManager.GetCurrentLobby();
+        if (lobby == null || !lobby.IsValid()) return;
+        if (lobby.Id != currentLobby.Id) return;
+
+        //オーナーチェック
+        ProductUserId newOwner = lobby.Members.FirstOrDefault(m => lobby.IsOwner(m.ProductId)).ProductId;
+
+        if (newOwner != null)
+        {
+            LobbyMemberEvent.RaiseOwnerChanged(newOwner);
+        }
+    }
+
+    //エラー落ち、エディタ終了などの例外退室時にメンバーを自動チェック
+    private async UniTaskVoid MemberPollLoop(CancellationToken token)
+    {
+        while (!token.IsCancellationRequested)
+        {
+            try
+            {
+                var lobby = _lobbyManager?.GetCurrentLobby();
+
+                // 初回スナップショットは “Joined を乱発” しないためにイベントなしで確定
+                if (!_memberSnapshotInitialized)
+                {
+                    _prevMembers = new HashSet<ProductUserId>(lobby.Members.Select(m => m.ProductId));
+                    _memberSnapshotInitialized = true;
+                    continue;
+                }
+
+                if (lobby != null && lobby.IsValid())
+                {
+                    RefreshMemberDiffAndRaiseEvents(lobby);
+                }
+
+                await UniTask.Delay(TimeSpan.FromSeconds(memberPollIntervalSec), cancellationToken: token);
+            }
+            catch (OperationCanceledException)
+            {
+                // ignore
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning($"[MemberPollLoop] Exception: {e}");
+                // 例外でループが死ぬのが一番まずいので継続
+                await UniTask.Delay(TimeSpan.FromSeconds(memberPollIntervalSec), cancellationToken: token);
+            }
+        }
+    }
+
+    private void RefreshMemberDiffAndRaiseEvents(Lobby lobby)
+    {
+        var current = new HashSet<ProductUserId>(lobby.Members.Select(m => m.ProductId));
+
+        foreach (var joined in current.Except(_prevMembers))
+        {
+            Debug.Log("join");
+
+            LobbyMemberEvent.RaiseJoined(joined);
+            Debug.Log($"[LobbyMember] Join: ({joined})");
+        }
+
+        foreach (var removed in _prevMembers.Except(current))
+        {
+            Debug.Log("leave");
+
+            LobbyMemberEvent.RaiseLeft(removed);
+            Debug.Log($"[LobbyMember] Left: ({removed})");
+        }
+
+
+        _prevMembers = current;
     }
 
     // ---- Host: Create ----
@@ -216,10 +282,8 @@ public sealed class LobbyService : MonoBehaviour
         return tcs.Task;
     }
 
-    public async UniTask SetMyLobbyDisplayName(CancellationToken token)
+    public void SetMyLobbyDisplayName()
     {
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(token);
-
         var attr = new LobbyAttribute()
         {
             Key = LobbyMember.DisplayNameKey, // "DISPLAYNAME"
@@ -229,17 +293,6 @@ public sealed class LobbyService : MonoBehaviour
         };
 
         _lobbyManager.SetMemberAttribute(attr);
-
-        await UniTask.WhenAny(
-            UniTask.Delay(TimeSpan.FromSeconds(5), cancellationToken: token),
-            UniTask.WaitUntil(() => {
-                if (myMemberData == null) return false;
-                return myMemberData.DisplayName == LobbySceneManager.localUserName;
-            }, cancellationToken: token)
-        );
-
-        cts.Cancel();
-        cts.Dispose();
     }
 
     // ---- Any: Leave ----
@@ -262,11 +315,25 @@ public sealed class LobbyService : MonoBehaviour
         }
     }
 
-    public UniTask<List<LobbyData>> GetAvairableLobbyDatas()
+    public UniTask<List<LobbyData>> GetAvairableLobbyDatas(string lobbyPath = "")
     {
+        string key;
+        string id;
+
+        if(lobbyPath == "")
+        {
+            key = LobbySceneManager.bKey;
+            id = LobbySceneManager.bId;
+        }
+        else
+        {
+            key = LobbySceneManager.customKey;
+            id = lobbyPath;
+        }
+
         var tcs = new UniTaskCompletionSource<List<LobbyData>>();
         List<LobbyData> lobbyDatas = new();
-        _lobbyManager.SearchByAttribute(LobbySceneManager.bKey, LobbySceneManager.bId, OnSearchCompleted);
+        _lobbyManager.SearchByAttribute(key, id, OnSearchCompleted);
         return tcs.Task;
 
         void OnSearchCompleted(Result result)
@@ -320,18 +387,10 @@ public sealed class LobbyService : MonoBehaviour
         return lobbyData;
     }
 
-    public List<LobbyMemberData> GetCurrentLobbyMemberDatas()
+    public List<ProductUserId> GetCurrentLobbyMemberPUIDs()
     {
         Lobby current = _lobbyManager.GetCurrentLobby();
-
-        List<LobbyMemberData> memberDatas = new List<LobbyMemberData>();
-
-        foreach(LobbyMember member in current.Members)
-        {
-            bool isOwner = current.IsOwner(member.ProductId);
-            memberDatas.Add(new LobbyMemberData(member.DisplayName, member.ProductId.ToString(), isOwner));
-        }
-
-        return memberDatas;
+        List<ProductUserId> puids = current.Members.Select(m=>m.ProductId).ToList();
+        return puids;
     }
 }

@@ -60,7 +60,8 @@ public class LobbySceneManager : MonoBehaviour
     public static string bId = "test"; // Host側Createと合わせる
     public static string customKey = "custom";
 
-    bool autoReflesh = true;
+    public static string emptyPlayerName = "No name";
+    //bool autoReflesh = true;
 
     CancellationTokenSource cts;
 
@@ -82,11 +83,6 @@ public class LobbySceneManager : MonoBehaviour
     {
         while (!token.IsCancellationRequested)
         {
-            if (autoReflesh)
-            {
-                //await lobbyUI.RefreshList();
-            }
-
             // 前の処理が終わってから n 秒待つ
             await UniTask.Delay(TimeSpan.FromSeconds(5), cancellationToken: token);
         }
@@ -112,7 +108,11 @@ public class LobbySceneManager : MonoBehaviour
         await autoLogIn.CoAutoLogin(cts);
 
         state = LobbyState.LoggedIn;
+        EOSManager.Instance.GetOrCreateManager<EOSLobbyManager>().OnLoggedIn();
         myPUID = EOSManager.Instance.GetProductUserId();
+
+        await RefleshListAsync();
+
         AutoRefleshLoop(cts.Token).Forget();
     }
 
@@ -137,31 +137,42 @@ public class LobbySceneManager : MonoBehaviour
     async UniTask CreateAndJoinLobbyAsync()
     {
         state = LobbyState.CreateLobbyAndJoin;
-        autoReflesh = false;
-
+        
         LobbyData lobbyData = await lobbyService.CreateAndJoinAsync(lobbyUI.GetLobbyPath_Create(), cts.Token);
 
-        await lobbyService.SetMyLobbyDisplayName(cts.Token);
+        lobbyService.SetMyLobbyDisplayName();
 
         state = LobbyState.InLobby;
-        lobbyUI.SwitchJoinedLobbyScreen(lobbyData, lobbyService.GetCurrentLobbyMemberDatas());
-        autoReflesh = true;
+        lobbyUI.SwitchJoinedLobbyScreen(lobbyData, lobbyService.GetCurrentLobbyMemberPUIDs());
     }
 
-    public void RefreshAvairableLobby()
+    public void RefleshAvairableLobby()
     {
-        RefreshListAsync().Forget();
+        RefleshListAsync().Forget();
     }
 
-    async UniTask RefreshListAsync()
+    async UniTask RefleshListAsync()
     {
         state = LobbyState.Searching;
         lobbyUI.ClearAvairableLobby();
-        autoReflesh = false;
         var datas = await lobbyService.GetAvairableLobbyDatas();
 
         state = LobbyState.LoggedIn;
-        autoReflesh = true;
+        lobbyUI.RefreshAvailableLobby(datas, JoinLobby);
+    }
+
+    public void SearchLobbyWithpath()
+    {
+        SearchLobbyWithpathAsync().Forget();
+    }
+    
+    async UniTask SearchLobbyWithpathAsync()
+    {
+        state = LobbyState.Searching;
+        lobbyUI.ClearAvairableLobby();
+        var datas = await lobbyService.GetAvairableLobbyDatas(lobbyUI.GetLobbyPath_Search());
+
+        state = LobbyState.LoggedIn;
         lobbyUI.RefreshAvailableLobby(datas, JoinLobby);
     }
 
@@ -182,11 +193,15 @@ public class LobbySceneManager : MonoBehaviour
             state = LobbyState.LoggedIn;
             return;
         }
+        else
+        {
+            Debug.Log("ロビー参加成功");
+        }
 
-        await lobbyService.SetMyLobbyDisplayName(cts.Token);
+        lobbyService.SetMyLobbyDisplayName();
 
         state = LobbyState.InLobby;
-        lobbyUI.SwitchJoinedLobbyScreen(lobbyData, lobbyService.GetCurrentLobbyMemberDatas());
+        lobbyUI.SwitchJoinedLobbyScreen(lobbyData, lobbyService.GetCurrentLobbyMemberPUIDs());
     }
 
 
@@ -206,12 +221,9 @@ public class LobbySceneManager : MonoBehaviour
             return;
         }
 
-        autoReflesh = false;
-        var datas = await lobbyService.GetAvairableLobbyDatas();
+        await RefleshListAsync();
 
         state = LobbyState.LoggedIn;
-        autoReflesh = true;
-        lobbyUI.RefreshAvailableLobby(datas, JoinLobby);
     }
 }
 

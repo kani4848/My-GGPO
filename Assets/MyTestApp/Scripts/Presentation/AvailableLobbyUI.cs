@@ -15,23 +15,29 @@ public class AvairableLobbyUI : MonoBehaviour
     [SerializeField] UnityEngine.UI.Button createBtn;
     [SerializeField] UnityEngine.UI.Button searchBtn;
     [SerializeField] UnityEngine.UI.Button refleshBtn;
+    [SerializeField] UnityEngine.UI.Button logOutBtn;
 
     [SerializeField] TMP_InputField lobbyPath_create;
     [SerializeField] TMP_InputField lobbyPath_search;
 
+    [SerializeField] GameObject noLobbies;
 
     public void Activated()
     {
         gameObject.SetActive(true);
+        noLobbies.SetActive(false);
     }
 
     public void Deactivated()
     {
         gameObject.SetActive(false);
+        ClearUI();
     }
     
     public void RefreshList(List<LobbyData> lobbyDatas, Action<LobbyData> joinAction)
     {
+        noLobbies.SetActive(lobbyDatas.Count <= 0);
+
         foreach (var lobbyData in lobbyDatas)
         {
             CreateLobbyButton(lobbyData, joinAction);
@@ -55,6 +61,8 @@ public class AvairableLobbyUI : MonoBehaviour
 
     public void ClearUI()
     {
+        noLobbies.SetActive(false);
+
         if (contentRoot == null) return;
 
         for (int i = contentRoot.childCount - 1; i >= 0; i--)
@@ -81,6 +89,7 @@ public class AvairableLobbyUI : MonoBehaviour
         createBtn.interactable = false;
         searchBtn.interactable = false;
         refleshBtn.interactable = false;
+        logOutBtn.interactable =false;
     }
 
     void ActivatedButtons()
@@ -88,5 +97,6 @@ public class AvairableLobbyUI : MonoBehaviour
         createBtn.interactable = true;
         searchBtn.interactable = true;
         refleshBtn.interactable = true;
+        logOutBtn.interactable = true;
     }
 }

@@ -2703,5 +2703,10 @@ namespace PlayEveryWare.EpicOnlineServices.Samples
                 AcceptLobbyInviteCompleted(Result.InvalidState);
             }
         }
+
+        public Lobby SearchByLobbyId(string lobbyId)
+        {
+            throw new NotImplementedException();
+        }
     }
 }

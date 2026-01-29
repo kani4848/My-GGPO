@@ -40,25 +40,23 @@ public sealed class LobbyUIManager : MonoBehaviour
     private void OnEnable()
     {
         LobbyEvent.lobbyStateChangedEvent += OnChangeLobbyState;
-        LobbyMemberEvent.Joined += OnJoined;
-        LobbyMemberEvent.Left += OnLeft;
+
+        LobbyMemberEvent.AppliedUserName += joinedLobby.OnUserNameApplied;
+
+        LobbyMemberEvent.Joined += joinedLobby.OnJoined;
+        LobbyMemberEvent.Left += joinedLobby.OnLeft;
+        LobbyMemberEvent.OwnerChanged += joinedLobby.OnOwnerChanged;
     }
+
     private void OnDisable()
     {
         LobbyEvent.lobbyStateChangedEvent -= OnChangeLobbyState;
-        LobbyMemberEvent.Joined -= OnJoined;
-        LobbyMemberEvent.Left -= OnLeft;
-    }
 
-    private void OnJoined(ProductUserId puid, string name)
-    {
-        joinedLobby.OnJoined(puid, name);
-    }
+        LobbyMemberEvent.AppliedUserName -= joinedLobby.OnUserNameApplied;
 
-    private void OnLeft(ProductUserId puid, string name)
-    {
-
-        joinedLobby.OnLeft(puid, name);
+        LobbyMemberEvent.Joined -= joinedLobby.OnJoined;
+        LobbyMemberEvent.Left -= joinedLobby.OnLeft;
+        LobbyMemberEvent.OwnerChanged -= joinedLobby.OnOwnerChanged;
     }
 
     void OnChangeLobbyState(LobbyState state)
@@ -122,10 +120,10 @@ public sealed class LobbyUIManager : MonoBehaviour
         }
     }
 
-    public void SwitchJoinedLobbyScreen(LobbyData lobbyData, List<LobbyMemberData> memberDatas)
+    public void SwitchJoinedLobbyScreen(LobbyData lobbyData, List<ProductUserId> puids)
     {
         avairableLobby.Deactivated();
-        joinedLobby.Activated(lobbyData.path, lobbyData.id, memberDatas);
+        joinedLobby.Activated(lobbyData.path, lobbyData.id, puids);
     }
 
     public void RefreshAvailableLobby(List<LobbyData> lobbyDatas, Action<LobbyData> joinAction)

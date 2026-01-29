@@ -15,6 +15,6 @@ public class LobbyLogInUI : MonoBehaviour
     }
     public string GetUserName()
     {
-        return nameInput.text == "" ? "Player" : nameInput.text;
+        return nameInput.text == "" ? LobbySceneManager.emptyPlayerName : nameInput.text;
     }
 }
