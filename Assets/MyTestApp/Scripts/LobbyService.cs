@@ -12,6 +12,7 @@ using Cysharp.Threading.Tasks;
 using System.Threading;
 using System.Runtime.ConstrainedExecution;
 using Unity.VisualScripting;
+using static UnityEngine.Rendering.DebugUI;
 
 public struct LobbyData
 {
@@ -29,14 +30,16 @@ public static class LobbyMemberEvent
     public static event MemberJoined AppliedUserName;
     public static void RaiseAppliedUserName(ProductUserId puid, string name) => AppliedUserName?.Invoke(puid, name);
 
-    public delegate void MemberChanged(ProductUserId puid);
+    public delegate void MemberChanged(LobbyMember member);
     public static event MemberChanged Joined;
     public static event MemberChanged Left;
+    public static event MemberChanged Death;
     public static event MemberChanged OwnerChanged;
 
-    public static void RaiseJoined(ProductUserId puid) => Joined?.Invoke(puid);
-    public static void RaiseLeft(ProductUserId puid) => Left?.Invoke(puid);
-    public static void RaiseOwnerChanged(ProductUserId puid) => OwnerChanged?.Invoke(puid);
+    public static void RaiseJoined(LobbyMember member) => Joined?.Invoke(member);
+    public static void RaiseLeft(LobbyMember member) => Left?.Invoke(member);
+    public static void RaiseDeath(LobbyMember member) => Death?.Invoke(member);
+    public static void RaiseOwnerChanged(LobbyMember member) => OwnerChanged?.Invoke(member);
 }
 
 public sealed class LobbyService : MonoBehaviour
@@ -53,13 +56,9 @@ public sealed class LobbyService : MonoBehaviour
 
     Lobby currentLobby;
 
-    HashSet<ProductUserId> _prevMembers = new();
-
     // Polling (crash / editor stop / network drop 対策)
     [SerializeField] private float memberPollIntervalSec = 2.0f;
     private CancellationTokenSource _memberPollCts;
-    private bool _memberSnapshotInitialized = false;
-
 
     public void Init(EOSLobbyManager lm)
     {
@@ -71,17 +70,14 @@ public sealed class LobbyService : MonoBehaviour
             Debug.Log($"[LobbyChanged] type={e.LobbyChangeType} lobbyId={e.LobbyId}");
         };
 
-
         _lobbyManager.AddNotifyLobbyUpdate(OnLobbyUpdated);
         _lobbyManager.AddNotifyMemberUpdateReceived(OnMemberUpdated);
 
         _memberPollCts?.Cancel();
         _memberPollCts?.Dispose();
-        _memberPollCts = new CancellationTokenSource();
 
-        // fire and forget
-        MemberPollLoop(_memberPollCts.Token).Forget();
-
+        //ロビー入室中の定期チェック
+        LobbyEvent.lobbyStateChangedEvent += OnLobbyStateChanged;
     }
 
     private void OnDisable()
@@ -93,8 +89,74 @@ public sealed class LobbyService : MonoBehaviour
         _memberPollCts?.Dispose();
         _memberPollCts = null;
 
-        _memberSnapshotInitialized = false;
         _prevMembers.Clear();
+
+        LobbyEvent.lobbyStateChangedEvent -= OnLobbyStateChanged;
+    }
+
+    Dictionary<ProductUserId, long> lastBeatDic = new();
+    Dictionary<ProductUserId, bool> deadMemberList = new();
+
+    async UniTask CheckMemberAtt(CancellationToken token)
+    {
+        while (token.IsCancellationRequested)
+        {
+            currentLobby = _lobbyManager.GetCurrentLobby();
+
+            if (currentLobby == null)
+            {
+                await UniTask.Delay(TimeSpan.FromSeconds(1));
+                continue;
+            }
+
+            var members = currentLobby.Members;
+            if (members.Count == 0)
+            {
+                await UniTask.Delay(TimeSpan.FromSeconds(1));
+                continue;
+            }
+
+            Dictionary<ProductUserId, bool> newDeadList = new();
+
+            foreach (LobbyMember member in members)
+            {
+                long lastBeat;
+                lastBeatDic.TryGetValue(member.ProductId, out lastBeat);
+                var now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+
+                bool wasDead;    
+                deadMemberList.TryGetValue(member.ProductId, out wasDead);
+                bool newDead = now - lastBeat >= 8;
+
+                if(newDead && wasDead != newDead)
+                {
+                    LobbyMemberEvent.RaiseDeath(member);
+                    Debug.Log($"{member.DisplayName} is dead");
+                }
+
+                newDeadList.Add(member.ProductId, newDead);
+            }
+
+            deadMemberList = newDeadList;
+            await UniTask.Delay(TimeSpan.FromSeconds(1));
+        }
+    }
+
+    void OnLobbyStateChanged(LobbyState lobbyState)
+    {
+        if(lobbyState == LobbyState.InLobby)
+        {
+            _memberPollCts?.Cancel();
+            _memberPollCts?.Dispose();
+            _memberPollCts = new CancellationTokenSource();
+            CheckMemberAtt(_memberPollCts.Token).Forget();
+        }
+        else
+        {
+            _memberPollCts?.Cancel();
+            _memberPollCts?.Dispose();
+            _memberPollCts = null;
+        }
     }
 
     void OnLobbyUpdated()
@@ -107,84 +169,121 @@ public sealed class LobbyService : MonoBehaviour
         RefreshMemberDiffAndRaiseEvents(currentLobby);
     }
 
+    Lobby prevLobby;
+
     //ユーザー名適用のタイミングでJOINイベント発行
     private void OnMemberUpdated(string LobbyId, ProductUserId MemberId)
     {
-        string userName = currentLobby.Members.Find(m=>m.ProductId == MemberId).DisplayName;
-        LobbyMemberEvent.RaiseAppliedUserName(MemberId, userName);
-
-        var lobby = _lobbyManager.GetCurrentLobby();
-        if (lobby == null || !lobby.IsValid()) return;
-        if (lobby.Id != currentLobby.Id) return;
-
-        //オーナーチェック
-        ProductUserId newOwner = lobby.Members.FirstOrDefault(m => lobby.IsOwner(m.ProductId)).ProductId;
-
-        if (newOwner != null)
+        var currentLobby = _lobbyManager.GetCurrentLobby();
+        if (currentLobby == null || !currentLobby.IsValid())
         {
-            LobbyMemberEvent.RaiseOwnerChanged(newOwner);
+            prevLobby = null;
+            return;
         }
-    }
 
-    //エラー落ち、エディタ終了などの例外退室時にメンバーを自動チェック
-    private async UniTaskVoid MemberPollLoop(CancellationToken token)
-    {
-        while (!token.IsCancellationRequested)
+        tcs_HB?.TrySetResult();
+
+        var members = currentLobby.Members;
+        if (members.Count < 0) return;
+        var memberData = currentLobby.Members.First(m => m.ProductId == MemberId);
+
+        //ハートビートの更新
+        var newLastBeat = long.Parse(memberData.MemberAttributes[LobbySceneManager.HB_KEY].AsString);
+
+        if (lastBeatDic.ContainsKey(MemberId))
         {
-            try
-            {
-                var lobby = _lobbyManager?.GetCurrentLobby();
+            lastBeatDic[MemberId] = newLastBeat;
+        }
+        else
+        {
+            lastBeatDic.Add(MemberId, newLastBeat);
+        }
 
-                // 初回スナップショットは “Joined を乱発” しないためにイベントなしで確定
-                if (!_memberSnapshotInitialized)
-                {
-                    _prevMembers = new HashSet<ProductUserId>(lobby.Members.Select(m => m.ProductId));
-                    _memberSnapshotInitialized = true;
-                    continue;
-                }
-
-                if (lobby != null && lobby.IsValid())
-                {
-                    RefreshMemberDiffAndRaiseEvents(lobby);
-                }
-
-                await UniTask.Delay(TimeSpan.FromSeconds(memberPollIntervalSec), cancellationToken: token);
-            }
-            catch (OperationCanceledException)
+        //名前変更の通知
+        if (prevLobby == null)
+        {
+            LobbyMemberEvent.RaiseAppliedUserName(MemberId, memberData.DisplayName);
+        }
+        else
+        {
+            foreach (LobbyMember member in members)
             {
-                // ignore
-            }
-            catch (Exception e)
-            {
-                Debug.LogWarning($"[MemberPollLoop] Exception: {e}");
-                // 例外でループが死ぬのが一番まずいので継続
-                await UniTask.Delay(TimeSpan.FromSeconds(memberPollIntervalSec), cancellationToken: token);
+                LobbyMember prevMemberData = prevLobby.Members.FirstOrDefault(m => m.ProductId == member.ProductId);
+                bool nameChanged = member.DisplayName != prevMemberData.DisplayName;
+                if (nameChanged) LobbyMemberEvent.RaiseAppliedUserName(MemberId, member.DisplayName);
             }
         }
+
+        prevLobby = currentLobby;
     }
+
+    HashSet<LobbyMember> _prevMembers = new();
+    ProductUserId prevOwner;
 
     private void RefreshMemberDiffAndRaiseEvents(Lobby lobby)
     {
-        var current = new HashSet<ProductUserId>(lobby.Members.Select(m => m.ProductId));
+        var currentMembers = new HashSet<LobbyMember>(lobby.Members);
+        var currentPUIDs = new HashSet<ProductUserId>(lobby.Members.Select(m => m.ProductId));
+        var prevPUIDs = new HashSet<ProductUserId>(_prevMembers.Select(m => m.ProductId));
 
-        foreach (var joined in current.Except(_prevMembers))
+        if (currentMembers.Count < 0) return;
+        if (currentMembers == _prevMembers) return;
+
+        foreach (var joined in currentPUIDs.Except(prevPUIDs))
         {
             Debug.Log("join");
-
-            LobbyMemberEvent.RaiseJoined(joined);
-            Debug.Log($"[LobbyMember] Join: ({joined})");
+            var joinedMember = lobby.Members.FirstOrDefault(m => m.ProductId == joined);
+            LobbyMemberEvent.RaiseJoined(joinedMember);
         }
 
-        foreach (var removed in _prevMembers.Except(current))
+        foreach (var removed in prevPUIDs.Except(currentPUIDs))
         {
             Debug.Log("leave");
-
-            LobbyMemberEvent.RaiseLeft(removed);
-            Debug.Log($"[LobbyMember] Left: ({removed})");
+            var removedMember = _prevMembers.FirstOrDefault(m => m.ProductId == removed);
+            LobbyMemberEvent.RaiseLeft(removedMember);
         }
 
+        var newOwner = lobby.Members.First(m => lobby.IsOwner(m.ProductId));
 
-        _prevMembers = current;
+        if(newOwner.ProductId != prevOwner)
+        {
+            LobbyMemberEvent.RaiseOwnerChanged(newOwner);
+        }
+
+        prevOwner = null;
+        _prevMembers = currentMembers;
+    }
+
+    UniTaskCompletionSource tcs_HB;
+
+    /// <summary>
+    /// 自分自身の LobbyMember Attribute を更新する
+    /// （Heartbeat 用：HB = UnixTimeSeconds など）
+    /// </summary>
+    public void UpdateMyMemberAttributeAsync()
+    {
+        tcs_HB = new UniTaskCompletionSource();
+
+        var lobby = _lobbyManager.GetCurrentLobby();
+
+        if (lobby == null || !lobby.IsValid())
+        {
+            tcs_HB.TrySetException(new Exception("Lobby is not valid"));
+            return;
+        }
+
+        long nowUnix = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        string value = nowUnix.ToString();
+
+        var attr = new LobbyAttribute
+        {
+            Key = LobbySceneManager.HB_KEY,
+            ValueType = AttributeType.String,
+            AsString = value,
+            Visibility = LobbyAttributeVisibility.Public
+        };
+
+        _lobbyManager.SetMemberAttribute(attr);
     }
 
     // ---- Host: Create ----
@@ -298,6 +397,11 @@ public sealed class LobbyService : MonoBehaviour
     // ---- Any: Leave ----
     public async UniTask<Result> LeaveAsync()
     {
+        prevOwner = null;
+        prevLobby = null;
+        lastBeatDic.Clear();
+        deadMemberList.Clear();
+
         Result result_ = await LeaveAwait();
 
         return result_;
@@ -387,10 +491,10 @@ public sealed class LobbyService : MonoBehaviour
         return lobbyData;
     }
 
-    public List<ProductUserId> GetCurrentLobbyMemberPUIDs()
+    public List<LobbyMember> GetCurrentLobbyMember()
     {
         Lobby current = _lobbyManager.GetCurrentLobby();
-        List<ProductUserId> puids = current.Members.Select(m=>m.ProductId).ToList();
+        List<LobbyMember> puids = current.Members;
         return puids;
     }
 }

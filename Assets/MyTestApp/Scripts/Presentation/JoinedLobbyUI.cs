@@ -14,8 +14,6 @@ public class LobbyMemberData
 {
     public string userName;
     public ProductUserId puid;
-    public bool isOwner = false;
-
     public LobbyMemberDataDisplay displayUI;
 
     public LobbyMemberData(ProductUserId _puid, LobbyMemberDataDisplay _displayUI)
@@ -40,9 +38,7 @@ public class JoinedLobbyUI : MonoBehaviour
 
     List<LobbyMemberData> currentMemberDatas = new();
 
-    ProductUserId _prevOwner;
-
-    public void Activated(string lobbyPath, string lobbyId, List<ProductUserId> puids)
+    public void Activated(string lobbyPath, string lobbyId, List<LobbyMember> members)
     {
         gameObject.SetActive(true);
         path.text = lobbyPath == "" ? "undefined" : lobbyPath;
@@ -50,28 +46,28 @@ public class JoinedLobbyUI : MonoBehaviour
 
         Debug.Log("ロビー起動");
 
-        foreach(ProductUserId puid in puids)
+        foreach(LobbyMember member in members)
         {
-            AddMemberData(puid);
+            AddMemberData(member);
         }
     }
 
     public void Deactivated()
     {
-        _prevOwner = null;
         gameObject.SetActive(false);
         ClearCurrentMemberDatas();
         ClearLog();
     }
 
-    void AddMemberData(ProductUserId puid)
+    void AddMemberData(LobbyMember member)
     {
-        var a = currentMemberDatas.Find(m=>m.puid == puid);
+        var a = currentMemberDatas.Find(m=>m.puid == member.ProductId);
         if (a != null) return;
 
         LobbyMemberDataDisplay memberDisplay = Instantiate(lobbyMemberDisplayPrefab, memberRoot);
-        memberDisplay.SetInfo(puid.ToString());
-        currentMemberDatas.Add(new LobbyMemberData(puid, memberDisplay));
+        memberDisplay.SetInfo(member.ProductId.ToString());
+        memberDisplay.SetUserName(member.DisplayName);
+        currentMemberDatas.Add(new LobbyMemberData(member.ProductId, memberDisplay));
     }
 
     void ClearCurrentMemberDatas()
@@ -92,47 +88,55 @@ public class JoinedLobbyUI : MonoBehaviour
         }
     }
 
-    public void OnJoined(ProductUserId puid)
+    public void OnJoined(LobbyMember member)
     {
         Debug.Log("参加");
-        AddMemberData(puid);
+        AddMemberData(member);
     }
 
     public void OnUserNameApplied(ProductUserId puid, string userName)
     {
-        Debug.Log("ユーザー名設定");
-        Debug.Log(userName);
-
         if (userName =="")userName = LobbySceneManager.emptyPlayerName;
         var log = Instantiate(logText, logRoot);
         log.text = $"{userName} enter the lobby.";
 
+        if (currentMemberDatas.Count <= 0) return;
+
         var member = currentMemberDatas.First(m => m.displayUI.puid.text == puid.ToString());
         member.displayUI.SetUserName(userName);
+        member.userName = userName;
     }
 
-    public void OnLeft(ProductUserId puid)
+    public void OnLeft(LobbyMember member)
     {
         Debug.Log("退室");
-        var remover = currentMemberDatas.Find(m => m.puid == puid);
+        var remover = currentMemberDatas.Find(m => m.puid == member.ProductId);
 
         string userName = remover.userName;
         if (userName == "") userName = LobbySceneManager.emptyPlayerName;
         var log = Instantiate(logText, logRoot);
         log.text = $"{userName} leave the lobby.";
 
-        Destroy(remover.displayUI);
+        Destroy(remover.displayUI.gameObject);
         currentMemberDatas.Remove(remover);
     }
 
-    public void OnOwnerChanged(ProductUserId puid)
+    public void OnDead(LobbyMember member)
     {
-        if (puid == _prevOwner) return;
+        var taget = currentMemberDatas.Find(m => m.puid == member.ProductId);
+        taget.displayUI.SetDisconnect(true);
+    }
 
-        var newOwner = currentMemberDatas.FirstOrDefault(m => m.puid == puid);
-        newOwner.displayUI.SetOwner();
-        newOwner.displayUI.transform.SetAsFirstSibling();
+    public void OnOwnerChanged(LobbyMember newOwner)
+    {
+        if (currentMemberDatas.Count <= 0) return;
 
-        _prevOwner = puid;
+        foreach (LobbyMemberData memberData in currentMemberDatas)
+        {
+            bool isOwner = memberData.puid == newOwner.ProductId;
+            memberData.displayUI.SetOwner(isOwner);
+            if(isOwner)memberData.displayUI.transform.SetAsFirstSibling();
+        }
+
     }
 }

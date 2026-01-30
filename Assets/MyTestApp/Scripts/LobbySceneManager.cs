@@ -61,10 +61,87 @@ public class LobbySceneManager : MonoBehaviour
     public static string customKey = "custom";
 
     public static string emptyPlayerName = "No name";
-    //bool autoReflesh = true;
 
     CancellationTokenSource cts;
 
+    // ===== Heartbeat Settings =====
+    public static string HB_KEY = "HB";
+    public static string HB_STALE_KEY = "HB_STALE";
+    private const float HB_INTERVAL_SEC = 1.0f;
+    private CancellationTokenSource _hbCts;
+    private UniTask _hbTask;
+
+    // ---- Call this when lobby state changes ----
+    private void OnLobbyStateChanged(LobbyState newState)
+    {
+        if (newState == LobbyState.InLobby)
+            StartHeartbeat();
+        else
+            StopHeartbeat();
+    }
+
+    // ===== Heartbeat Control =====
+    private void StartHeartbeat()
+    {
+        // guard: already running
+        if (_hbCts != null) return;
+
+        _hbCts = new CancellationTokenSource();
+        _hbTask = HeartbeatLoopAsync(_hbCts.Token);
+    }
+
+    private void StopHeartbeat()
+    {
+        if (_hbCts == null) return;
+
+        try
+        {
+            _hbCts.Cancel();
+        }
+        finally
+        {
+            _hbCts.Dispose();
+            _hbCts = null;
+        }
+    }
+
+    private async UniTask HeartbeatLoopAsync(CancellationToken ct)
+    {
+        // 1回目を即送る（UIの反応も良くなる）
+        while (!ct.IsCancellationRequested)
+        {
+            // InLobby 以外に落ちたら即終了（保険）
+            if (_state != LobbyState.InLobby) break;
+
+            try
+            {
+                lobbyService.UpdateMyMemberAttributeAsync();
+            }
+            catch (OperationCanceledException)
+            {
+                break;
+            }
+            catch (Exception e)
+            {
+                // 一時失敗してもループ継続（stale判定はUI側で吸収）
+                Debug.LogWarning($"Heartbeat update failed: {e.Message}");
+            }
+
+            // interval
+            await UniTask.Delay(TimeSpan.FromSeconds(HB_INTERVAL_SEC), cancellationToken: ct);
+        }
+
+        Debug.Log($"鼓動終了");
+    }
+
+    private void OnApplicationQuit()
+    {
+        cts.Cancel();
+        cts.Dispose();
+        StopHeartbeat();
+
+        LobbyEvent.lobbyStateChangedEvent -= OnLobbyStateChanged;
+    }
 
     private void Start()
     {
@@ -75,6 +152,8 @@ public class LobbySceneManager : MonoBehaviour
 
         lobbyService.Init(lm);
         lobbyUI.Init();
+
+        LobbyEvent.lobbyStateChangedEvent += OnLobbyStateChanged;
 
         state = LobbyState.None;
     }
@@ -92,6 +171,9 @@ public class LobbySceneManager : MonoBehaviour
     {
         cts.Cancel();
         cts.Dispose();
+        StopHeartbeat();
+
+        LobbyEvent.lobbyStateChangedEvent -= OnLobbyStateChanged;
     }
 
     public void LogIn()
@@ -143,7 +225,7 @@ public class LobbySceneManager : MonoBehaviour
         lobbyService.SetMyLobbyDisplayName();
 
         state = LobbyState.InLobby;
-        lobbyUI.SwitchJoinedLobbyScreen(lobbyData, lobbyService.GetCurrentLobbyMemberPUIDs());
+        lobbyUI.SwitchJoinedLobbyScreen(lobbyData, lobbyService.GetCurrentLobbyMember());
     }
 
     public void RefleshAvairableLobby()
@@ -201,7 +283,7 @@ public class LobbySceneManager : MonoBehaviour
         lobbyService.SetMyLobbyDisplayName();
 
         state = LobbyState.InLobby;
-        lobbyUI.SwitchJoinedLobbyScreen(lobbyData, lobbyService.GetCurrentLobbyMemberPUIDs());
+        lobbyUI.SwitchJoinedLobbyScreen(lobbyData, lobbyService.GetCurrentLobbyMember());
     }
 
 

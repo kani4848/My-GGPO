@@ -6,6 +6,7 @@ public class LobbyMemberDataDisplay : MonoBehaviour
 {
     [SerializeField] GameObject ownerRabel;
     [SerializeField] TextMeshProUGUI userName;
+    [SerializeField] GameObject disconnect;
     public TextMeshProUGUI puid;
 
     public void SetInfo(string _puid)
@@ -19,8 +20,13 @@ public class LobbyMemberDataDisplay : MonoBehaviour
         userName.text = _userName;
     }
 
-    public void SetOwner()
+    public void SetOwner(bool active)
     {
-        ownerRabel.SetActive(true);
+        ownerRabel.SetActive(active);
+    }
+
+    public void SetDisconnect(bool active)
+    {
+        disconnect.SetActive(active);
     }
 }

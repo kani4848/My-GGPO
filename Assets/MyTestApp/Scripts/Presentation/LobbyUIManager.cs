@@ -45,6 +45,7 @@ public sealed class LobbyUIManager : MonoBehaviour
 
         LobbyMemberEvent.Joined += joinedLobby.OnJoined;
         LobbyMemberEvent.Left += joinedLobby.OnLeft;
+        LobbyMemberEvent.Death += joinedLobby.OnDead;
         LobbyMemberEvent.OwnerChanged += joinedLobby.OnOwnerChanged;
     }
 
@@ -56,74 +57,69 @@ public sealed class LobbyUIManager : MonoBehaviour
 
         LobbyMemberEvent.Joined -= joinedLobby.OnJoined;
         LobbyMemberEvent.Left -= joinedLobby.OnLeft;
+        LobbyMemberEvent.Death -= joinedLobby.OnDead;
         LobbyMemberEvent.OwnerChanged -= joinedLobby.OnOwnerChanged;
     }
 
     void OnChangeLobbyState(LobbyState state)
     {
+
+        systemMessage.text = state.ToString();
+
         switch (state)
         {
             case LobbyState.None:
-                systemMessage.text = "Log out";
                 Loading.SetActive(false);
                 logInUI.Activated();
                 break;
 
 
             case LobbyState.LoggingIn:
-                systemMessage.text = "Logging...";
                 Loading.SetActive(true);
                 logInUI.Deactivated();
                 break;
 
             case LobbyState.LoggedIn:
-                systemMessage.text = "LoggedIn";
                 Loading.SetActive(false);
                 avairableLobby.Activated();
                 break;
 
             case LobbyState.LoggingOut:
-                systemMessage.text = "Logging out...";
                 Loading.SetActive(true);
                 avairableLobby.Deactivated();
                 break;
 
             case LobbyState.CreateLobbyAndJoin:
-                systemMessage.text = "Creating Lobby...";
                 Loading.SetActive(true);
                 avairableLobby.Deactivated();
                 break;
 
 
             case LobbyState.Joining:
-                systemMessage.text = "Joining Lobby...";
                 Loading.SetActive(true);
                 avairableLobby.Deactivated();
                 break;
 
 
             case LobbyState.InLobby:
-                systemMessage.text = "In Lobby";
                 Loading.SetActive(false);
                 break;
 
             case LobbyState.LeavingLobby:
-                systemMessage.text = "Leaving Lobby..";
                 Loading.SetActive(true);
                 joinedLobby.Deactivated();
                 break;
 
             case LobbyState.Searching:
-                systemMessage.text = "Searching Lobby..";
                 Loading.SetActive(true);
                 break;
         }
     }
 
-    public void SwitchJoinedLobbyScreen(LobbyData lobbyData, List<ProductUserId> puids)
+    public void SwitchJoinedLobbyScreen(LobbyData lobbyData, List<LobbyMember> members)
     {
         avairableLobby.Deactivated();
-        joinedLobby.Activated(lobbyData.path, lobbyData.id, puids);
+        joinedLobby.Activated(lobbyData.path, lobbyData.id, members);
     }
 
     public void RefreshAvailableLobby(List<LobbyData> lobbyDatas, Action<LobbyData> joinAction)
