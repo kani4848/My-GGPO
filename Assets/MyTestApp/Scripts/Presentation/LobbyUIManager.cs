@@ -47,6 +47,7 @@ public sealed class LobbyUIManager : MonoBehaviour
         LobbyMemberEvent.Left += joinedLobby.OnLeft;
         LobbyMemberEvent.Death += joinedLobby.OnDead;
         LobbyMemberEvent.OwnerChanged += joinedLobby.OnOwnerChanged;
+        LobbyMemberEvent.HeartBeat += joinedLobby.HeartBeat;
     }
 
     private void OnDisable()
@@ -59,6 +60,7 @@ public sealed class LobbyUIManager : MonoBehaviour
         LobbyMemberEvent.Left -= joinedLobby.OnLeft;
         LobbyMemberEvent.Death -= joinedLobby.OnDead;
         LobbyMemberEvent.OwnerChanged -= joinedLobby.OnOwnerChanged;
+        LobbyMemberEvent.HeartBeat -= joinedLobby.HeartBeat;
     }
 
     void OnChangeLobbyState(LobbyState state)

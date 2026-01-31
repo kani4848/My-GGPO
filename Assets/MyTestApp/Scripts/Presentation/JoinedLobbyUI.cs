@@ -139,4 +139,9 @@ public class JoinedLobbyUI : MonoBehaviour
         }
 
     }
+
+    public void HeartBeat(LobbyMember member)
+    {
+        currentMemberDatas.Find(m => m.puid == member.ProductId).displayUI.HeartBeat();
+    }
 }
