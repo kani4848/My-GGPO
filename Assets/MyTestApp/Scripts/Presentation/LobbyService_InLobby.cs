@@ -57,7 +57,8 @@ public class LobbyService_InLobby
 
     public void EnterLobbyAction()
     {
-        StartHeartbeat();
+        _hbCts = new CancellationTokenSource();
+        _hbTask = HeartbeatLoopAsync(_hbCts.Token);
 
         _lobbyManager.AddNotifyLobbyUpdate(OnLobbyUpdated);
         _lobbyManager.AddNotifyMemberUpdateReceived(OnMemberUpdated);
@@ -68,7 +69,10 @@ public class LobbyService_InLobby
     }
     public void LeaveLobbyAction()
     {
-        StopHeartbeat();
+        _hbCts?.Cancel();
+        _hbCts?.Dispose();
+        _hbCts = null;
+        tcs_HB?.TrySetResult();
 
         _lobbyManager.RemoveNotifyLobbyUpdate(OnLobbyUpdated);
         _lobbyManager.RemoveNotifyMemberUpdate(OnMemberUpdated);
@@ -82,7 +86,7 @@ public class LobbyService_InLobby
         prevLobby = null;
 
         lastBeatDic.Clear();
-        deadMemberList.Clear();
+        deadMemberList.Clear();   
     }
 
     //コールバックとループ処理===============================
@@ -139,10 +143,8 @@ public class LobbyService_InLobby
             return;
         }
 
-        tcs_HB?.TrySetResult();
-
         var members = currentLobby.Members;
-        if (members.Count < 0) return;
+        if (members.Count <= 0) return;
         var memberData = currentLobby.Members.First(m => m.ProductId == MemberId);
 
         //他メンバーハートビートの更新
@@ -151,7 +153,6 @@ public class LobbyService_InLobby
 
         if (lastBeatAtt != null)
         {
-            Debug.Log($"{memberData.DisplayName}生きてます" );
 
             var newLastBeat = long.Parse(memberData.MemberAttributes[LobbySceneManager.HB_KEY].AsString);
 
@@ -165,6 +166,8 @@ public class LobbyService_InLobby
             }
 
             LobbyMemberEvent.RaiseHeartBeat(memberData);
+
+            if (LobbySceneManager.myPUID != MemberId) Debug.Log($"{memberData.DisplayName}生存:{lastBeatAtt.AsString}");
         }
 
         //名前適用完了イベント発行
@@ -232,15 +235,6 @@ public class LobbyService_InLobby
     }
 
     //ハートビート実働部分===============================
-    void StartHeartbeat()
-    {
-        // guard: already running
-        if (_hbCts != null) return;
-
-        _hbCts = new CancellationTokenSource();
-        _hbTask = HeartbeatLoopAsync(_hbCts.Token);
-    }
-
     private async UniTask HeartbeatLoopAsync(CancellationToken ct)
     {
         // 1回目を即送る（UIの反応も良くなる）
@@ -290,21 +284,6 @@ public class LobbyService_InLobby
             };
 
             _lobbyManager.SetMemberAttribute(attr);
-        }
-    }
-
-    private void StopHeartbeat()
-    {
-        if (_hbCts == null) return;
-
-        try
-        {
-            _hbCts.Cancel();
-        }
-        finally
-        {
-            _hbCts.Dispose();
-            _hbCts = null;
         }
     }
 }
