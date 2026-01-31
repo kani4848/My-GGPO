@@ -53,17 +53,20 @@ public class LobbySceneManager : MonoBehaviour
         }
     }
 
-    public static string localUserName = "Player";
     public static ProductUserId myPUID;
 
-    public static string HB_KEY = "hb";
-    public static string HB_STALE_KEY = "stale";
-    public static string bKey = "bucket";
-    public static string bId = "test"; // Host側Createと合わせる
+    //メンバー属性キーは必ず大文字
+    public static string HB_KEY = "HB";
+    public static string HB_STALE_KEY = "STALE";
+    public static string emptyPlayerName = "No name";
+    public static string localUserName = emptyPlayerName;
+
+    //ロビーキー、IDは必ず小文字
+    public static string LobbyCommonKey = "bucket";
+    public static string LobbyCommonId = "test"; 
     public static string customKey = "custom";
 
-    public static string emptyPlayerName = "No name";
-
+    
     CancellationTokenSource cts;
 
     private void OnApplicationQuit()
@@ -110,13 +113,11 @@ public class LobbySceneManager : MonoBehaviour
         state = LobbyState.LoggingIn;
 
         localUserName = lobbyUI.GetUserName();
-        Debug.Log("A");
         await autoLogIn.CoAutoLogin(cts);
 
         state = LobbyState.LoggedIn;
         EOSManager.Instance.GetOrCreateManager<EOSLobbyManager>().OnLoggedIn();
         myPUID = EOSManager.Instance.GetProductUserId();
-        Debug.Log("V");
         await RefleshListAsync();
 
         //AutoRefleshLoop(cts.Token).Forget();

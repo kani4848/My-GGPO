@@ -34,12 +34,14 @@ public static class LobbyMemberEvent
     public static event MemberChanged Joined;
     public static event MemberChanged Left;
     public static event MemberChanged Death;
+    public static event MemberChanged Revive;
     public static event MemberChanged OwnerChanged;
     public static event MemberChanged HeartBeat;
 
     public static void RaiseJoined(LobbyMember member) => Joined?.Invoke(member);
     public static void RaiseLeft(LobbyMember member) => Left?.Invoke(member);
     public static void RaiseDeath(LobbyMember member) => Death?.Invoke(member);
+    public static void RaiseRevive(LobbyMember member) => Revive?.Invoke(member);
     public static void RaiseOwnerChanged(LobbyMember member) => OwnerChanged?.Invoke(member);
     public static void RaiseHeartBeat(LobbyMember member) => HeartBeat?.Invoke(member);
 }
@@ -72,7 +74,7 @@ public sealed class LobbyService : MonoBehaviour
         var lobbySettings = new Lobby
         {
             MaxNumLobbyMembers = maxMembers,
-            BucketId = LobbySceneManager.bId,
+            BucketId = LobbySceneManager.LobbyCommonId,
             LobbyPermissionLevel = LobbyPermissionLevel.Publicadvertised, // テスト向け
             PresenceEnabled = false,
             AllowInvites = false,
@@ -82,9 +84,9 @@ public sealed class LobbyService : MonoBehaviour
         //全検索用にバケットを付与
         lobbySettings.Attributes.Add(new LobbyAttribute
         {
-            Key = LobbySceneManager.bKey,
+            Key = LobbySceneManager.LobbyCommonKey,
             ValueType = AttributeType.String,
-            AsString = LobbySceneManager.bId,
+            AsString = LobbySceneManager.LobbyCommonId,
             Visibility = LobbyAttributeVisibility.Public,
         });
 
@@ -207,8 +209,8 @@ public sealed class LobbyService : MonoBehaviour
 
         if(lobbyPath == "")
         {
-            key = LobbySceneManager.bKey;
-            id = LobbySceneManager.bId;
+            key = LobbySceneManager.LobbyCommonKey;
+            id = LobbySceneManager.LobbyCommonId;
         }
         else
         {

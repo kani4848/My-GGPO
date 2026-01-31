@@ -42,10 +42,10 @@ public sealed class LobbyUIManager : MonoBehaviour
         LobbyEvent.lobbyStateChangedEvent += OnChangeLobbyState;
 
         LobbyMemberEvent.AppliedUserName += joinedLobby.OnUserNameApplied;
-
         LobbyMemberEvent.Joined += joinedLobby.OnJoined;
         LobbyMemberEvent.Left += joinedLobby.OnLeft;
         LobbyMemberEvent.Death += joinedLobby.OnDead;
+        LobbyMemberEvent.Revive += joinedLobby.OnRevive;
         LobbyMemberEvent.OwnerChanged += joinedLobby.OnOwnerChanged;
         LobbyMemberEvent.HeartBeat += joinedLobby.HeartBeat;
     }
@@ -55,10 +55,10 @@ public sealed class LobbyUIManager : MonoBehaviour
         LobbyEvent.lobbyStateChangedEvent -= OnChangeLobbyState;
 
         LobbyMemberEvent.AppliedUserName -= joinedLobby.OnUserNameApplied;
-
         LobbyMemberEvent.Joined -= joinedLobby.OnJoined;
         LobbyMemberEvent.Left -= joinedLobby.OnLeft;
         LobbyMemberEvent.Death -= joinedLobby.OnDead;
+        LobbyMemberEvent.Revive -= joinedLobby.OnRevive;
         LobbyMemberEvent.OwnerChanged -= joinedLobby.OnOwnerChanged;
         LobbyMemberEvent.HeartBeat -= joinedLobby.HeartBeat;
     }

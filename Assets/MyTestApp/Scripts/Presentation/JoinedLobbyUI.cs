@@ -9,6 +9,9 @@ using Epic.OnlineServices;
 using Unity.VisualScripting;
 using Unity.PlasticSCM.Editor.WebApi;
 using System.Linq;
+using static UnityEngine.GraphicsBuffer;
+using UnityEngine.Rendering;
+using UnityEditor;
 
 public class LobbyMemberData
 {
@@ -34,7 +37,7 @@ public class JoinedLobbyUI : MonoBehaviour
 
     [SerializeField] Transform memberRoot;
     [SerializeField] Transform logRoot;
-    [SerializeField] TextMeshProUGUI logText;
+    [SerializeField] GameObject logPrefab;
 
     List<LobbyMemberData> currentMemberDatas = new();
 
@@ -43,8 +46,6 @@ public class JoinedLobbyUI : MonoBehaviour
         gameObject.SetActive(true);
         path.text = lobbyPath == "" ? "undefined" : lobbyPath;
         id.text = lobbyId;
-
-        Debug.Log("ロビー起動");
 
         foreach(LobbyMember member in members)
         {
@@ -68,6 +69,12 @@ public class JoinedLobbyUI : MonoBehaviour
         memberDisplay.SetInfo(member.ProductId.ToString());
         memberDisplay.SetUserName(member.DisplayName);
         currentMemberDatas.Add(new LobbyMemberData(member.ProductId, memberDisplay));
+
+
+        // 1) Layoutの計算を即時反映
+        LayoutRebuilder.ForceRebuildLayoutImmediate(memberRoot.GetComponent<RectTransform>());
+        // 2) 念のためキャンバス全体の更新も確定
+        Canvas.ForceUpdateCanvases();
     }
 
     void ClearCurrentMemberDatas()
@@ -82,29 +89,40 @@ public class JoinedLobbyUI : MonoBehaviour
 
     void ClearLog()
     {
-        for (int i = logRoot.childCount - 1; i >= 0; i--)
+        for (int i = logs.Count - 1; i >= 0; i--)
         {
-            Destroy(logRoot.GetChild(i).gameObject);
+            Destroy(logs[i].gameObject);
         }
+
+        logs.Clear();
     }
 
     public void OnJoined(LobbyMember member)
     {
         Debug.Log("参加");
         AddMemberData(member);
+        CreateLog(member.ProductId, member.DisplayName, LobbyLogType.JOIN);
     }
 
     public void OnUserNameApplied(ProductUserId puid, string userName)
     {
-        if (userName =="")userName = LobbySceneManager.emptyPlayerName;
-        var log = Instantiate(logText, logRoot);
-        log.text = $"{userName} enter the lobby.";
-
+        if (userName =="") userName = LobbySceneManager.emptyPlayerName;
+     
         if (currentMemberDatas.Count <= 0) return;
 
-        var member = currentMemberDatas.First(m => m.displayUI.puid.text == puid.ToString());
+        var member = currentMemberDatas.FirstOrDefault(m => m.displayUI.puid.text == puid.ToString());
+        if (member == null) return;
+        if (member.displayUI == null) return;
+
         member.displayUI.SetUserName(userName);
         member.userName = userName;
+
+        var userLogs = logs.Where(m => m.id == puid);
+
+        foreach(var log in userLogs)
+        {
+            log.UpdateNameText(userName);
+        }
     }
 
     public void OnLeft(LobbyMember member)
@@ -114,8 +132,7 @@ public class JoinedLobbyUI : MonoBehaviour
 
         string userName = remover.userName;
         if (userName == "") userName = LobbySceneManager.emptyPlayerName;
-        var log = Instantiate(logText, logRoot);
-        log.text = $"{userName} leave the lobby.";
+        CreateLog(member.ProductId, userName, LobbyLogType.LEAVE);
 
         Destroy(remover.displayUI.gameObject);
         currentMemberDatas.Remove(remover);
@@ -123,13 +140,25 @@ public class JoinedLobbyUI : MonoBehaviour
 
     public void OnDead(LobbyMember member)
     {
-        var taget = currentMemberDatas.Find(m => m.puid == member.ProductId);
+        var taget = currentMemberDatas.FirstOrDefault(m => m.puid == member.ProductId);
+        if (taget == null) return; ;
         taget.displayUI.SetDisconnect(true);
+        CreateLog(member.ProductId, member.DisplayName, LobbyLogType.DISCONNECT);
+    }
+
+    public void OnRevive(LobbyMember member)
+    {
+        var taget = currentMemberDatas.Find(m => m.puid == member.ProductId);
+        if (taget == null) return; ;
+        taget.displayUI.SetDisconnect(false);
+        CreateLog(member.ProductId, member.DisplayName, LobbyLogType.REVIVE);
     }
 
     public void OnOwnerChanged(LobbyMember newOwner)
     {
         if (currentMemberDatas.Count <= 0) return;
+        
+        CreateLog(newOwner.ProductId, newOwner.DisplayName, LobbyLogType.OWNER_CHANGED);
 
         foreach (LobbyMemberData memberData in currentMemberDatas)
         {
@@ -142,6 +171,18 @@ public class JoinedLobbyUI : MonoBehaviour
 
     public void HeartBeat(LobbyMember member)
     {
-        currentMemberDatas.Find(m => m.puid == member.ProductId).displayUI.HeartBeat();
+        var target = currentMemberDatas.FirstOrDefault(m => m.puid == member.ProductId);
+        if (target == null) return;
+        target.displayUI.HeartBeat();
+    }
+
+    List<LobbyActionLog> logs = new();
+
+    void CreateLog(ProductUserId id, string userName, LobbyLogType logType)
+    {
+        var _log = Instantiate(logPrefab, logRoot);
+        var log = _log.GetComponent<LobbyActionLog>();
+        log.UpdateData(id, userName, logType);
+        logs.Add(log);
     }
 }

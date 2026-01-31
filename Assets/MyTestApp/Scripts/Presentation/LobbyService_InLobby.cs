@@ -22,24 +22,14 @@ public class LobbyService_InLobby
 
     [SerializeField] private float memberPollIntervalSec = 2.0f;
     private CancellationTokenSource _memberPollCts;
-    Lobby prevLobby;
 
     HashSet<LobbyMember> prevMembers = new();
     ProductUserId prevOwnerId;
-
     Dictionary<ProductUserId, long> lastBeatDic = new();
     Dictionary<ProductUserId, bool> deadMemberList = new();
+    Dictionary<ProductUserId, string> memberNameList = new();
 
     UniTaskCompletionSource tcs_HB;
-    public void Init(EOSLobbyManager lm)
-    {
-        _memberPollCts?.Cancel();
-        _memberPollCts?.Dispose();
-        _memberPollCts = new CancellationTokenSource();
-
-        // 前提：EOSManagerがInitialize済み + Login済み（ProductUserIdが有効）
-        _lobbyManager = lm;
-    }
 
     private CancellationTokenSource _hbCts;
     private UniTask _hbTask;
@@ -63,6 +53,8 @@ public class LobbyService_InLobby
         _lobbyManager.AddNotifyLobbyUpdate(OnLobbyUpdated);
         _lobbyManager.AddNotifyMemberUpdateReceived(OnMemberUpdated);
 
+        _memberPollCts?.Cancel();
+        _memberPollCts?.Dispose();
         _memberPollCts = new();
 
         CheckOtherMemberAlive(_memberPollCts.Token).Forget();
@@ -81,9 +73,9 @@ public class LobbyService_InLobby
         _memberPollCts?.Dispose();
         _memberPollCts = null;
 
+        memberNameList.Clear();
         prevMembers.Clear();
         prevOwnerId = null;
-        prevLobby = null;
 
         lastBeatDic.Clear();
         deadMemberList.Clear();   
@@ -108,7 +100,6 @@ public class LobbyService_InLobby
         //入室イベント発行
         foreach (var joined in currentPUIDs.Except(prevPUIDs))
         {
-            Debug.Log("join");
             var joinedMember = currentMembers.FirstOrDefault(m => m.ProductId == joined);
             LobbyMemberEvent.RaiseJoined(joinedMember);
         }
@@ -116,7 +107,6 @@ public class LobbyService_InLobby
         //退室イベント発行
         foreach (var removed in prevPUIDs.Except(currentPUIDs))
         {
-            Debug.Log("leave");
             var removedMember = prevMembers.FirstOrDefault(m => m.ProductId == removed);
             LobbyMemberEvent.RaiseLeft(removedMember);
         }
@@ -124,7 +114,9 @@ public class LobbyService_InLobby
         prevMembers = currentMembers;
             
         //オーナー変更イベント発行
-        var newOwner = currentMembers.First(m => currentLobby.IsOwner(m.ProductId));
+        var newOwner = currentMembers.FirstOrDefault(m => currentLobby.IsOwner(m.ProductId));
+
+        if (newOwner == null) return;
 
         if (newOwner.ProductId != prevOwnerId)
         {
@@ -137,11 +129,7 @@ public class LobbyService_InLobby
     private void OnMemberUpdated(string LobbyId, ProductUserId MemberId)
     {
         var currentLobby = _lobbyManager.GetCurrentLobby();
-        if (currentLobby == null || !currentLobby.IsValid())
-        {
-            prevLobby = null;
-            return;
-        }
+        if (currentLobby == null || !currentLobby.IsValid()) return;
 
         var members = currentLobby.Members;
         if (members.Count <= 0) return;
@@ -153,7 +141,6 @@ public class LobbyService_InLobby
 
         if (lastBeatAtt != null)
         {
-
             var newLastBeat = long.Parse(memberData.MemberAttributes[LobbySceneManager.HB_KEY].AsString);
 
             if (lastBeatDic.ContainsKey(MemberId))
@@ -166,33 +153,37 @@ public class LobbyService_InLobby
             }
 
             LobbyMemberEvent.RaiseHeartBeat(memberData);
-
-            if (LobbySceneManager.myPUID != MemberId) Debug.Log($"{memberData.DisplayName}生存:{lastBeatAtt.AsString}");
         }
+
+        UpdateMemberName();
 
         //名前適用完了イベント発行
-        if (prevLobby == null)
+        
+        void UpdateMemberName()
         {
-            LobbyMemberEvent.RaiseAppliedUserName(MemberId, memberData.DisplayName);
-        }
-        else
-        {
-            foreach (LobbyMember member in members)
-            {
-                LobbyMember prevMemberData = prevLobby.Members.FirstOrDefault(m => m.ProductId == member.ProductId);
-                bool nameChanged = member.DisplayName != prevMemberData.DisplayName;
-                if (nameChanged) LobbyMemberEvent.RaiseAppliedUserName(MemberId, member.DisplayName);
-            }
-        }
+            string currentName = members.FirstOrDefault(m => m.ProductId == MemberId).DisplayName;
+            string prevName;
 
-        prevLobby = currentLobby;
+            if (!memberNameList.TryGetValue(MemberId, out prevName))
+            {
+                LobbyMemberEvent.RaiseAppliedUserName(MemberId, currentName);
+                memberNameList.Add(MemberId, currentName);
+                return;
+            }
+
+            bool nameChanged = currentName != prevName;
+            if (nameChanged) LobbyMemberEvent.RaiseAppliedUserName(MemberId, currentName);
+            memberNameList[MemberId] = currentName;
+        }
     }
 
     //他メンバーハートビートの定期自動チェック処理
     async UniTask CheckOtherMemberAlive(CancellationToken token)
     {
-        while (token.IsCancellationRequested)
+        while (!token.IsCancellationRequested)
         {
+            Debug.Log("生存確認");
+
             Lobby currentLobby = _lobbyManager.GetCurrentLobby();
 
             if (currentLobby == null)
@@ -202,7 +193,7 @@ public class LobbyService_InLobby
             }
 
             var members = currentLobby.Members;
-            if (members.Count == 0)
+            if (members.Count <= 0)
             {
                 await UniTask.Delay(TimeSpan.FromSeconds(1));
                 continue;
@@ -213,17 +204,29 @@ public class LobbyService_InLobby
             foreach (LobbyMember member in members)
             {
                 long lastBeat;
-                lastBeatDic.TryGetValue(member.ProductId, out lastBeat);
+                if (!lastBeatDic.TryGetValue(member.ProductId, out lastBeat)) continue;
+
                 var now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
 
+                bool newDead;
                 bool wasDead;
-                deadMemberList.TryGetValue(member.ProductId, out wasDead);
-                bool newDead = now - lastBeat >= 8;
+
+                if (!deadMemberList.TryGetValue(member.ProductId, out wasDead))
+                {
+                    newDeadList.Add(member.ProductId, false);
+                    continue;
+                }
+    
+                newDead = now - lastBeat >= 5;
 
                 if (newDead && wasDead != newDead)
                 {
                     LobbyMemberEvent.RaiseDeath(member);
-                    Debug.Log($"{member.DisplayName} is dead");
+                }
+
+                if (!newDead && wasDead != newDead)
+                {
+                    LobbyMemberEvent.RaiseRevive(member);
                 }
 
                 newDeadList.Add(member.ProductId, newDead);
