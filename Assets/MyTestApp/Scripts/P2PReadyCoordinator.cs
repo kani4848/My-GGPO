@@ -9,6 +9,7 @@ using PlayEveryWare.EpicOnlineServices;
 using PlayEveryWare.EpicOnlineServices.Samples;
 using Unity.VisualScripting;
 using UnityEngine;
+using UnityEngine.tvOS;
 
 /// <summary>
 /// 2人固定 + Ready方式：
@@ -42,7 +43,6 @@ public sealed class P2PReadyCoordinator : IDisposable
 
     // ====== 外部依存 ======
     private EOSLobbyManager _lobbyManager;            // あなたの LobbyService
-    private ProductUserId _localPuid;
     private Func<P2PInterface> _getP2P;            // P2PInterfaceの取得方法を注入（プロジェクト差分吸収）
 
     // ====== 内部状態 ======
@@ -62,7 +62,6 @@ public sealed class P2PReadyCoordinator : IDisposable
 
     public P2PReadyCoordinator(EOSLobbyManager lm)
     {
-        _localPuid = LobbySceneManager.myPUID;
         _getP2P = () => EOSManager.Instance.GetEOSPlatformInterface().GetP2PInterface();
         _lobbyManager = lm;
     }
@@ -122,6 +121,7 @@ public sealed class P2PReadyCoordinator : IDisposable
                 }
 
                 var members = currentLobby.Members;
+
                 if (members == null || members.Count != 2)
                 {
                     // 2人固定：成立しないならHandshake/Connectedは維持しない
@@ -134,14 +134,17 @@ public sealed class P2PReadyCoordinator : IDisposable
                         SetState(State.WaitingReady);
                     }
 
+                    var memb = currentLobby.Members[0];
+                    Debug.Log($"localID: {LobbySceneManager.myPUID}, memId: {memb.ProductId}");
+
                     UnityEngine.Debug.Log("対戦相手待ち受け中");
                     await UniTask.Delay(PollIntervalMs, cancellationToken: ct);
                     continue;
                 }
 
                 // local/remote 判定（remoteは handshaking 開始時に固定する）
-                var localMember = members.FirstOrDefault(m => m.ProductId == _localPuid);
-                var remoteMember = members.FirstOrDefault(m => m.ProductId != _localPuid);
+                var localMember = members.FirstOrDefault(m => m.ProductId == LobbySceneManager.myPUID);
+                var remoteMember = members.FirstOrDefault(m => m.ProductId != LobbySceneManager.myPUID);
 
                 if (localMember == null || remoteMember == null)
                 {
@@ -151,6 +154,8 @@ public sealed class P2PReadyCoordinator : IDisposable
                         SetState(State.WaitingReady);
 
                     await UniTask.Delay(PollIntervalMs, cancellationToken: ct);
+
+                    UnityEngine.Debug.Log($"local:{localMember},remoto:{remoteMember}");
                     continue;
                 }
 
@@ -168,6 +173,9 @@ public sealed class P2PReadyCoordinator : IDisposable
                     else
                         SetState(State.WaitingReady);
 
+
+                    UnityEngine.Debug.Log("メンバーの準備完了待ち");
+
                     await UniTask.Delay(PollIntervalMs, cancellationToken: ct);
                     continue;
                 }
@@ -178,10 +186,13 @@ public sealed class P2PReadyCoordinator : IDisposable
                     _remotePuid = remoteMember.ProductId; // ここで確定
                     SetState(State.Handshaking);
 
+                    UnityEngine.Debug.Log("握手");
+
                     bool ok = await DoHandshake(_remotePuid, ct);
                     if (ok)
                     {
                         SetState(State.Connected);
+                        Debug.Log($"[P2P] Connected with {_remotePuid}");
                         OnConnected?.Invoke(_remotePuid);
                     }
                     else
@@ -242,6 +253,7 @@ public sealed class P2PReadyCoordinator : IDisposable
 
             // PING送信
             SendText(remote, "PING:" + DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
+            Debug.Log($"[P2P][PING->] to {remote}");
 
             // 受信を少し回して、PONG待ち
             var pong = await WaitForPong(remote, PingIntervalMs, ct);
@@ -291,7 +303,7 @@ public sealed class P2PReadyCoordinator : IDisposable
         {
             var receiveOptions = new ReceivePacketOptions
             {
-                LocalUserId = _localPuid,
+                LocalUserId = LobbySceneManager.myPUID,
                 MaxDataSizeBytes = (uint)_recvBuffer.Length,
                 RequestedChannel = null, // チャンネル未指定
             };
@@ -321,6 +333,7 @@ public sealed class P2PReadyCoordinator : IDisposable
             }
             else if (msg.StartsWith("PONG"))
             {
+                Debug.Log($"[P2P][<-PONG] from {remote} (Handshake OK)");
                 WaitedPongFlag = true;
             }
         }
@@ -335,7 +348,7 @@ public sealed class P2PReadyCoordinator : IDisposable
 
         var sendOptions = new SendPacketOptions
         {
-            LocalUserId = _localPuid,
+            LocalUserId = LobbySceneManager.myPUID,
             RemoteUserId = remote,
             SocketId = _socketId,
             Channel = 0,
@@ -356,7 +369,7 @@ public sealed class P2PReadyCoordinator : IDisposable
 
         var opt = new AcceptConnectionOptions
         {
-            LocalUserId = _localPuid,
+            LocalUserId = LobbySceneManager.myPUID,
             RemoteUserId = remote,
             SocketId = _socketId
         };
@@ -375,7 +388,7 @@ public sealed class P2PReadyCoordinator : IDisposable
 
         var opt = new AddNotifyPeerConnectionRequestOptions
         {
-            LocalUserId = _localPuid,
+            LocalUserId = LobbySceneManager.myPUID,
             SocketId = _socketId
         };
 
@@ -406,7 +419,7 @@ public sealed class P2PReadyCoordinator : IDisposable
             {
                 var close = new CloseConnectionOptions
                 {
-                    LocalUserId = _localPuid,
+                    LocalUserId = LobbySceneManager.myPUID,
                     RemoteUserId = _remotePuid,
                     SocketId = _socketId
                 };
