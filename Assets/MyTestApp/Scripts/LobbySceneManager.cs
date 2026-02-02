@@ -58,6 +58,8 @@ public class LobbySceneManager : MonoBehaviour
     //メンバー属性キーは必ず大文字
     public static string HB_KEY = "HB";
     public static string HB_STALE_KEY = "STALE";
+    public static string READY_KEY = "READY";
+
     public static string emptyPlayerName = "No name";
     public static string localUserName = emptyPlayerName;
 
@@ -147,7 +149,7 @@ public class LobbySceneManager : MonoBehaviour
         
         LobbyData lobbyData = await lobbyService.CreateAndJoinAsync(lobbyUI.GetLobbyPath_Create(), cts.Token);
 
-        lobbyService.SetMyLobbyDisplayName();
+        lobbyService.SetMyLobbyAttribute();
 
         state = LobbyState.InLobby;
         lobbyUI.SwitchJoinedLobbyScreen(lobbyData, lobbyService.GetCurrentLobbyMember());
@@ -205,7 +207,7 @@ public class LobbySceneManager : MonoBehaviour
             Debug.Log("ロビー参加成功");
         }
 
-        lobbyService.SetMyLobbyDisplayName();
+        lobbyService.SetMyLobbyAttribute();
 
         state = LobbyState.InLobby;
         lobbyUI.SwitchJoinedLobbyScreen(lobbyData, lobbyService.GetCurrentLobbyMember());

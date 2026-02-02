@@ -163,9 +163,10 @@ public sealed class LobbyService : MonoBehaviour
         return tcs.Task;
     }
 
-    public void SetMyLobbyDisplayName()
+    public void SetMyLobbyAttribute()
     {
-        var attr = new LobbyAttribute()
+        //ñºëO
+        var name_att = new LobbyAttribute()
         {
             Key = LobbyMember.DisplayNameKey, // "DISPLAYNAME"
             AsString = LobbySceneManager.localUserName,
@@ -173,7 +174,18 @@ public sealed class LobbyService : MonoBehaviour
             Visibility = LobbyAttributeVisibility.Public
         };
 
-        _lobbyManager.SetMemberAttribute(attr);
+        _lobbyManager.SetMemberAttribute(name_att);
+
+        //èÄîı
+        var ready_att = new LobbyAttribute()
+        {
+            Key = LobbySceneManager.READY_KEY,
+            AsString = "1",
+            ValueType = AttributeType.String,
+            Visibility = LobbyAttributeVisibility.Public
+        };
+
+        _lobbyManager.SetMemberAttribute(ready_att);
     }
 
     // ---- Any: Leave ----

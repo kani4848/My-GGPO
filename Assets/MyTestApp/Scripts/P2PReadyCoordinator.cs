@@ -33,7 +33,6 @@ public sealed class P2PReadyCoordinator : IDisposable
     public event Action<string> OnError;
 
     // ====== 設定 ======
-    public string READY_KEY = "READY"; // Keyは大文字固定推奨（前の大小事故対策）
     public string SOCKET_NAME = "GAME"; // 2人固定ならこれ1つでOK
     public int PollIntervalMs = 200;
 
@@ -69,10 +68,7 @@ public sealed class P2PReadyCoordinator : IDisposable
     public void Start()
     {
         Stop(); // 多重起動防止
-
-        READY_KEY = (READY_KEY ?? "READY").ToUpperInvariant();
         _socketId = new SocketId { SocketName = SOCKET_NAME };
-
         _cts = new CancellationTokenSource();
         SetState(State.WaitingLobby);
 
@@ -134,9 +130,6 @@ public sealed class P2PReadyCoordinator : IDisposable
                         SetState(State.WaitingReady);
                     }
 
-                    var memb = currentLobby.Members[0];
-                    Debug.Log($"localID: {LobbySceneManager.myPUID}, memId: {memb.ProductId}");
-
                     UnityEngine.Debug.Log("対戦相手待ち受け中");
                     await UniTask.Delay(PollIntervalMs, cancellationToken: ct);
                     continue;
@@ -154,8 +147,6 @@ public sealed class P2PReadyCoordinator : IDisposable
                         SetState(State.WaitingReady);
 
                     await UniTask.Delay(PollIntervalMs, cancellationToken: ct);
-
-                    UnityEngine.Debug.Log($"local:{localMember},remoto:{remoteMember}");
                     continue;
                 }
 
@@ -222,7 +213,7 @@ public sealed class P2PReadyCoordinator : IDisposable
             if (lobbyMember.MemberAttributes == null) return false;
 
             // MemberAttributes.TryGetValue が使える前提
-            if (!lobbyMember.MemberAttributes.TryGetValue(READY_KEY, out var att)) return false;
+            if (!lobbyMember.MemberAttributes.TryGetValue(LobbySceneManager.READY_KEY, out var att)) return false;
 
             // AsString が "1" なら ready
             string s = att.AsString;
