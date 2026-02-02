@@ -7,12 +7,8 @@ using Epic.OnlineServices.Lobby;
 using PlayEveryWare.EpicOnlineServices.Samples;
 using PlayEveryWare.EpicOnlineServices;
 
-using Cysharp.Threading;
 using Cysharp.Threading.Tasks;
 using System.Threading;
-using System.Runtime.ConstrainedExecution;
-using Unity.VisualScripting;
-using static UnityEngine.Rendering.DebugUI;
 
 public struct LobbyData
 {
@@ -202,6 +198,7 @@ public sealed class LobbyService : MonoBehaviour
         }
     }
 
+    // ---- ŠO•”—˜—p ----
     public UniTask<List<LobbyData>> GetAvairableLobbyDatas(string lobbyPath = "")
     {
         string key;
@@ -247,31 +244,36 @@ public sealed class LobbyService : MonoBehaviour
 
             tcs.TrySetResult(lobbyDatas);
         }
+
+        LobbyData GetLobbyData(Lobby lobby)
+        {
+            string lobbyId = lobby.Id;
+            LobbyDetails details = _cachedResults[lobby];
+
+            List<ProductUserId> puids = new();
+
+            foreach (LobbyMember member in lobby.Members)
+            {
+                puids.Add(member.ProductId);
+            }
+
+            EOSManager.Instance.GetProductUserId();
+
+            LobbyData lobbyData = new()
+            {
+                id = lobby.Id,
+                maxLobbyMembers = lobby.MaxNumLobbyMembers,
+                avairableSlots = lobby.AvailableSlots,
+                details = details,
+            };
+
+            return lobbyData;
+        }
     }
 
-    LobbyData GetLobbyData(Lobby lobby)
+    public Lobby GetCurrentLobby()
     {
-        string lobbyId = lobby.Id;
-        LobbyDetails details = _cachedResults[lobby];
-
-        List<ProductUserId> puids = new();
-
-        foreach(LobbyMember member in lobby.Members)
-        {
-            puids.Add(member.ProductId);
-        }
-
-        EOSManager.Instance.GetProductUserId();
-
-        LobbyData lobbyData = new()
-        {
-            id = lobby.Id,
-            maxLobbyMembers = lobby.MaxNumLobbyMembers,
-            avairableSlots = lobby.AvailableSlots,
-            details = details,
-        };
-
-        return lobbyData;
+        return _lobbyManager.GetCurrentLobby();
     }
 
     public List<LobbyMember> GetCurrentLobbyMember()

@@ -34,6 +34,8 @@ public class LobbyService_InLobby
     private CancellationTokenSource _hbCts;
     private UniTask _hbTask;
 
+    P2PReadyCoordinator p2PReadyCoordinator;
+
     public LobbyService_InLobby(EOSLobbyManager lm)
     {
         _lobbyManager = lm;
@@ -41,6 +43,8 @@ public class LobbyService_InLobby
         _memberPollCts?.Cancel();
         _memberPollCts?.Dispose();
         _memberPollCts = null;
+
+        p2PReadyCoordinator = new P2PReadyCoordinator(lm);
     }
 
     //ロビー内イベント開始・終了===============================
@@ -58,9 +62,13 @@ public class LobbyService_InLobby
         _memberPollCts = new();
 
         CheckOtherMemberAlive(_memberPollCts.Token).Forget();
+
+        p2PReadyCoordinator.Start();
     }
     public void LeaveLobbyAction()
     {
+        p2PReadyCoordinator.Stop();
+
         _hbCts?.Cancel();
         _hbCts?.Dispose();
         _hbCts = null;
@@ -182,8 +190,6 @@ public class LobbyService_InLobby
     {
         while (!token.IsCancellationRequested)
         {
-            Debug.Log("生存確認");
-
             Lobby currentLobby = _lobbyManager.GetCurrentLobby();
 
             if (currentLobby == null)
