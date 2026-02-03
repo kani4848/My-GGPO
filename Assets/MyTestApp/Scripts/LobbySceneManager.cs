@@ -9,23 +9,26 @@ using Epic.OnlineServices;
 using System;
 using UnityEngine.Events;
 using Newtonsoft.Json.Bson;
+using Epic.OnlineServices.Lobby;
 
 public enum LobbyState
 {
-    None = 0,
-    LoggingIn = 10,
-    LoggedIn =20,
+    None,
+    LoggingIn,
+    LoggedIn,
+    LoggingOut,
 
-    LoggingOut = 25,
-
-    CreateLobbyAndJoin = 30,
+    Searching, 
+    CreateLobbyAndJoin,
     
-    Joining = 40,
+    Joining,
+    InLobby,
+    Ready,
+    Connecting,
+    Connected,
+    LeavingLobby,
 
-    Searching = 50,
-    InLobby = 60,
-    LeavingLobby = 70,
-    Error = 1000,
+    Error,
 }
 
 public static class LobbyEvent
@@ -38,7 +41,6 @@ public static class LobbyEvent
 public class LobbySceneManager : MonoBehaviour
 {
     [SerializeField] AutoLogin_DeviceId autoLogIn;
-    [SerializeField] LobbyService lobbyService;
     [SerializeField] LobbyUIManager lobbyUI;
 
     LobbyState _state = LobbyState.None;
@@ -54,14 +56,16 @@ public class LobbySceneManager : MonoBehaviour
     }
 
     public static ProductUserId myPUID;
+    public static string emptyPlayerName = "No name";
+    public static string localUserName = emptyPlayerName;
+
+    EOSLobbyManager lm;
+    [SerializeField]LobbyServiceManager lobbyServiceManager;
 
     //メンバー属性キーは必ず大文字
     public static string HB_KEY = "HB";
     public static string HB_STALE_KEY = "STALE";
     public static string READY_KEY = "READY";
-
-    public static string emptyPlayerName = "No name";
-    public static string localUserName = emptyPlayerName;
 
     //ロビーキー、IDは必ず小文字
     public static string LobbyCommonKey = "bucket";
@@ -71,20 +75,14 @@ public class LobbySceneManager : MonoBehaviour
     
     CancellationTokenSource cts;
 
-    private void OnApplicationQuit()
-    {
-        cts.Cancel();
-        cts.Dispose();
-    }
-
     private void Start()
     {
         cts = new();
 
         // 前提：EOSManagerがInitialize済み + Login済み（ProductUserIdが有効）
-        EOSLobbyManager lm = EOSManager.Instance.GetOrCreateManager<EOSLobbyManager>();
+        lm = EOSManager.Instance.GetOrCreateManager<EOSLobbyManager>();
 
-        lobbyService.Init(lm);
+        lobbyServiceManager = new LobbyServiceManager(lm);
         lobbyUI.Init();
 
         state = LobbyState.None;
@@ -99,11 +97,25 @@ public class LobbySceneManager : MonoBehaviour
         }
     }
 
+    private void OnApplicationQuit()
+    {
+        ExitAction();
+    }
+
     private void OnDestroy()
+    {
+        ExitAction();
+    }
+
+    void ExitAction()
     {
         cts.Cancel();
         cts.Dispose();
+
+        lobbyServiceManager.OnDispose();
     }
+
+    //ログイン画面===========================
 
     public void LogIn()
     {
@@ -125,6 +137,8 @@ public class LobbySceneManager : MonoBehaviour
         //AutoRefleshLoop(cts.Token).Forget();
     }
 
+
+    //ロビー検索画面===========================
     public void LogOut()
     {
         LogOutAsync().Forget();
@@ -146,13 +160,10 @@ public class LobbySceneManager : MonoBehaviour
     async UniTask CreateAndJoinLobbyAsync()
     {
         state = LobbyState.CreateLobbyAndJoin;
-        
-        LobbyData lobbyData = await lobbyService.CreateAndJoinAsync(lobbyUI.GetLobbyPath_Create(), cts.Token);
-
-        lobbyService.SetMyLobbyAttribute();
+        await lobbyServiceManager.CreateLobby(lobbyUI.GetLobbyPath_Create());
 
         state = LobbyState.InLobby;
-        lobbyUI.SwitchJoinedLobbyScreen(lobbyData, lobbyService.GetCurrentLobbyMember());
+        lobbyUI.SwitchJoinedLobbyScreen(lm.GetCurrentLobby());
     }
 
     public void RefleshAvairableLobby()
@@ -164,10 +175,10 @@ public class LobbySceneManager : MonoBehaviour
     {
         state = LobbyState.Searching;
         lobbyUI.ClearAvairableLobby();
-        var datas = await lobbyService.GetAvairableLobbyDatas();
+        var searchResult = await lobbyServiceManager.SearchLobby();
 
         state = LobbyState.LoggedIn;
-        lobbyUI.RefreshAvailableLobby(datas, JoinLobby);
+        lobbyUI.RefreshAvailableLobby(searchResult, JoinLobby);
     }
 
     public void SearchLobbyWithpath()
@@ -179,22 +190,22 @@ public class LobbySceneManager : MonoBehaviour
     {
         state = LobbyState.Searching;
         lobbyUI.ClearAvairableLobby();
-        var datas = await lobbyService.GetAvairableLobbyDatas(lobbyUI.GetLobbyPath_Search());
+        var lobbies = await lobbyServiceManager.SearchLobby(lobbyUI.GetLobbyPath_Search());
 
         state = LobbyState.LoggedIn;
-        lobbyUI.RefreshAvailableLobby(datas, JoinLobby);
+        lobbyUI.RefreshAvailableLobby(lobbies, JoinLobby);
     }
 
-    void JoinLobby(LobbyData lobbyData)
+    void JoinLobby(Lobby lobby, LobbyDetails details)
     {
-        JoinLobbyAsync(lobbyData).Forget();
+        JoinLobbyAsync(lobby, details).Forget();
     }
 
-    async UniTask JoinLobbyAsync(LobbyData lobbyData)
+    async UniTask JoinLobbyAsync(Lobby lobby, LobbyDetails details)
     {
         state = LobbyState.Joining;
 
-        bool joinSuccess = await lobbyService.JoinWithLobbyDetails(lobbyData.id,lobbyData.details);
+        bool joinSuccess = await lobbyServiceManager.Join(lobby, details);
 
         if (!joinSuccess)
         {
@@ -207,12 +218,28 @@ public class LobbySceneManager : MonoBehaviour
             Debug.Log("ロビー参加成功");
         }
 
-        lobbyService.SetMyLobbyAttribute();
-
         state = LobbyState.InLobby;
-        lobbyUI.SwitchJoinedLobbyScreen(lobbyData, lobbyService.GetCurrentLobbyMember());
+        lobbyUI.SwitchJoinedLobbyScreen(lm.GetCurrentLobby());
     }
 
+    //ロビー画面===========================
+
+    public void Ready()
+    {
+        ReadyAsync().Forget();
+    }
+
+    async UniTask ReadyAsync()
+    {
+        state = LobbyState.Ready;
+        lobbyServiceManager.Ready();
+        await UniTask.WaitUntil(() => lobbyServiceManager.ConnectingStart(), cancellationToken: cts.Token);
+
+        state = LobbyState.Connecting;
+        await UniTask.WaitUntil(() => lobbyServiceManager.ConnectingComplete(), cancellationToken: cts.Token);
+
+        state = LobbyState.Connected;
+    }
 
     public void LeaveLobby()
     {
@@ -222,9 +249,10 @@ public class LobbySceneManager : MonoBehaviour
     async UniTask LeaveLobbyAsync()
     {
         state = LobbyState.LeavingLobby;
-        Result result = await lobbyService.LeaveAsync();
+        ExitAction();
+        bool result = await lobbyServiceManager.LeaveAsync();
 
-        if (result != Result.Success)
+        if (!result)
         {
             Debug.Log("ロビー退室失敗" + result.ToString());
             return;

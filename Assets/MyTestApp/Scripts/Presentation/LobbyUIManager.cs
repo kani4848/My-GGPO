@@ -24,7 +24,7 @@ public sealed class LobbyUIManager : MonoBehaviour
     [SerializeField] TextMeshProUGUI systemMessage;
 
     [Header("Dependencies")]
-    [SerializeField] private LobbyService lobbyService; // 直前スクリプト（Join担当）
+    [SerializeField] private LobbyService_search lobbyService; // 直前スクリプト（Join担当）
 
     // SearchResultsは Dictionary<Lobby, LobbyDetails>
     private Dictionary<Lobby, LobbyDetails> _cachedResults = new();
@@ -75,7 +75,6 @@ public sealed class LobbyUIManager : MonoBehaviour
                 logInUI.Activated();
                 break;
 
-
             case LobbyState.LoggingIn:
                 Loading.SetActive(true);
                 logInUI.Deactivated();
@@ -96,14 +95,26 @@ public sealed class LobbyUIManager : MonoBehaviour
                 avairableLobby.Deactivated();
                 break;
 
-
             case LobbyState.Joining:
                 Loading.SetActive(true);
                 avairableLobby.Deactivated();
                 break;
 
-
             case LobbyState.InLobby:
+                Loading.SetActive(false);
+                break;
+
+            case LobbyState.Ready:
+                joinedLobby.OnReady();
+                break;
+
+            case LobbyState.Connecting:
+                joinedLobby.OnConnecting();
+                Loading.SetActive(true);
+                break;
+
+            case LobbyState.Connected:
+                joinedLobby.OnConnected();
                 Loading.SetActive(false);
                 break;
 
@@ -118,15 +129,15 @@ public sealed class LobbyUIManager : MonoBehaviour
         }
     }
 
-    public void SwitchJoinedLobbyScreen(LobbyData lobbyData, List<LobbyMember> members)
+    public void SwitchJoinedLobbyScreen(Lobby lobby)
     {
-        avairableLobby.Deactivated();
-        joinedLobby.Activated(lobbyData.path, lobbyData.id, members);
+        var customAtt = lobby.Attributes.FirstOrDefault(m => m.Key == LobbySceneManager.customKey);
+        joinedLobby.Activated(customAtt.AsString, lobby.Id, lobby.Members);
     }
 
-    public void RefreshAvailableLobby(List<LobbyData> lobbyDatas, Action<LobbyData> joinAction)
+    public void RefreshAvailableLobby(Dictionary<Lobby, LobbyDetails> lobbies, Action<Lobby,LobbyDetails> joinAction)
     {
-        avairableLobby.RefreshList(lobbyDatas, joinAction);
+        avairableLobby.RefreshList(lobbies, joinAction);
     }
 
     public string GetUserName()

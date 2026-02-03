@@ -34,28 +34,28 @@ public class AvairableLobbyUI : MonoBehaviour
         ClearUI();
     }
     
-    public void RefreshList(List<LobbyData> lobbyDatas, Action<LobbyData> joinAction)
+    public void RefreshList(Dictionary<Lobby, LobbyDetails> lobbies, Action<Lobby, LobbyDetails> joinAction)
     {
-        noLobbies.SetActive(lobbyDatas.Count <= 0);
+        noLobbies.SetActive(lobbies.Count <= 0);
 
-        foreach (var lobbyData in lobbyDatas)
+        foreach (var lobby in lobbies)
         {
-            CreateLobbyButton(lobbyData, joinAction);
+            CreateLobbyButton(lobby.Key, lobby.Value, joinAction);
         }
 
         ActivatedButtons();
     }
 
-    private void CreateLobbyButton(LobbyData lobbyData, Action<LobbyData> joinAction)
+    private void CreateLobbyButton(Lobby lobby, LobbyDetails details, Action<Lobby, LobbyDetails> joinAction)
     {
         var btn = Instantiate(buttonPrefab, contentRoot);
         var text = btn.GetComponentInChildren<TextMeshProUGUI>();
 
-        text.text = $"({lobbyData.avairableSlots}/{lobbyData.maxLobbyMembers})";
+        text.text = $"({lobby.Members.Count}/{lobby.MaxNumLobbyMembers})";
 
         btn.onClick.AddListener(() =>
         {
-            joinAction(lobbyData);
+            joinAction(lobby, details);
         });
     }
 

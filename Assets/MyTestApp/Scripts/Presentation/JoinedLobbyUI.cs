@@ -33,6 +33,8 @@ public class JoinedLobbyUI : MonoBehaviour
 
     [SerializeField] LobbyMemberDataDisplay lobbyMemberDisplayPrefab;
 
+
+    [SerializeField] Button readyButton;
     [SerializeField] Button leaveButton;
 
     [SerializeField] Transform memberRoot;
@@ -47,7 +49,10 @@ public class JoinedLobbyUI : MonoBehaviour
         path.text = lobbyPath == "" ? "undefined" : lobbyPath;
         id.text = lobbyId;
 
-        foreach(LobbyMember member in members)
+        readyButton.interactable = true;
+        leaveButton.interactable = true;
+
+        foreach (LobbyMember member in members)
         {
             AddMemberData(member);
         }
@@ -123,6 +128,23 @@ public class JoinedLobbyUI : MonoBehaviour
         {
             log.UpdateNameText(userName);
         }
+    }
+
+    public void OnReady()
+    {
+        readyButton.interactable = false;
+    }
+
+    public void OnConnecting()
+    {
+        readyButton.interactable = false;
+        leaveButton.interactable = false;
+    }
+
+    public void OnConnected()
+    {
+        readyButton.interactable = false;
+        leaveButton.interactable = true;
     }
 
     public void OnLeft(LobbyMember member)

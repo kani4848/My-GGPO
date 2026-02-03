@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using System.Net.Sockets;
 using System.Text;
 using System.Threading;
 using Cysharp.Threading.Tasks;
@@ -176,8 +177,6 @@ public sealed class P2PReadyCoordinator : IDisposable
                 {
                     _remotePuid = remoteMember.ProductId; // ここで確定
                     SetState(State.Handshaking);
-
-                    UnityEngine.Debug.Log("握手");
 
                     bool ok = await DoHandshake(_remotePuid, ct);
                     if (ok)
@@ -436,4 +435,163 @@ public sealed class P2PReadyCoordinator : IDisposable
         _state = s;
         OnStateChanged?.Invoke(_state);
     }
+
+
+    // ====== データ送信チェック ======
+    int timeoutMs = 8;
+    volatile bool _frame0Acked;
+
+    async UniTask<bool> DataTransferCheck(ProductUserId remote, ushort inputBits,CancellationToken ct)
+    {
+        using var recvCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        var recvTask = ReceiveLoopAsync(recvCts.Token);
+
+        try
+        {
+            Debug.Log("[データ送信テスト] 開始.");
+
+            // 2) frame=0 input を送る
+            SendFrame0Input(remote, inputBits);
+            Debug.Log($"[OneFrameNetTest] Sent frame=0 input={inputBits}");
+
+            // 3) ACK待ち（timeout付き）
+            bool ok = await WaitFrame0AckAsync(timeoutMs, ct);
+
+            if (!ok)
+            {
+                Debug.LogWarning("[データ送信テスト] タイムアウト: frame=0 ACK は送れませんでした.");
+                return false;
+            }
+
+            Debug.Log("[データ送信テスト] 成功: frame=0 ACK を受け取りました.");
+            return true;
+        }
+        finally
+        {
+            // 4) 受信ループ停止
+            recvCts.Cancel();
+            try { await recvTask; } catch { /* ignore */ }
+        }
+
+        async UniTask ReceiveLoopAsync(CancellationToken ct)
+        {
+            while (!ct.IsCancellationRequested)
+            {
+                PumpReceiveOnce();
+                await UniTask.Yield(PlayerLoopTiming.Update, ct);
+            }
+        }
+
+        void PumpReceiveOnce()
+        {
+            var p2p = _getP2P?.Invoke();
+            if (p2p == null) return;
+
+            // 受信を数回捌く（多すぎると重いので8回くらい）
+            for (int i = 0; i < 8; i++)
+            {
+                byte[] buf = new byte[256];
+
+                var receiveOptions = new ReceivePacketOptions
+                {
+                    LocalUserId = LobbySceneManager.myPUID,
+                    MaxDataSizeBytes = (uint)buf.Length,
+                    RequestedChannel = null,
+                };
+
+                var outPeerId = default(ProductUserId);
+                var outSocketId = _socketId;
+                var outChannel = default(byte);
+                uint outBytes = 0;
+
+                var r = p2p.ReceivePacket(ref receiveOptions, ref outPeerId, ref outSocketId, out outChannel, buf, out outBytes);
+                if (r != Result.Success) break;
+                if (outPeerId == null || outBytes == 0) continue;
+
+                // 2人固定：相手以外は無視
+                if (outPeerId != remote) continue;
+
+                HandlePacket(outPeerId, buf, (int)outBytes);
+            }
+        }
+
+        async UniTask<bool> WaitFrame0AckAsync(int timeoutMs, CancellationToken ct)
+        {
+            float start = Time.realtimeSinceStartup;
+
+            while (!_frame0Acked)
+            {
+                float elapsedMs = (Time.realtimeSinceStartup - start) * 1000f;
+                if (elapsedMs >= timeoutMs) return false;
+
+                await UniTask.Yield(PlayerLoopTiming.Update, ct);
+            }
+
+            return true;
+        }
+    }
+
+    void SendFrame0Input(ProductUserId remotePuid, ushort input)
+    {
+        var p2p = _getP2P?.Invoke(); // 既存の取得方法
+        byte[] data = CreateInputPacket(0, input);
+
+        var opt = new SendPacketOptions
+        {
+            LocalUserId = LobbySceneManager.myPUID,
+            RemoteUserId = remotePuid,
+            SocketId = _socketId,
+            Channel = 0,
+            Data = data,
+            //DataLengthBytes = (uint)data.Length,
+            //DeliveryReliability = PacketReliability.ReliableUnordered
+        };
+
+        p2p.SendPacket(ref opt);
+
+
+        byte[] CreateInputPacket(int frame, ushort input)
+        {
+            byte[] buf = new byte[7];
+            buf[0] = 0; // Input
+            BitConverter.GetBytes(frame).CopyTo(buf, 1);
+            BitConverter.GetBytes(input).CopyTo(buf, 5);
+            return buf;
+        }
+    }
+
+    void HandlePacket(ProductUserId from, byte[] data, int size)
+    {
+        byte type = data[0];
+        int frame = BitConverter.ToInt32(data, 1);
+
+        if (type == 0) // Input
+        {
+            ushort input = BitConverter.ToUInt16(data, 5);
+            Debug.Log($"[NET] recv input frame={frame} input={input}");
+
+            SendAck(from, frame);
+        }
+
+        void SendAck(ProductUserId remote, int frame)
+        {
+            byte[] buf = new byte[5];
+            buf[0] = 1; // Ack
+            BitConverter.GetBytes(frame).CopyTo(buf, 1);
+
+            var opt = new SendPacketOptions
+            {
+                LocalUserId = LobbySceneManager.myPUID,
+                RemoteUserId = remote,
+                SocketId = _socketId,
+                Channel = 0,
+                Data = buf,
+                //DataLengthBytes = (uint)buf.Length,
+                //DeliveryReliability = PacketReliability.ReliableUnordered
+            };
+
+            _getP2P?.Invoke().SendPacket(ref opt);
+        }
+    }
+
 }
