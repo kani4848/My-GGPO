@@ -1,0 +1,24 @@
+{
+    "name": "Main",
+    "rootNamespace": "",
+    "references": [
+        "UniTask",
+        "com.playeveryware.eos.samples",
+        "com.Epic.OnlineServices",
+        "com.playeveryware.eos.core",
+        "SceneManagerInterface",
+        "Unity.TextMeshPro",
+        "UniTask.DOTween",
+        "UnityEngine.UI",
+        "DOTween.Modules"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

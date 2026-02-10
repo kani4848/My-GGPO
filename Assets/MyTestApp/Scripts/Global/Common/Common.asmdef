@@ -1,0 +1,19 @@
+{
+    "name": "SceneManagerInterface",
+    "rootNamespace": "",
+    "references": [
+        "GUID:f51ebe6a0ceec4240a699833d6309b23",
+        "GUID:3a63500f0eef43a438c0553491f7c5da",
+        "GUID:be1f6e9efffcfce41aeb5c2f4c27cf75",
+        "GUID:f4c43db447a22a645bb9364507e4ba6c"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
