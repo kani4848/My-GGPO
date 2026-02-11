@@ -10,41 +10,50 @@ public static class MainGameEvent
     public static void RaiseSignal() => SignalEvent?.Invoke();
 }
 
-public enum GameResult
+public enum RoundResult
 {
     NONE = 0,
 
-    WIN_LOCAL = 1,
-    WIN_REMOTE = 2,
+    WIN_P1 = 1,
+    WIN_P2 = 2,
     DOUBLE_KO = 3,
 
-    FLYING_LOCAL = 4,
-    FLYING_REMOTE = 5,
+    FLYING_P1 = 4,
+    FLYING_P2 = 5,
     FLYING_BOTH = 6,
 
     TIME_UP = 7,
+}
+
+public enum MatchResult
+{
+    NONE = 0,
+    WIN_P1 = 1,
+    WIN_P2 = 2,
+    DRAW = 3,
 }
 
 public struct MainGameResultData
 {
     public int finishFrame;
     public int signalFrame;
-    public int pressFrame_local;
-    public int pressFrame_remote;
-    public GameResult gameResult;
+    public int pressFrame_p1;
+    public int pressFrame_p2;
+    public RoundResult roundResult;
 }
 
 public sealed class MainGameSystem
 {
     private int _signalFrame;
-    private XorShift32 _rng;
     const int afterSignalDuration = 90;
     int timeUpFrame = 0;
     const int minSignalFrame = 120;
 
     const int maxLife = 3;
-    int life_local = maxLife;
-    int life_remote = maxLife;
+    int life_p1 = maxLife;
+    int life_p2 = maxLife;
+
+    public PlayerSide winnerSide { get; private set; } = PlayerSide.NONE;
 
     public int roundCount { get; private set; } = 0;
 
@@ -60,18 +69,21 @@ public sealed class MainGameSystem
         //UnityEngine.Debug.Log($"next signal: {_signalFrame}");
     }
 
-    public bool MainLoop(int currentFrame)
+    public bool RaiseTimeUp(int currentFrame)
     {
-        if (currentFrame >= timeUpFrame) return true;
-        if (currentFrame == _signalFrame) MainGameEvent.RaiseSignal();
-        return false;
+        return currentFrame == timeUpFrame;
     }
 
-    public MainGameResultData CheckResult(int mainFrameCount, int localPressedFrame, int remotePressedFrame)
+    public bool RaiseSignal(int currentFrame)
+    {
+        return currentFrame == _signalFrame;
+    }
+
+    public MainGameResultData CheckResult(int mainFrameCount, int pressedFrame_p1, int pressedFrame_p2)
     {
         //フライング判定
-        bool localFlying = CheckFlying(localPressedFrame);
-        bool remoteFlying = CheckFlying(remotePressedFrame);
+        bool fying_p1 = CheckFlying(pressedFrame_p1);
+        bool flying_p2 = CheckFlying(pressedFrame_p2);
 
 
         // 結果判定（両者が押したら確定。もしくは任意のタイムアウトでも良い）
@@ -79,35 +91,33 @@ public sealed class MainGameSystem
         {
             finishFrame = mainFrameCount,
             signalFrame = _signalFrame,
-            pressFrame_local = localFlying ? -2 : localPressedFrame,
-            pressFrame_remote = remoteFlying ? -2 : remotePressedFrame,
-            gameResult = CheckGameResult(),
+            pressFrame_p1 = fying_p1 ? -2 : pressedFrame_p1,
+            pressFrame_p2 = flying_p2 ? -2 : pressedFrame_p2,
+            roundResult = CheckGameResult(),
         };
-
-        //UnityEngine.Debug.Log($"{result.gameResult},{result.pressFrame_local},{result.pressFrame_remote}");
 
         return result;
 
-        GameResult CheckGameResult()
+        RoundResult CheckGameResult()
         {
             //時間切れ
-            if (localPressedFrame == -1 && remotePressedFrame == -1) return GameResult.TIME_UP;
+            if (pressedFrame_p1 == -1 && pressedFrame_p2 == -1) return RoundResult.TIME_UP;
 
             // 早押しがいる場合は即負け（簡易ルール）
-            if (localFlying && !remoteFlying) return GameResult.FLYING_LOCAL;
-            if (!localFlying && remoteFlying) return GameResult.FLYING_REMOTE;
-            if (localFlying && remoteFlying) return GameResult.FLYING_BOTH;
+            if (fying_p1 && !flying_p2) return RoundResult.FLYING_P1;
+            if (!fying_p1 && flying_p2) return RoundResult.FLYING_P2;
+            if (fying_p1 && flying_p2) return RoundResult.FLYING_BOTH;
 
             // 通常：押したフレームが小さい方が勝ち
-            if (localPressedFrame >= 0 && remotePressedFrame == -1) return GameResult.WIN_LOCAL;
-            if (remotePressedFrame >= 0 && localPressedFrame == -1) return GameResult.WIN_REMOTE;
+            if (pressedFrame_p1 >= 0 && pressedFrame_p2 == -1) return RoundResult.WIN_P1;
+            if (pressedFrame_p2 >= 0 && pressedFrame_p1 == -1) return RoundResult.WIN_P2;
 
-            if (localPressedFrame < remotePressedFrame) return GameResult.WIN_LOCAL;
-            if (localPressedFrame > remotePressedFrame) return GameResult.WIN_REMOTE;
+            if (pressedFrame_p1 < pressedFrame_p2) return RoundResult.WIN_P1;
+            if (pressedFrame_p1 > pressedFrame_p2) return RoundResult.WIN_P2;
 
-            if (localPressedFrame == remotePressedFrame) return GameResult.DOUBLE_KO;
+            if (pressedFrame_p1 == pressedFrame_p2) return RoundResult.DOUBLE_KO;
 
-            return GameResult.NONE;
+            return RoundResult.NONE;
         }
 
         bool CheckFlying(int pressedFrame)
@@ -117,49 +127,75 @@ public sealed class MainGameSystem
         }
     }
 
-    public bool CheckRestart(GameResult result)
+    public MatchResult CheckMatchResult(RoundResult result)
     {
         switch(result)
         {
-            case GameResult.FLYING_LOCAL:
-            case GameResult.WIN_REMOTE:
-                life_local--;
+            case RoundResult.FLYING_P1:
+            case RoundResult.WIN_P2:
+                life_p1--;
                 break;
-            case GameResult.FLYING_REMOTE:
-            case GameResult.WIN_LOCAL:
-                life_remote--;
+            case RoundResult.FLYING_P2:
+            case RoundResult.WIN_P1:
+                life_p2--;
                 break;
-            case GameResult.FLYING_BOTH:
-            case GameResult.DOUBLE_KO:
-            case GameResult.TIME_UP:
-                life_local--;
-                life_remote--;
+            case RoundResult.FLYING_BOTH:
+            case RoundResult.DOUBLE_KO:
+            case RoundResult.TIME_UP:
+                life_p1--;
+                life_p2--;
                 break;
         }
 
         roundCount++;
 
-        return life_remote <= 0 || life_local <= 0;
+        if (life_p1 == 0 && life_p2 == 0) return MatchResult.DRAW;
+        if (life_p1 == 0) return MatchResult.WIN_P2;
+        if (life_p2 == 0) return MatchResult.WIN_P1;
+        return MatchResult.NONE;
     }
 
-    private struct XorShift32
+    public void OnRematch()
     {
-        private uint _x;
+        roundCount = 0;
+        life_p1 = maxLife;
+        life_p2 = maxLife;
+    }
 
-        public XorShift32(uint seed)
-        {
-            _x = seed == 0 ? 2463534242u : seed;
-        }
+    int cpuLv = 0;
+    readonly int[] cpuTriggerFrames = { 
+        90, //az
+        60, //hel
+        50, //cer1
+        40, //cer2
+        30, //mali
+        25, //zd
+        21, //pan
+        19, //mod
+        17, //luc
+        15, //jud
+        13, //bel
+        11, //jus
+        8,  //lor
+            };
 
-        public uint Next()
-        {
-            // 決定論：C#のuint演算はプラットフォーム差が出にくい
-            uint x = _x;
-            x ^= x << 13;
-            x ^= x >> 17;
-            x ^= x << 5;
-            _x = x;
-            return x;
-        }
+    public int GetCpuTriggerFrame()
+    {
+        return cpuTriggerFrames[cpuLv] + _signalFrame;
+    }
+
+    public int CpuLevelUp()
+    {
+        cpuLv++;
+        return cpuLv >= cpuTriggerFrames.Length ?  -1 : cpuLv;
+    }
+
+    const int soloModeLife_max = 5;
+    int currentSoloModeLife = soloModeLife_max;
+
+    public int LoseSoloModeLife()
+    {
+        currentSoloModeLife--;
+        return currentSoloModeLife;
     }
 }

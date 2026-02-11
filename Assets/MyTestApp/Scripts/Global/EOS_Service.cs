@@ -48,7 +48,6 @@ public class EOS_Service : MonoBehaviour, IEosService
 
         //await loginService.LogoutAsync();
         lobbyManager = null;
-
         login = false;
     }
 }

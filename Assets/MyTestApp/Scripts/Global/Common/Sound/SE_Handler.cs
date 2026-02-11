@@ -10,6 +10,7 @@ public class SE_Handler : MonoBehaviour
     [SerializeField] AudioClip signal;
     [SerializeField] AudioClip shot;
     [SerializeField] AudioClip down;
+    [SerializeField] AudioClip buttonClick;
 
     public enum SoundType
     {
@@ -18,6 +19,7 @@ public class SE_Handler : MonoBehaviour
         SIGNAL,
         SHOT,
         DOWN,
+        BUTTON,
     }
 
 
@@ -32,6 +34,7 @@ public class SE_Handler : MonoBehaviour
             case SoundType.SIGNAL: se = signal; break;
             case SoundType.SHOT: se = shot; break;
             case SoundType.DOWN: se = down; break;
+            case SoundType.BUTTON: se = buttonClick; break;
             default:se = down; break;
         }
 

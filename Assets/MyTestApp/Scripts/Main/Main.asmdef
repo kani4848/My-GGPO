@@ -3,14 +3,14 @@
     "rootNamespace": "",
     "references": [
         "UniTask",
+        "UniTask.DOTween",
+        "DOTween.Modules",
         "com.playeveryware.eos.samples",
         "com.Epic.OnlineServices",
         "com.playeveryware.eos.core",
         "SceneManagerInterface",
         "Unity.TextMeshPro",
-        "UniTask.DOTween",
-        "UnityEngine.UI",
-        "DOTween.Modules"
+        "UnityEngine.UI"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

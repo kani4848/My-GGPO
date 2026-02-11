@@ -17,26 +17,28 @@ public class CharacterController_Main : MonoBehaviour
     [SerializeField] Image hat_alive;
     [SerializeField] Image hat_dead;
 
-
     [SerializeField] List<Image> charaImages = new();
-    [SerializeField] List<Sprite> charaSprites = new();
+    
+    PlayerImageData myImageData;
 
-    Color hatCol;
-    Sprite charaSprite;
+    bool isOwner;
+    bool isSoloCpu;
 
-    public void Init(bool isOwner, int charaId)
+    public void Init(bool _isOwner, PlayerImageData charaImageData, bool soloMode = false)
     {
+        isSoloCpu = !_isOwner && soloMode;
 
-        hatCol = new Color(
-            Random.value,
-            Random.value,
-            Random.value);
+        int lifeCount = soloMode ? 5 : 3;
+        lifeCounter.SetLifeCounter(lifeCount);
 
-        hat_alive.color = hatCol;
-        hat_dead.color = hatCol;
+        myImageData = charaImageData;
+        hat_alive.color = myImageData.hatCol;
+        hat_dead.color = myImageData.hatCol;
 
         alive.transform.DOLocalMoveX(-walkDistance * 4, 0);
         OnRestart();
+        
+        isOwner = _isOwner;
         localMarker.SetActive(isOwner);
 
         DOTween.Sequence()
@@ -44,11 +46,10 @@ public class CharacterController_Main : MonoBehaviour
             .SetLoops(-1, LoopType.Restart)
             ;
 
-        charaSprite = charaSprites[charaId];
 
         foreach (var image in charaImages)
         {
-            image.sprite = charaSprite;
+            image.sprite = myImageData.charaSprite;
         }
     }
 
@@ -92,6 +93,7 @@ public class CharacterController_Main : MonoBehaviour
 
     public void OnRestart()
     {
+        localMarker.SetActive(isOwner);
         alive.SetActive(true);
         dead.SetActive(false);
         lifeCounter.gameObject.SetActive(false);
@@ -107,6 +109,7 @@ public class CharacterController_Main : MonoBehaviour
 
     public void ShowLife(bool show)
     {
+        if (isSoloCpu) return;
         lifeCounter.gameObject.SetActive(show);
     }
 
@@ -116,8 +119,26 @@ public class CharacterController_Main : MonoBehaviour
         lifeCounter.LoseLife();
     }
 
-    public (Color hatCol, Sprite chara) GetCharaImageData()
+    public void StepBack()
     {
-        return (hatCol, charaSprite);
+        Debug.Log("ステップバック");
+        alive.transform.DOLocalMoveX(-walkDistance * 4, 0);
+    }
+
+    public PlayerImageData GetCharaImageData()
+    {
+        return myImageData;
+    }
+
+    public void UpdateCharaImage(PlayerImageData charaImageData)
+    {
+        myImageData = charaImageData;
+        hat_alive.color = myImageData.hatCol;
+        hat_dead.color = myImageData.hatCol;
+
+        foreach (var image in charaImages)
+        {
+            image.sprite = myImageData.charaSprite;
+        }
     }
 }

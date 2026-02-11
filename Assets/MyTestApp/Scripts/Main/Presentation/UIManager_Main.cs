@@ -1,7 +1,12 @@
 using Cysharp.Threading.Tasks;
 using DG.Tweening;
+using DG.Tweening.Core;
+using DG.Tweening.Plugins.Options;
+
+using DG.Tweening.CustomPlugins;
 using Mono.Cecil;
 using System;
+using System.Threading;
 using System.Xml.Serialization;
 using TMPro;
 using Unity.VisualScripting;
@@ -13,51 +18,60 @@ using static UIManager_Main;
 
 public class UIManager_Main : MonoBehaviour
 {
-    public enum PlayerSide { P1, P2}
     [Header("メインゲーム")]
     [SerializeField] GameObject mainCanvas;
 
+    [SerializeField] GameObject keyGuides;
+    [SerializeField] GameObject keyGuid_1p;
+    [SerializeField] GameObject keyGuid_2p;
+
     [SerializeField] GameObject cutIn_p1;
     [SerializeField] GameObject cutIn_p2;
-
-    [SerializeField] TextMeshProUGUI guidText;
-    [SerializeField] GameObject resultMessage;
-    TextMeshProUGUI resultText;
 
     [SerializeField] GameObject signal;
     [SerializeField] UnityEngine.UI.Image fillScreenCol_white;
     [SerializeField] UnityEngine.UI.Image fillScreenCol_black;
 
-    [SerializeField] Transform resultLogRoot_p1;
-    [SerializeField] Transform resultLogRoot_p2;
-    Transform resultLogRoot_local;
-    Transform resultLogRoot_remote;
-    [SerializeField] GameObject resultLogPrefab;
-
     [SerializeField] CharacterController_Main chara_p1;
     [SerializeField] CharacterController_Main chara_p2;
 
-    [SerializeField] CharacterController_Main chara_local;
-    [SerializeField] CharacterController_Main chara_remote;
+    [Header("ラウンドリザルト")]
+    [SerializeField] GameObject roundResultUI;
+    [SerializeField] TextMeshProUGUI roundResultMessageText;
 
-    [Header("メイン：ローカル")]
-    [SerializeField] GameObject keyGuide_local;
+    [SerializeField] Transform resultLogRoot_p1;
+    [SerializeField] Transform resultLogRoot_p2;
+    [SerializeField] GameObject resultLogPrefab;
 
     [Header("終了画面")]
     [SerializeField] GameObject winner;
-    [SerializeField] UnityEngine.UI.Image hat_end;
-    [SerializeField] UnityEngine.UI.Image chara_end;
-    [SerializeField] UnityEngine.UI.Image uma;
+    [SerializeField] UnityEngine.UI.Image hat_winner;
+    [SerializeField] UnityEngine.UI.Image chara_winner;
+    [SerializeField] UnityEngine.UI.Image uma_winner;
     [SerializeField] float umaMoveY= 50;
     [SerializeField] float umaRotate = 10;
     [SerializeField] float umaAnimDuration = 0.2f;
     [SerializeField] GameObject endCanvas;
-    [SerializeField] GameObject endMenu;
+
+    [SerializeField] Button rematchButton_local;
+    [SerializeField] Button goTitleButton_local;
+
+    [SerializeField] Button retryButton_solo;
+    [SerializeField] Button goTitleButton_solo;
 
     private void Awake()
     {
         endCanvas.SetActive(false);
         mainCanvas.SetActive(true);
+
+        roundResultUI.SetActive(false);
+        keyGuides.SetActive(false);
+        signal.SetActive(false);
+
+        ActivateButtons_Local(false);
+        ActivateButtons_Solo(false);
+
+        stageLeveText.gameObject.SetActive(false);
     }
 
     private void OnEnable()
@@ -70,29 +84,124 @@ public class UIManager_Main : MonoBehaviour
         MainGameEvent.SignalEvent -= OnSignal;
     }
 
-    public void Init(bool isOwner, int charaId_p1, int charaId_p2)
+    private void Update()
     {
-        if (isOwner)
+        if (goTitleButton_solo.interactable)
         {
-            chara_p1.Init(true, charaId_p1);
-            chara_p2.Init(false, charaId_p2);
+            if (Input.GetKeyDown(KeyCode.Z))
+            {
+                retryButton_solo.onClick.Invoke();
+                return;
+            }
 
-            chara_local = chara_p1;
-            chara_remote = chara_p2;
-            resultLogRoot_local = resultLogRoot_p1;
-            resultLogRoot_remote = resultLogRoot_p2;
-        }
-        else
-        {
-            chara_p1.Init(false, charaId_p1);
-            chara_p2.Init(true, charaId_p2);
-
-            chara_local = chara_p2;
-            chara_remote = chara_p1;
-            resultLogRoot_local = resultLogRoot_p2;
-            resultLogRoot_remote = resultLogRoot_p1;
+            if (Input.GetKeyDown(KeyCode.X))
+            {
+                goTitleButton_solo.onClick.Invoke();
+                return;
+            }
         }
 
+        if (goTitleButton_local.interactable)
+        {
+            if (Input.GetKeyDown(KeyCode.Z))
+            {
+                rematchButton_local.onClick.Invoke();
+                return;
+            }
+
+            if (Input.GetKeyDown(KeyCode.X))
+            {
+                goTitleButton_local.onClick.Invoke();
+                return;
+            }
+        }
+    }
+
+    void ActivateButtons_Local(bool active)
+    {
+        rematchButton_local.gameObject.SetActive(active);
+        goTitleButton_local.gameObject.SetActive(active);
+
+        rematchButton_local.interactable = active;
+        goTitleButton_local.interactable = active;
+
+        if (!active)
+        {
+            rematchButton_local.onClick.RemoveAllListeners();
+            goTitleButton_local.onClick.RemoveAllListeners();
+        }
+    }
+
+    void ActivateButtons_Solo(bool active)
+    {
+        retryButton_solo.gameObject.SetActive(active);
+        goTitleButton_solo.gameObject.SetActive(active);
+
+        retryButton_solo.interactable = active;
+        goTitleButton_solo.interactable = active;
+
+        if (!active)
+        {
+            retryButton_solo.onClick.RemoveAllListeners();
+            goTitleButton_solo.onClick.RemoveAllListeners();
+        }
+    }
+
+    public void Init(GameMode mode, bool isOwner, PlayerImageData charaImageData_p1, PlayerImageData charaImageData_p2)
+    {
+        switch (mode)
+        {
+            case GameMode.Online:
+                chara_p1.Init(isOwner, charaImageData_p1);
+                chara_p2.Init(!isOwner, charaImageData_p2);
+                break;
+
+            case GameMode.Local:
+                chara_p1.Init(false, charaImageData_p1);
+                chara_p2.Init(false, charaImageData_p2);
+                break;
+
+            case GameMode.Solo:
+                chara_p1.Init(true, charaImageData_p1, true);
+                chara_p2.Init(false, charaImageData_p2,true);
+                break;
+        }
+
+        ResetLogs();
+
+        SetUpPlayerGuide();
+
+        keyGuides.SetActive(false);
+        roundResultUI.SetActive(false);
+
+        void SetUpPlayerGuide()
+        {
+            switch (mode)
+            {
+                case GameMode.Online:
+                    if (isOwner)
+                    {
+                        keyGuid_2p.SetActive(false);
+                    }
+                    else
+                    {
+                        keyGuid_1p.SetActive(false);
+                        keyGuid_2p.GetComponentInChildren<TextMeshProUGUI>().text = "space key";
+                    }
+                    break;
+                    
+                case GameMode.Local: 
+                    break;
+                    
+                case GameMode.Solo:
+                    keyGuid_2p.SetActive(false);
+                    break;
+            }
+        }
+    }
+
+    void ResetLogs()
+    {
         var logs_p1 = resultLogRoot_p1.GetComponentsInChildren<Transform>();
         foreach (Transform log in logs_p1)
         {
@@ -106,12 +215,6 @@ public class UIManager_Main : MonoBehaviour
             if (log == resultLogRoot_p2.transform) continue;
             Destroy(log.gameObject);
         }
-
-        resultText = resultMessage.GetComponentInChildren<TextMeshProUGUI>();
-        guidText.gameObject.SetActive(false);
-        resultMessage.SetActive(false);
-
-
     }
 
     private void Start()
@@ -124,17 +227,15 @@ public class UIManager_Main : MonoBehaviour
         winner.transform.DOLocalRotate(new Vector3(0, 0, umaRotate), umaAnimDuration)
             .SetRelative()
             .SetLoops(-1, LoopType.Yoyo);
-
-        uma.color = Color.plum;
     }
 
-    public async UniTask RoundStart(bool IsFirstRound)
+    public async UniTask RoundStart()
     {
-        resultMessage.SetActive(false);
         await UniTask.Delay(TimeSpan.FromSeconds(1));
 
-        if (IsFirstRound)
+        if (walkAnim)
         {
+            walkAnim = false;
             SoundManager.Instance.PlaySE(SE_Handler.SoundType.WALK);
             chara_p1.WalkAnimation().Forget();
             await chara_p2.WalkAnimation();
@@ -148,112 +249,113 @@ public class UIManager_Main : MonoBehaviour
         chara_p1.CutInAnimation().Forget();
         await chara_p2.CutInAnimation();
 
-        guidText.gameObject.SetActive(true);
+        keyGuides.SetActive(true);
     }
 
     void OnSignal()
     {
         SoundManager.Instance.PlaySE(SE_Handler.SoundType.SIGNAL);
         signal.SetActive(true);
-        guidText.gameObject.SetActive(false);
     }
 
     public async UniTask OnWhiteOut()
     {
-        guidText.gameObject.SetActive(false);
-
         SoundManager.Instance.PlaySE(SE_Handler.SoundType.SHOT);
         signal.SetActive(false);
-        
+        keyGuides.SetActive(false);
+
         await DOTween.Sequence()
             .Append(fillScreenCol_white.DOFade(1, 0))
             .Append(fillScreenCol_white.DOFade(0, 1))
             .AsyncWaitForCompletion()
             ;
 
-        await UniTask.Delay(TimeSpan.FromSeconds(1));
-
     }
 
-    public async UniTask OnPreResult(GameResult result)
+    public async UniTask OnPreResult(RoundResult result)
     {
-        
         switch (result)
         {
-            case GameResult.NONE:
-                break;
-            case GameResult.WIN_LOCAL:
-                chara_remote.GoDead();
-                resultText.text = "P1 WIN";
-                break;
-
-            case GameResult.WIN_REMOTE:
-                chara_local.GoDead();
-                resultText.text = "P2 WIN";
-                break;
-
-            case GameResult.DOUBLE_KO:
-                chara_p1.GoDead();
-                chara_p2.GoDead();
-                resultText.text = "DOUBLE KO";
-                break;
-
-            case GameResult.FLYING_LOCAL:
-                chara_local.GoDead();
-                resultText.text = "P1 WAS MISFIRE";
-                break;
-
-            case GameResult.FLYING_REMOTE:
-                chara_remote.GoDead();
-                resultText.text = "P2 WAS MISFIRE";
-                break;
-            case GameResult.FLYING_BOTH:
-                chara_p1.GoDead();
-                chara_p2.GoDead();
-                resultText.text = "DOUBLE MISFIRE";
-                break;
-
-            case GameResult.TIME_UP:
-                resultText.text = "TIME UP";
+            case RoundResult.WIN_P1:
+            case RoundResult.WIN_P2:
+            case RoundResult.DOUBLE_KO:
+                await UniTask.Delay(TimeSpan.FromSeconds(1));
                 break;
         }
 
-        if (result != GameResult.TIME_UP) SoundManager.Instance.PlaySE(SE_Handler.SoundType.DOWN);
+        if (result != RoundResult.TIME_UP) SoundManager.Instance.PlaySE(SE_Handler.SoundType.DOWN);
 
+        switch (result)
+        {
+            case RoundResult.NONE:
+                break;
+            case RoundResult.WIN_P1:
+                chara_p2.GoDead();
+                roundResultMessageText.text = "P1 WIN";
+                break;
+
+            case RoundResult.WIN_P2:
+                chara_p1.GoDead();
+                roundResultMessageText.text = "P2 WIN";
+                break;
+
+            case RoundResult.DOUBLE_KO:
+                chara_p1.GoDead();
+                chara_p2.GoDead();
+                roundResultMessageText.text = "DOUBLE KO";
+                break;
+
+            case RoundResult.FLYING_P1:
+                chara_p1.GoDead();
+                roundResultMessageText.text = "P1 WAS MISFIRE";
+                break;
+
+            case RoundResult.FLYING_P2:
+                chara_p2.GoDead();
+                roundResultMessageText.text = "P2 WAS MISFIRE";
+                break;
+            case RoundResult.FLYING_BOTH:
+                chara_p1.GoDead();
+                chara_p2.GoDead();
+                roundResultMessageText.text = "DOUBLE MISFIRE";
+                break;
+
+            case RoundResult.TIME_UP:
+                roundResultMessageText.text = "TIME UP";
+                break;
+        }
         await UniTask.Delay(TimeSpan.FromSeconds(1));
     }
 
-    public void OnResult(MainGameResultData resultData)
+    public async UniTask OnResult(MainGameResultData resultData)
     {
-        if(resultData.gameResult == GameResult.TIME_UP)
+        roundResultUI.SetActive(true);
+
+        if (resultData.roundResult == RoundResult.TIME_UP)
         {
             signal.SetActive(false);
 
             chara_p1.OnTimeUp();
             chara_p2.OnTimeUp();
-            resultText.text = "Time up";
-            resultMessage.gameObject.SetActive(true);
+            
+            CreateResultLog(resultLogRoot_p1, "--", false);
+            CreateResultLog(resultLogRoot_p2, "--", false);
 
-            CreateResultLog(resultLogRoot_local, "--", false);
-            CreateResultLog(resultLogRoot_remote, "--", false);
+            await UniTask.Delay(TimeSpan.FromSeconds(2));
             return;
         }
 
-        string localText = GetString(resultData.pressFrame_local);
-        string remoteText = GetString(resultData.pressFrame_remote);
+        string localText = GetString(resultData.pressFrame_p1);
+        string remoteText = GetString(resultData.pressFrame_p2);
 
-        bool localWin = resultData.gameResult == GameResult.WIN_LOCAL || resultData.gameResult == GameResult.FLYING_REMOTE;
-        bool remoteWin = resultData.gameResult == GameResult.WIN_REMOTE|| resultData.gameResult == GameResult.FLYING_LOCAL;
+        bool win_p1 = resultData.roundResult == RoundResult.WIN_P1 || resultData.roundResult == RoundResult.FLYING_P2;
+        bool win_p2 = resultData.roundResult == RoundResult.WIN_P2|| resultData.roundResult == RoundResult.FLYING_P1;
 
-        CreateResultLog(resultLogRoot_local, localText, localWin);
-        CreateResultLog(resultLogRoot_remote, remoteText, remoteWin);
-
-        resultLogRoot_p1.gameObject.SetActive(true);
-        resultLogRoot_p2.gameObject.SetActive(true);
+        CreateResultLog(resultLogRoot_p1, localText, win_p1);
+        CreateResultLog(resultLogRoot_p2, remoteText, win_p2);
 
         chara_p1.ShowLife(true);
         chara_p2.ShowLife(true);
-        resultMessage.gameObject.SetActive(true);
 
 
         string GetString(int time)
@@ -271,6 +373,7 @@ public class UIManager_Main : MonoBehaviour
             }
         }
 
+        await UniTask.Delay(TimeSpan.FromSeconds(2));
     }
 
     void CreateResultLog(Transform logRoot, string time, bool win)
@@ -282,30 +385,176 @@ public class UIManager_Main : MonoBehaviour
         texts[1].text = win ? "○" : "×";
     }
 
-    public async UniTask OnRoundReset()
+    bool walkAnim = true;
+    
+    public async UniTask OnRoundReset(bool _goBackChara, bool logReset)
     {
-        fillScreenCol_black.DOFade(1, 1);
-        await UniTask.Delay(TimeSpan.FromSeconds(2));
+        await fillScreenCol_black.DOFade(1, 0.5f);
 
-        resultMessage.SetActive(false);
-        resultLogRoot_p1.gameObject.SetActive(false);
-        resultLogRoot_p2.gameObject.SetActive(false);
-        chara_p1.OnRestart();
-        chara_p2.OnRestart();
-        
-        fillScreenCol_black.DOFade(0, 1);
+        ActivateButtons_Local(false);
+        ActivateButtons_Solo(false);
+
+        endCanvas.SetActive(false);
+        mainCanvas.SetActive(true);
+        roundResultUI.SetActive(false);
+
+        if (_goBackChara)
+        {
+            walkAnim = true;
+            chara_p1.StepBack();
+            chara_p2.StepBack();
+            chara_p1.OnRestart();
+            chara_p2.OnRestart();
+        }
+        else
+        {
+            walkAnim = false;
+            chara_p1.OnRestart();
+            chara_p2.OnRestart();
+        }
+
+        if(logReset) ResetLogs();
+
+        await UniTask.Delay(TimeSpan.FromSeconds(0.5f));
+        await fillScreenCol_black.DOFade(0, 0.5f);
     }
 
-    public void OnGameEnd(PlayerSide playerSide)
+    public UniTask<bool> OnGameEnd_Local(MatchResult matchResult)
     {
-        CharacterController_Main winnerController = playerSide == PlayerSide.P1 ? chara_p1 : chara_p2;
-        var imageData = winnerController.GetCharaImageData();
+        keyGuides.SetActive(false);
+        roundResultUI.SetActive(true);
 
-        hat_end.color = imageData.hatCol;
-        chara_end.sprite = imageData.chara;
+        switch (matchResult)
+        {
+            case MatchResult.WIN_P1:
+            case MatchResult.WIN_P2:
+
+                SoundManager.Instance.PlayBgm(BgmHandler.BgmType.Title);
+                mainCanvas.SetActive(false);
+                endCanvas.SetActive(true);
+
+                CharacterController_Main winnerController = matchResult == MatchResult.WIN_P1 ? chara_p1 : chara_p2;
+                roundResultMessageText.text = matchResult == MatchResult.WIN_P1 ? "P1 survived!" : "P2 survived!";
+                var imageData = winnerController.GetCharaImageData();
+                hat_winner.color = imageData.hatCol;
+                chara_winner.sprite = imageData.charaSprite;
+                break;
+
+            case MatchResult.DRAW:
+                roundResultMessageText.text = "draw";
+                break;
+        }
+
+        ActivateButtons_Local(true);
+
+        var tcs = new UniTaskCompletionSource<bool>();
+
+        rematchButton_local.onClick.AddListener(
+            () => {
+                SoundManager.Instance.PlaySE(SE_Handler.SoundType.BUTTON);
+                tcs.TrySetResult(true);
+                ActivateButtons_Local(false);
+            });
+
+        goTitleButton_local.onClick.AddListener(
+            () => {
+                SoundManager.Instance.PlaySE(SE_Handler.SoundType.BUTTON);
+                tcs.TrySetResult(false);
+                ActivateButtons_Local(false);
+            });
+
+        return tcs.Task;
+    }
+
+    public UniTask<bool> OnGameOver_Solo()
+    {
+        keyGuides.SetActive(false);
+        roundResultUI.SetActive(true);
+        roundResultMessageText.text = "game over";
+
+        ActivateButtons_Solo(true);
+
+        var tcs = new UniTaskCompletionSource<bool>();
+
+        retryButton_solo.gameObject.SetActive(false);
+        goTitleButton_solo.onClick.AddListener(
+            () => {
+                tcs.TrySetResult(true);
+                SoundManager.Instance.PlaySE(SE_Handler.SoundType.BUTTON);
+                ActivateButtons_Local(false);
+            });
+
+        return tcs.Task;
+    }
+
+    public UniTask<bool> OnGameClear_Solo()
+    {
+        keyGuides.SetActive(false);
+        roundResultUI.SetActive(true);
+
+        SoundManager.Instance.PlayBgm(BgmHandler.BgmType.Title);
 
         mainCanvas.SetActive(false);
         endCanvas.SetActive(true);
-        endMenu.SetActive(true);
+
+        roundResultMessageText.text = "you are the gratest cow devil!";
+        var imageData = chara_p1.GetCharaImageData();
+        hat_winner.color = imageData.hatCol;
+        chara_winner.sprite = imageData.charaSprite;
+        uma_winner.color = imageData.umaCol;
+
+        ActivateButtons_Solo(true);
+
+        var tcs = new UniTaskCompletionSource<bool>();
+
+        retryButton_solo.gameObject.SetActive(false);
+        goTitleButton_solo.onClick.AddListener(
+            () => {
+                tcs.TrySetResult(true);
+                SoundManager.Instance.PlaySE(SE_Handler.SoundType.BUTTON);
+                ActivateButtons_Local(false);
+            });
+
+        return tcs.Task;
+    }
+
+    public void UpdateCpuImage(PlayerImageData data)
+    {
+        chara_p2.UpdateCharaImage(data);
+    }
+
+
+
+    public UniTask<bool> WaitRetryRequest_Solo()
+    {
+        var tcs = new UniTaskCompletionSource<bool>();
+
+        ActivateButtons_Solo(true);
+
+        retryButton_solo.onClick.AddListener(
+            () => {
+                SoundManager.Instance.PlaySE(SE_Handler.SoundType.BUTTON);
+                ActivateButtons_Solo(false);
+                tcs.TrySetResult(true);
+            });
+
+        goTitleButton_solo.onClick.AddListener(
+            () => {
+                SoundManager.Instance.PlaySE(SE_Handler.SoundType.BUTTON);
+                ActivateButtons_Solo(false);
+                tcs.TrySetResult(false);
+            });
+
+        return tcs.Task;
+    }
+
+    [SerializeField] TextMeshProUGUI stageLeveText;
+
+    public async UniTask ShowSoloModeStageLevel(int cpuLv)
+    {
+        stageLeveText.gameObject.SetActive(true);
+        stageLeveText.text = $"-stage {cpuLv}-";
+        await UniTask.Delay(TimeSpan.FromSeconds(2f));
+        stageLeveText.gameObject.SetActive(false);
     }
 }

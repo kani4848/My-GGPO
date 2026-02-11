@@ -403,20 +403,6 @@ MonoBehaviour:
   - {fileID: 2038304147277644547}
   - {fileID: 8715223510408594102}
   - {fileID: 6025708824444468242}
-  charaSprites:
-  - {fileID: -4324498457473733385, guid: 3e05a575b6c096c44916f7c438819f9f, type: 3}
-  - {fileID: 7764790603933498287, guid: 3e05a575b6c096c44916f7c438819f9f, type: 3}
-  - {fileID: 8893139771215743204, guid: 3e05a575b6c096c44916f7c438819f9f, type: 3}
-  - {fileID: -3644074750644622855, guid: 3e05a575b6c096c44916f7c438819f9f, type: 3}
-  - {fileID: -5705549776218993840, guid: 3e05a575b6c096c44916f7c438819f9f, type: 3}
-  - {fileID: -9053370202541026621, guid: 3e05a575b6c096c44916f7c438819f9f, type: 3}
-  - {fileID: 7956384303110783278, guid: 3e05a575b6c096c44916f7c438819f9f, type: 3}
-  - {fileID: 7594558080133626436, guid: 3e05a575b6c096c44916f7c438819f9f, type: 3}
-  - {fileID: 7488030980790550557, guid: 3e05a575b6c096c44916f7c438819f9f, type: 3}
-  - {fileID: -4240180420218232035, guid: 3e05a575b6c096c44916f7c438819f9f, type: 3}
-  - {fileID: 8496605712433185857, guid: 3e05a575b6c096c44916f7c438819f9f, type: 3}
-  - {fileID: -4199378015316455737, guid: 3e05a575b6c096c44916f7c438819f9f, type: 3}
-  - {fileID: -1218374344690550443, guid: 3e05a575b6c096c44916f7c438819f9f, type: 3}
 --- !u!1 &2091795190163847447
 GameObject:
   m_ObjectHideFlags: 0
@@ -1832,6 +1818,14 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 336193595388426677, guid: e73a74339c1539849be2178d80aff74c, type: 3}
       propertyPath: m_AnchoredPosition.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2695319713406837866, guid: e73a74339c1539849be2178d80aff74c, type: 3}
+      propertyPath: heart_ful
+      value: 
+      objectReference: {fileID: 6657666348180597973, guid: 3e05a575b6c096c44916f7c438819f9f, type: 3}
+    - target: {fileID: 2695319713406837866, guid: e73a74339c1539849be2178d80aff74c, type: 3}
+      propertyPath: lifes.Array.size
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 3970248105161706507, guid: e73a74339c1539849be2178d80aff74c, type: 3}
