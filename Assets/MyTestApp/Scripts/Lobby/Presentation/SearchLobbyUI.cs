@@ -4,7 +4,7 @@ using System.Collections.Generic;
 
 public class SearchLobbyUI : MonoBehaviour
 {
-    [SerializeField] private RectTransform contentRoot; // VerticalLayoutGroupêÑèß
+    [SerializeField] private RectTransform contentRoot; // VerticalLayoutGroupÊé®Â•®
     [SerializeField] private UnityEngine.UI.Button buttonPrefab;
     
     [SerializeField] UnityEngine.UI.Button createBtn;
@@ -20,6 +20,7 @@ public class SearchLobbyUI : MonoBehaviour
     {
         gameObject.SetActive(true);
         noLobbies.SetActive(false);
+        ActivatedButtons();
     }
 
     public void Deactivated()
@@ -28,9 +29,11 @@ public class SearchLobbyUI : MonoBehaviour
         ClearUI();
     }
     
-    public void RefreshList(List<LobbyData> searchLobbyDatas)
+    public void RefreshList(List<SearchedLobbyData> searchLobbyDatas)
     {
-        noLobbies.SetActive(searchLobbyDatas.Count <= 0);
+        if (searchLobbyDatas == null) return;
+
+        noLobbies.SetActive(searchLobbyDatas.Count == 0);
 
         foreach (var lobbyData in searchLobbyDatas)
         {
@@ -40,16 +43,16 @@ public class SearchLobbyUI : MonoBehaviour
         ActivatedButtons();
     }
 
-    private void CreateLobbyButton(LobbyData lobbyData)
+    private void CreateLobbyButton(SearchedLobbyData lobbyData)
     {
         var btn = Instantiate(buttonPrefab, contentRoot);
         var buttonText = btn.GetComponentInChildren<TextMeshProUGUI>();
 
-        buttonText.text = $"({lobbyData.currentMemberDatas[0].name})";
+        buttonText.text = $"({lobbyData.ownerName})";
 
         btn.onClick.AddListener(() =>
         {
-            LobbyEvent.RaiseLobbyJoin(lobbyData.id);
+            LobbyEvent.RaiseLobbyJoin(lobbyData.lobbyId);
         });
     }
 

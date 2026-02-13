@@ -132,6 +132,7 @@ public class LobbySceneManager : MonoBehaviour, ILobbySceneManager
             if (state == LobbyState.InLobbySearchRoom)
             {
                 var searchResult = await eosSirvice.SearchLobby();
+                if (searchResult == null) continue;
                 uiManager.ClearAvairableLobby();
                 uiManager.RefreshAvailableLobby(searchResult);
             }

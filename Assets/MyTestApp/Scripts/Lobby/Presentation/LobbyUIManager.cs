@@ -52,11 +52,15 @@ public sealed class LobbyUIManager : MonoBehaviour
 
         switch (state)
         {
+
+            case LobbyState.None:
+                ActivateLoadUI();
+                break; 
+
             case LobbyState.InLobbySearchRoom:
                 ActivatedSearchUI();
                 break;
 
-            case LobbyState.None:
             case LobbyState.CreateLobbyAndJoin:
             case LobbyState.Joining:
             case LobbyState.LeavingLobby:
@@ -105,7 +109,7 @@ public sealed class LobbyUIManager : MonoBehaviour
         inLobbyUI.Activated(data);
     }
 
-    public void RefreshAvailableLobby(List<LobbyData> searchLobbyDatas)
+    public void RefreshAvailableLobby(List<SearchedLobbyData> searchLobbyDatas)
     {
         searchUI.RefreshList(searchLobbyDatas);
     }

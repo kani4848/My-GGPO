@@ -11,8 +11,9 @@ public enum LobbyState
 {
     None,
 
-    InLobbySearchRoom,
     SearchingLobby,
+
+    InLobbySearchRoom,
     CreateLobbyAndJoin,
 
     Joining,

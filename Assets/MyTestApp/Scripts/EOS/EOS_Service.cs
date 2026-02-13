@@ -52,7 +52,7 @@ public class EOS_Service : MonoBehaviour, IEosService
 
 
     //ロビーシーン===============================================
-    public async UniTask<List<LobbyData>> SearchLobby(string path = "")
+    public async UniTask<List<SearchedLobbyData>> SearchLobby(string path = "")
     {
         var data = await lobbySearchService.SearchLobby(path);
         inLobbyService.EnterLobbyAction();
@@ -100,6 +100,11 @@ public class EOS_Service : MonoBehaviour, IEosService
 
     public static PlayerData CreatePlayerData(LobbyMember lobbyMember)
     {
+        var _puid = lobbyMember.ProductId;
+        string puid = _puid == null ? "" : _puid.ToString();
+
+        string memberName = lobbyMember.DisplayName;
+
         LobbyAttribute hatAtt; 
         bool a = lobbyMember.MemberAttributes.TryGetValue(IEosService.MEMBER_KEY_HAT, out hatAtt);
         Color hatCol = a ? UnpackRgb((long)hatAtt.AsInt64) : Color.black;
@@ -116,7 +121,7 @@ public class EOS_Service : MonoBehaviour, IEosService
         bool d = lobbyMember.MemberAttributes.TryGetValue(IEosService.MEMBER_KEY_READY, out readyAtt);
         bool ready = d ? (bool)readyAtt.AsBool : false;
 
-        return new PlayerData(lobbyMember.ProductId.ToString(), lobbyMember.DisplayName, charaId, hatCol, umaCol, ready);
+        return new PlayerData(puid, memberName, charaId, hatCol, umaCol, ready);
     }
 
 

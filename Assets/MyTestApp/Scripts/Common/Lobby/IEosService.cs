@@ -9,18 +9,32 @@ using UnityEngine;
 using System.Threading;
 using System;
 
+public class SearchedLobbyData
+{
+    public string lobbyId;
+    public string ownerName;
+    public int charaId;
+    public Color hatCol;
+
+    public SearchedLobbyData(string lobbyId, string ownerName, int charaId, Color hatCol)
+    {
+        this.lobbyId = lobbyId;
+        this.ownerName = ownerName;
+        this.charaId = charaId;
+        this.hatCol = hatCol;
+    }
+}
+
 public class LobbyData
 {
     public string id;
     public string path;
-    public int maxPlayers;
     public List<PlayerData> currentMemberDatas;
 
-    public LobbyData (string id, string path, int maxPlayers, List<PlayerData> currentMemberDatas)
+    public LobbyData (string id, string path, List<PlayerData> currentMemberDatas)
     {
         this.id = id;
         this.path = path;
-        this.maxPlayers = maxPlayers;
         this.currentMemberDatas = currentMemberDatas;
     }
 }
@@ -76,9 +90,13 @@ public interface IEosService
     //ロビーキー、IDは必ず小文字
     public static string LobbyCommonKey = "bucket";
     public static string LobbyCommonId = "test";
-    public static string LobbyCustomKey = "custom";
+    
+    public static string LOBBY_KEY_PATH = "pass";
+    public static string LOBBY_KEY_OWNER_NAME = "owner";
+    public static string LOBBY_KEY_CHARA = "chara";
+    public static string LOBBY_KEY_HAT = "hat";
 
-    public UniTask<List<LobbyData>> SearchLobby(string path = "");
+    public UniTask<List<SearchedLobbyData>> SearchLobby(string path = "");
 
     public UniTask<LobbyData> JoinLobby(string id);
 
