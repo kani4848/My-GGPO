@@ -18,7 +18,7 @@ using static UIManager_Main;
 
 public class UIManager_Main : MonoBehaviour
 {
-    [Header("���C���Q�[��")]
+    [Header("メインゲーム")]
     [SerializeField] GameObject mainCanvas;
 
     [SerializeField] GameObject keyGuides;
@@ -35,7 +35,7 @@ public class UIManager_Main : MonoBehaviour
     [SerializeField] CharacterController_Main chara_p1;
     [SerializeField] CharacterController_Main chara_p2;
 
-    [Header("���E���h���U���g")]
+    [Header("ラウンドリザルト")]
     [SerializeField] GameObject roundResultUI;
     [SerializeField] TextMeshProUGUI roundResultMessageText;
 
@@ -43,7 +43,7 @@ public class UIManager_Main : MonoBehaviour
     [SerializeField] Transform resultLogRoot_p2;
     [SerializeField] GameObject resultLogPrefab;
 
-    [Header("�I�����")]
+    [Header("終了画面")]
     [SerializeField] GameObject winner;
     [SerializeField] UnityEngine.UI.Image hat_winner;
     [SerializeField] UnityEngine.UI.Image chara_winner;
@@ -53,11 +53,22 @@ public class UIManager_Main : MonoBehaviour
     [SerializeField] float umaAnimDuration = 0.2f;
     [SerializeField] GameObject endCanvas;
 
+    [Header("ソロモード")]
+    [SerializeField] TextMeshProUGUI stageLeveText;
+    [SerializeField] Button retryButton_solo;
+    [SerializeField] Button goTitleButton_solo;
+
+    [Header("ローカルモード")]
     [SerializeField] Button rematchButton_local;
     [SerializeField] Button goTitleButton_local;
 
-    [SerializeField] Button retryButton_solo;
-    [SerializeField] Button goTitleButton_solo;
+    [Header("オンラインモード")]
+    [SerializeField] Button quickMatchButton_online;
+    [SerializeField] Button goLobbyButton_online;
+    [SerializeField] Button goTitleButton_online;
+    [SerializeField] GameObject searchingUI;
+
+    bool walkAnim = true;
 
     private void Awake()
     {
@@ -117,34 +128,18 @@ public class UIManager_Main : MonoBehaviour
         }
     }
 
-    void ActivateButtons_Local(bool active)
+    //モード共通===============================================================================
+
+    private void Start()
     {
-        rematchButton_local.gameObject.SetActive(active);
-        goTitleButton_local.gameObject.SetActive(active);
+        //終了画面の設定
+        winner.transform.DOLocalMoveY(umaMoveY, umaAnimDuration)
+            .SetRelative()
+            .SetLoops(-1, LoopType.Yoyo);
 
-        rematchButton_local.interactable = active;
-        goTitleButton_local.interactable = active;
-
-        if (!active)
-        {
-            rematchButton_local.onClick.RemoveAllListeners();
-            goTitleButton_local.onClick.RemoveAllListeners();
-        }
-    }
-
-    void ActivateButtons_Solo(bool active)
-    {
-        retryButton_solo.gameObject.SetActive(active);
-        goTitleButton_solo.gameObject.SetActive(active);
-
-        retryButton_solo.interactable = active;
-        goTitleButton_solo.interactable = active;
-
-        if (!active)
-        {
-            retryButton_solo.onClick.RemoveAllListeners();
-            goTitleButton_solo.onClick.RemoveAllListeners();
-        }
+        winner.transform.DOLocalRotate(new Vector3(0, 0, umaRotate), umaAnimDuration)
+            .SetRelative()
+            .SetLoops(-1, LoopType.Yoyo);
     }
 
     public void Init(GameMode mode, bool isOwner, PlayerImageData charaImageData_p1, PlayerImageData charaImageData_p2)
@@ -163,7 +158,7 @@ public class UIManager_Main : MonoBehaviour
 
             case GameMode.Solo:
                 chara_p1.Init(true, charaImageData_p1, true);
-                chara_p2.Init(false, charaImageData_p2,true);
+                chara_p2.Init(false, charaImageData_p2, true);
                 break;
         }
 
@@ -189,46 +184,16 @@ public class UIManager_Main : MonoBehaviour
                         keyGuid_2p.GetComponentInChildren<TextMeshProUGUI>().text = "space key";
                     }
                     break;
-                    
-                case GameMode.Local: 
+
+                case GameMode.Local:
                     break;
-                    
+
                 case GameMode.Solo:
                     keyGuid_2p.SetActive(false);
                     break;
             }
         }
     }
-
-    void ResetLogs()
-    {
-        var logs_p1 = resultLogRoot_p1.GetComponentsInChildren<Transform>();
-        foreach (Transform log in logs_p1)
-        {
-            if (log == resultLogRoot_p1.transform) continue;
-            Destroy(log.gameObject);
-        }
-
-        var logs_p2 = resultLogRoot_p2.GetComponentsInChildren<Transform>();
-        foreach (Transform log in logs_p2)
-        {
-            if (log == resultLogRoot_p2.transform) continue;
-            Destroy(log.gameObject);
-        }
-    }
-
-    private void Start()
-    {
-        //�I����ʂ̐ݒ�
-        winner.transform.DOLocalMoveY(umaMoveY, umaAnimDuration)
-            .SetRelative()
-            .SetLoops(-1, LoopType.Yoyo);
-
-        winner.transform.DOLocalRotate(new Vector3(0, 0, umaRotate), umaAnimDuration)
-            .SetRelative()
-            .SetLoops(-1, LoopType.Yoyo);
-    }
-
     public async UniTask RoundStart()
     {
         await UniTask.Delay(TimeSpan.FromSeconds(1));
@@ -337,7 +302,7 @@ public class UIManager_Main : MonoBehaviour
 
             chara_p1.OnTimeUp();
             chara_p2.OnTimeUp();
-            
+
             CreateResultLog(resultLogRoot_p1, "--", false);
             CreateResultLog(resultLogRoot_p2, "--", false);
 
@@ -349,7 +314,7 @@ public class UIManager_Main : MonoBehaviour
         string remoteText = GetString(resultData.pressFrame_p2);
 
         bool win_p1 = resultData.roundResult == RoundResult.WIN_P1 || resultData.roundResult == RoundResult.FLYING_P2;
-        bool win_p2 = resultData.roundResult == RoundResult.WIN_P2|| resultData.roundResult == RoundResult.FLYING_P1;
+        bool win_p2 = resultData.roundResult == RoundResult.WIN_P2 || resultData.roundResult == RoundResult.FLYING_P1;
 
         CreateResultLog(resultLogRoot_p1, localText, win_p1);
         CreateResultLog(resultLogRoot_p2, remoteText, win_p2);
@@ -376,17 +341,32 @@ public class UIManager_Main : MonoBehaviour
         await UniTask.Delay(TimeSpan.FromSeconds(2));
     }
 
+    void ResetLogs()
+    {
+        var logs_p1 = resultLogRoot_p1.GetComponentsInChildren<Transform>();
+        foreach (Transform log in logs_p1)
+        {
+            if (log == resultLogRoot_p1.transform) continue;
+            Destroy(log.gameObject);
+        }
+
+        var logs_p2 = resultLogRoot_p2.GetComponentsInChildren<Transform>();
+        foreach (Transform log in logs_p2)
+        {
+            if (log == resultLogRoot_p2.transform) continue;
+            Destroy(log.gameObject);
+        }
+    }
+
     void CreateResultLog(Transform logRoot, string time, bool win)
     {
         var obj = Instantiate(resultLogPrefab, logRoot);
         var texts = obj.GetComponentsInChildren<TextMeshProUGUI>();
 
         texts[0].text = time;
-        texts[1].text = win ? "��" : "�~";
+        texts[1].text = win ? "○" : "×";
     }
 
-    bool walkAnim = true;
-    
     public async UniTask OnRoundReset(bool _goBackChara, bool logReset)
     {
         await fillScreenCol_black.DOFade(1, 0.5f);
@@ -413,10 +393,32 @@ public class UIManager_Main : MonoBehaviour
             chara_p2.OnRestart();
         }
 
-        if(logReset) ResetLogs();
+        if (logReset) ResetLogs();
 
         await UniTask.Delay(TimeSpan.FromSeconds(0.5f));
         await fillScreenCol_black.DOFade(0, 0.5f);
+    }
+
+    public async UniTask ExitScene()
+    {
+        await fillScreenCol_black.DOFade(1, 1.5f);
+    }
+
+
+    //ローカルモード===============================================================================
+    void ActivateButtons_Local(bool active)
+    {
+        rematchButton_local.gameObject.SetActive(active);
+        goTitleButton_local.gameObject.SetActive(active);
+
+        rematchButton_local.interactable = active;
+        goTitleButton_local.interactable = active;
+
+        if (!active)
+        {
+            rematchButton_local.onClick.RemoveAllListeners();
+            goTitleButton_local.onClick.RemoveAllListeners();
+        }
     }
 
     public UniTask<bool> OnGameEnd_Local(MatchResult matchResult)
@@ -437,7 +439,7 @@ public class UIManager_Main : MonoBehaviour
                 roundResultMessageText.text = matchResult == MatchResult.WIN_P1 ? "P1 survived!" : "P2 survived!";
                 var imageData = winnerController.GetCharaImageData();
                 hat_winner.color = imageData.hatCol;
-                chara_winner.sprite = imageData.charaSprite;
+                chara_winner.sprite = CharaImageHandler.Instance.GetCharaSpriteById(imageData.charaId);
                 break;
 
             case MatchResult.DRAW:
@@ -464,6 +466,23 @@ public class UIManager_Main : MonoBehaviour
             });
 
         return tcs.Task;
+    }
+
+
+    //ソロモード===============================================================================
+    void ActivateButtons_Solo(bool active)
+    {
+        retryButton_solo.gameObject.SetActive(active);
+        goTitleButton_solo.gameObject.SetActive(active);
+
+        retryButton_solo.interactable = active;
+        goTitleButton_solo.interactable = active;
+
+        if (!active)
+        {
+            retryButton_solo.onClick.RemoveAllListeners();
+            goTitleButton_solo.onClick.RemoveAllListeners();
+        }
     }
 
     public UniTask<bool> OnGameOver_Solo()
@@ -500,7 +519,7 @@ public class UIManager_Main : MonoBehaviour
         roundResultMessageText.text = "you are the gratest cow devil!";
         var imageData = chara_p1.GetCharaImageData();
         hat_winner.color = imageData.hatCol;
-        chara_winner.sprite = imageData.charaSprite;
+        chara_winner.sprite = CharaImageHandler.Instance.GetCharaSpriteById(imageData.charaId);
         uma_winner.color = imageData.umaCol;
 
         ActivateButtons_Solo(true);
@@ -522,8 +541,6 @@ public class UIManager_Main : MonoBehaviour
     {
         chara_p2.UpdateCharaImage(data);
     }
-
-
 
     public UniTask<bool> WaitRetryRequest_Solo()
     {
@@ -548,13 +565,65 @@ public class UIManager_Main : MonoBehaviour
         return tcs.Task;
     }
 
-    [SerializeField] TextMeshProUGUI stageLeveText;
-
     public async UniTask ShowSoloModeStageLevel(int cpuLv)
     {
         stageLeveText.gameObject.SetActive(true);
         stageLeveText.text = $"-stage {cpuLv}-";
         await UniTask.Delay(TimeSpan.FromSeconds(2f));
         stageLeveText.gameObject.SetActive(false);
+    }
+
+
+    //オンラインモード===============================================================================
+    public UniTask<MainGameState> ActivateEndMenuButtons_Online()
+    {
+        quickMatchButton_online.gameObject.SetActive(true);
+        goLobbyButton_online.gameObject.SetActive(true);
+        goTitleButton_online.gameObject.SetActive(true);
+
+        quickMatchButton_online.interactable = true;
+        goLobbyButton_online.interactable = true;
+        goTitleButton_online.interactable = true;
+
+        var endMenuTask = new UniTaskCompletionSource<MainGameState>();
+
+        quickMatchButton_online.onClick.AddListener(() =>
+        {
+            SoundManager.Instance.PlaySE(SE_Handler.SoundType.BUTTON);
+            endMenuTask.TrySetResult(MainGameState.QUICK_MATCH);
+            DeacetivateEndMenuButtons_Online();
+            searchingUI.SetActive(true);
+        });
+
+        goLobbyButton_online.onClick.AddListener(() =>
+        {
+            SoundManager.Instance.PlaySE(SE_Handler.SoundType.BUTTON);
+            endMenuTask.TrySetResult(MainGameState.GO_LOBBY);
+            DeacetivateEndMenuButtons_Online();
+        });
+
+        goTitleButton_online.onClick.AddListener(() =>
+        {
+            SoundManager.Instance.PlaySE(SE_Handler.SoundType.BUTTON);
+            endMenuTask.TrySetResult(MainGameState.GO_TITLE); 
+            DeacetivateEndMenuButtons_Online(); 
+        });
+
+        return endMenuTask.Task;
+    }
+
+    public void DeacetivateEndMenuButtons_Online()
+    {
+        quickMatchButton_online.gameObject.SetActive(false);
+        goLobbyButton_online.gameObject.SetActive(false);
+        goTitleButton_online.gameObject.SetActive(false);
+
+        quickMatchButton_online.interactable = false;
+        goLobbyButton_online.interactable = false;
+        goTitleButton_online.interactable = false;
+
+        quickMatchButton_online.onClick.RemoveAllListeners();
+        goLobbyButton_online.onClick.RemoveAllListeners();
+        goTitleButton_online.onClick.RemoveAllListeners();
     }
 }

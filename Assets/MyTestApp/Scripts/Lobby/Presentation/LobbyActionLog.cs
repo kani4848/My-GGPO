@@ -1,6 +1,3 @@
-using Epic.OnlineServices;
-using Epic.OnlineServices.UserInfo;
-using System;
 using TMPro;
 using UnityEngine;
 
@@ -16,12 +13,12 @@ public enum LobbyLogType
 
 public class LobbyActionLog : MonoBehaviour
 {
-    public ProductUserId id;
+    public string id;
     string userName;
     LobbyLogType type;
     [SerializeField]TextMeshProUGUI text;
 
-    public void UpdateData(ProductUserId _id, string _username, LobbyLogType _type)
+    public void UpdateData(string _id, string _username, LobbyLogType _type)
     {
         id = _id;
         userName = _username;

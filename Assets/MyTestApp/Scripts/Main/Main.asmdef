@@ -5,9 +5,6 @@
         "UniTask",
         "UniTask.DOTween",
         "DOTween.Modules",
-        "com.playeveryware.eos.samples",
-        "com.Epic.OnlineServices",
-        "com.playeveryware.eos.core",
         "SceneManagerInterface",
         "Unity.TextMeshPro",
         "UnityEngine.UI"

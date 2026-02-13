@@ -6,20 +6,20 @@ using Epic.OnlineServices.Connect;
 using PlayEveryWare.EpicOnlineServices;
 using UnityEngine;
 
-public class AutoLogin_DeviceId : MonoBehaviour
+public class EOS_LoginService
 {
     [SerializeField] private float waitEosReadyTimeoutSec = 15f;
 
-    public async UniTask CoAutoLogin(CancellationTokenSource cts)
+    public async UniTask CoAutoLogin(CancellationToken token)
     {
-        // ”O‚Ì‚½‚ß–ˆ‰ñ‰Šú‰»
-        cts.Token.ThrowIfCancellationRequested();
+        // å¿µã®ãŸã‚æ¯å›åˆæœŸåŒ–
+        token.ThrowIfCancellationRequested();
 
-        // 1) EOSManager / Platform ‚ª€”õ‚Å‚«‚é‚Ü‚Å‘Ò‚Âireturn‚Å”²‚¯‚È‚¢j
-        bool eosReady = await WaitEosReadyAsync(cts.Token);
+        // 1) EOSManager / Platform ãŒæº–å‚™ã§ãã‚‹ã¾ã§å¾…ã¤ï¼ˆreturnã§æŠœã‘ãªã„ï¼‰
+        bool eosReady = await WaitEosReadyAsync(token);
         if (!eosReady) return;
 
-        // 2) ‚·‚Å‚ÉƒƒOƒCƒ“Ï‚İ‚È‚çI—¹
+        // 2) ã™ã§ã«ãƒ­ã‚°ã‚¤ãƒ³æ¸ˆã¿ãªã‚‰çµ‚äº†
         var puid = EOSManager.Instance.GetProductUserId();
         if (puid != null && puid.IsValid())
         {
@@ -27,8 +27,8 @@ public class AutoLogin_DeviceId : MonoBehaviour
             return;
         }
 
-        // 3) ‚Ü‚¸‚Í CreateDeviceId ‚¹‚¸‚É Login ‚ğ‚·iŠù‘¶DeviceIdŠÂ‹«‚Å—]Œv‚ÈError‚ğo‚³‚È‚¢j
-        var loginInfo = await ConnectLoginAsync(cts.Token);
+        // 3) ã¾ãšã¯ CreateDeviceId ã›ãšã« Login ã‚’è©¦ã™ï¼ˆæ—¢å­˜DeviceIdç’°å¢ƒã§ä½™è¨ˆãªErrorã‚’å‡ºã•ãªã„ï¼‰
+        var loginInfo = await ConnectLoginAsync(token);
 
         if (loginInfo.ResultCode == Result.Success)
         {
@@ -36,29 +36,29 @@ public class AutoLogin_DeviceId : MonoBehaviour
             return;
         }
 
-        // 4) ‰‰ñ‚È‚Ç‚Å Connect User ‚ª–³‚¢ê‡‚Íì¬
+        // 4) åˆå›ãªã©ã§ Connect User ãŒç„¡ã„å ´åˆã¯ä½œæˆ
         if (loginInfo.ResultCode == Result.InvalidUser)
         {
             Debug.Log("[AutoLogin_DeviceId] InvalidUser -> CreateConnectUser");
-            await CreateConnectUserAsync(loginInfo.ContinuanceToken, cts.Token);
+            await CreateConnectUserAsync(loginInfo.ContinuanceToken, token);
             Debug.Log($"[AutoLogin_DeviceId] CreateConnectUser Success. PUID={EOSManager.Instance.GetProductUserId()}");
             return;
         }
 
-        // 5) uDeviceId‚ª–³‚¢/–³ŒøvŒn‚Á‚Û‚¢¸”s‚¾‚¯A‚±‚±‚Å DeviceId ‚ğì‚Á‚ÄƒŠƒgƒ‰ƒC
+        // 5) ã€ŒDeviceIdãŒç„¡ã„/ç„¡åŠ¹ã€ç³»ã£ã½ã„å¤±æ•—ã ã‘ã€ã“ã“ã§ DeviceId ã‚’ä½œã£ã¦ãƒªãƒˆãƒ©ã‚¤
         if (IsLikelyMissingDeviceId(loginInfo.ResultCode))
         {
             Debug.Log($"[AutoLogin_DeviceId] Login failed ({loginInfo.ResultCode}) -> Try CreateDeviceId and retry login.");
 
-            var createResult = await CreateDeviceIdAsync(cts.Token);
+            var createResult = await CreateDeviceIdAsync(token);
             if (createResult != Result.Success && createResult != Result.DuplicateNotAllowed)
             {
                 Debug.LogError($"[AutoLogin_DeviceId] CreateDeviceId failed: {createResult}");
                 return;
             }
 
-            // ƒŠƒgƒ‰ƒC
-            var retryInfo = await ConnectLoginAsync(cts.Token);
+            // ãƒªãƒˆãƒ©ã‚¤
+            var retryInfo = await ConnectLoginAsync(token);
 
             if (retryInfo.ResultCode == Result.Success)
             {
@@ -69,7 +69,7 @@ public class AutoLogin_DeviceId : MonoBehaviour
             if (retryInfo.ResultCode == Result.InvalidUser)
             {
                 Debug.Log("[AutoLogin_DeviceId] InvalidUser (retry) -> CreateConnectUser");
-                await CreateConnectUserAsync(retryInfo.ContinuanceToken, cts.Token);
+                await CreateConnectUserAsync(retryInfo.ContinuanceToken, token);
                 Debug.Log($"[AutoLogin_DeviceId] CreateConnectUser Success. PUID={EOSManager.Instance.GetProductUserId()}");
                 return;
             }
@@ -78,7 +78,7 @@ public class AutoLogin_DeviceId : MonoBehaviour
             return;
         }
 
-        // ‚»‚Ì‘¼‚Ì¸”s‚Í•’Ê‚ÉƒGƒ‰[‚Æ‚µ‚Äˆµ‚¤
+        // ãã®ä»–ã®å¤±æ•—ã¯æ™®é€šã«ã‚¨ãƒ©ãƒ¼ã¨ã—ã¦æ‰±ã†
         Debug.LogError($"[AutoLogin_DeviceId] Connect Login failed: {loginInfo.ResultCode}");
     }
 
@@ -96,7 +96,7 @@ public class AutoLogin_DeviceId : MonoBehaviour
                 return false;
             }
 
-            // ŸƒtƒŒ[ƒ€‚Ü‚Å‘Ò‚Âireturn‚µ‚È‚¢j
+            // æ¬¡ãƒ•ãƒ¬ãƒ¼ãƒ ã¾ã§å¾…ã¤ï¼ˆreturnã—ãªã„ï¼‰
             await UniTask.Yield(PlayerLoopTiming.Update, ct);
         }
 
@@ -107,7 +107,7 @@ public class AutoLogin_DeviceId : MonoBehaviour
     {
         var tcs = new UniTaskCompletionSource<LoginCallbackInfo>();
 
-        // ‚±‚±‚ÍƒTƒ“ƒvƒ‹‚Ìƒ‰ƒbƒp[‚ğ‚»‚Ì‚Ü‚Üg‚¤iÅ¬‰ü•Ïj
+        // ã“ã“ã¯ã‚µãƒ³ãƒ—ãƒ«ã®ãƒ©ãƒƒãƒ‘ãƒ¼ã‚’ãã®ã¾ã¾ä½¿ã†ï¼ˆæœ€å°æ”¹å¤‰ï¼‰
         string displayName = "dsa";
 
         EOSManager.Instance.StartConnectLoginWithOptions(
@@ -142,7 +142,7 @@ public class AutoLogin_DeviceId : MonoBehaviour
 
         connect.CreateDeviceId(ref options, null, (ref CreateDeviceIdCallbackInfo info) =>
         {
-            // DuplicateNotAllowed ‚ÍuŠù‚É‚ ‚év‚È‚Ì‚Å³íˆµ‚¢‚Åi‚ß‚ÄOK
+            // DuplicateNotAllowed ã¯ã€Œæ—¢ã«ã‚ã‚‹ã€ãªã®ã§æ­£å¸¸æ‰±ã„ã§é€²ã‚ã¦OK
             tcs.TrySetResult(info.ResultCode);
         });
 
@@ -174,8 +174,8 @@ public class AutoLogin_DeviceId : MonoBehaviour
 
     private bool IsLikelyMissingDeviceId(Result code)
     {
-        // uDeviceIdì‚Á‚Ä‚©‚ç—ˆ‚¢vŒn‚Ì¸”s‚ğ‚±‚±‚ÉŠñ‚¹‚é
-        // ¦ ƒvƒƒWƒFƒNƒg‚ÅÀ‘ª‚µ‚½ƒR[ƒh‚ª•ª‚©‚Á‚½‚ç‚±‚±‚ği‚é‚Ì‚ªÅ‹­
+        // ã€ŒDeviceIdä½œã£ã¦ã‹ã‚‰æ¥ã„ã€ç³»ã®å¤±æ•—ã‚’ã“ã“ã«å¯„ã›ã‚‹
+        // â€» ãƒ—ãƒ­ã‚¸ã‚§ã‚¯ãƒˆã§å®Ÿæ¸¬ã—ãŸã‚³ãƒ¼ãƒ‰ãŒåˆ†ã‹ã£ãŸã‚‰ã“ã“ã‚’çµã‚‹ã®ãŒæœ€å¼·
         return code == Result.InvalidAuth
             //|| code == Result.InvalidToken
             || code == Result.NotFound;

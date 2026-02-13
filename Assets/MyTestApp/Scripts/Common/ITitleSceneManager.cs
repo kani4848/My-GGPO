@@ -10,6 +10,6 @@ public enum TitleState
 public interface ITitleSceneManager
 {
     public TitleState state { get; set; }
-    public void Init(ICharaImageHandler charaImageHandler);
+    public void Init(PlayerData PlayerData);
     public string GetPlayerName();
 }

@@ -457,7 +457,6 @@ namespace PlayEveryWare.EpicOnlineServices.Samples
         private LobbySearch CurrentSearch;
         private Dictionary<Lobby, LobbyDetails> SearchResults;
 
-
         //NotificationId
         private NotifyEventHandle LobbyUpdateNotification;
         private NotifyEventHandle LobbyMemberUpdateNotification;
@@ -497,6 +496,71 @@ namespace PlayEveryWare.EpicOnlineServices.Samples
         public delegate void LobbyChangeEventHandler(object sender, LobbyChangeEventArgs e);
 
         public event LobbyChangeEventHandler LobbyChanged;
+
+        //複数のアトリビュートを一括追加
+        public void SetMemberAttributesBatch(IReadOnlyList<LobbyAttribute> memberAttributes, OnLobbyCallback completed = null)
+        {
+            // 空なら何もしない（必要なら Success を返す）
+            if (memberAttributes == null || memberAttributes.Count == 0)
+            {
+                completed?.Invoke(Result.Success);
+                return;
+            }
+
+            if (!CurrentLobby.IsValid())
+            {
+                Debug.LogError("Lobbies (SetMemberAttributesBatch): CurrentLobby is not valid.");
+                completed?.Invoke(Result.NotFound);
+                return;
+            }
+
+            // Modify Lobby（1回だけ）
+            UpdateLobbyModificationOptions options = new UpdateLobbyModificationOptions()
+            {
+                LobbyId = CurrentLobby.Id,
+                LocalUserId = EOSManager.Instance.GetProductUserId()
+            };
+
+            Result result = EOSManager.Instance.GetEOSLobbyInterface().UpdateLobbyModification(ref options, out LobbyModification lobbyModificationHandle);
+
+            if (result != Result.Success)
+            {
+                Debug.LogErrorFormat("Lobbies (SetMemberAttributesBatch): Could not create lobby modification: Error code: {0}", result);
+                completed?.Invoke(result);
+                return;
+            }
+
+            // Member Attribute を全部積む（複数回 AddMemberAttribute）
+            for (int i = 0; i < memberAttributes.Count; i++)
+            {
+                AttributeData attributeData = memberAttributes[i].AsAttribute;
+
+                LobbyModificationAddMemberAttributeOptions attrOptions = new LobbyModificationAddMemberAttributeOptions()
+                {
+                    Attribute = attributeData,
+                    // 各AttributeのVisibilityを尊重（サンプルはPublic固定だった）
+                    Visibility = memberAttributes[i].Visibility
+                };
+
+                result = lobbyModificationHandle.AddMemberAttribute(ref attrOptions);
+
+                if (result != Result.Success)
+                {
+                    Debug.LogErrorFormat("Lobbies (SetMemberAttributesBatch): Could not add member attribute: Error code: {0}", result);
+                    completed?.Invoke(result);
+                    return;
+                }
+            }
+
+            // UpdateLobby は最後に1回だけ
+            UpdateLobbyOptions updateOptions = new UpdateLobbyOptions()
+            {
+                LobbyModificationHandle = lobbyModificationHandle
+            };
+
+            EOSManager.Instance.GetEOSLobbyInterface().UpdateLobby(ref updateOptions, completed, OnUpdateLobbyCallBack);
+        }
+
 
         protected virtual void OnLobbyChanged(LobbyChangeEventArgs args)
         {

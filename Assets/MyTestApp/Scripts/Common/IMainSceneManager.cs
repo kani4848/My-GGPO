@@ -23,7 +23,7 @@ public enum MainGameState
 
 public interface IMainSceneManager
 {
-    public UniTask StartFlow(ICharaImageHandler _charaImageHandler, IEosService eosService, GameMode mode);
+    public UniTask StartFlow(IEosService eosService, ICharaImageHandler _charaImageHandler, GameMode mode);
 
     public MainGameState state { get; set; }
 }

@@ -1,94 +1,200 @@
 using UnityEngine;
 using TMPro;
 using UnityEngine.UI;
-using System;
-using PlayEveryWare.EpicOnlineServices.Samples;
-using NUnit.Framework;
 using System.Collections.Generic;
-using Epic.OnlineServices;
-using Unity.VisualScripting;
 using System.Linq;
-using static UnityEngine.GraphicsBuffer;
-using UnityEngine.Rendering;
-using UnityEditor;
-
-public class LobbyMemberData
-{
-    public string userName;
-    public ProductUserId puid;
-    public LobbyMemberDataDisplay displayUI;
-
-    public LobbyMemberData(ProductUserId _puid, LobbyMemberDataDisplay _displayUI)
-    {
-        puid = _puid;
-        displayUI = _displayUI;
-    }
-}
 
 public class JoinedLobbyUI : MonoBehaviour
 {
     [SerializeField] TextMeshProUGUI path;
     [SerializeField] TextMeshProUGUI id;
 
-    [SerializeField] LobbyMemberDataDisplay lobbyMemberDisplayPrefab;
-
+    [SerializeField] LobbyMemberNamePlate memberNamePlatePrefab;
 
     [SerializeField] Button readyButton;
+    [SerializeField] Button readyCancelButton;
     [SerializeField] Button leaveButton;
 
     [SerializeField] Transform memberRoot;
     [SerializeField] Transform logRoot;
     [SerializeField] GameObject logPrefab;
 
-    List<LobbyMemberData> currentMemberDatas = new();
+    //„Ç≠„Éº„Å´„ÅØÂêçÂâç„Åß„ÅØ„Å™„ÅèPUID„ÇíÂÖ•Âäõ
+    Dictionary<string, LobbyMemberNamePlate> namePlateDic = new();
 
-    public void Activated(string lobbyPath, string lobbyId, List<LobbyMember> members)
+
+    public void Activated(LobbyData lobbyData)
     {
         gameObject.SetActive(true);
-        path.text = lobbyPath == "" ? "undefined" : lobbyPath;
-        id.text = lobbyId;
+        path.text = lobbyData.path == "" ? "undefined" : lobbyData.path;
+        id.text = lobbyData.id;
 
         readyButton.interactable = true;
         leaveButton.interactable = true;
 
-        foreach (LobbyMember member in members)
+        foreach (var memberData in lobbyData.currentMemberDatas)
         {
-            AddMemberData(member);
+            AddMemberNamePlate(memberData);
         }
     }
 
     public void Deactivated()
     {
         gameObject.SetActive(false);
-        ClearCurrentMemberDatas();
+        ClearCurrentNamePlates();
         ClearLog();
     }
 
-    void AddMemberData(LobbyMember member)
+    void AddMemberNamePlate(PlayerData memberData)
     {
-        var a = currentMemberDatas.Find(m=>m.puid == member.ProductId);
-        if (a != null) return;
+        LobbyMemberNamePlate memberNamePlate = Instantiate(memberNamePlatePrefab, memberRoot);
 
-        LobbyMemberDataDisplay memberDisplay = Instantiate(lobbyMemberDisplayPrefab, memberRoot);
-        memberDisplay.SetInfo(member.ProductId.ToString());
-        memberDisplay.SetUserName(member.DisplayName);
-        currentMemberDatas.Add(new LobbyMemberData(member.ProductId, memberDisplay));
+        memberNamePlate.UpdateImage(memberData);
 
+        namePlateDic.Add(memberData.puid, memberNamePlate);
 
-        // 1) LayoutÇÃåvéZÇë¶éûîΩâf
+        // 1) Layout„ÅÆË®àÁÆó„ÇíÂç≥ÊôÇÂèçÊò†
         LayoutRebuilder.ForceRebuildLayoutImmediate(memberRoot.GetComponent<RectTransform>());
-        // 2) îOÇÃÇΩÇﬂÉLÉÉÉìÉoÉXëSëÃÇÃçXêVÇ‡ämíË
+        // 2) Âøµ„ÅÆ„Åü„ÇÅ„Ç≠„É£„É≥„Éê„ÇπÂÖ®‰Ωì„ÅÆÊõ¥Êñ∞„ÇÇÁ¢∫ÂÆö
         Canvas.ForceUpdateCanvases();
     }
 
-    void ClearCurrentMemberDatas()
+    void ClearCurrentNamePlates()
     {
-        foreach(var data in currentMemberDatas)
+        foreach(var data in namePlateDic)
         {
-            Destroy(data.displayUI.gameObject);
+            Destroy(data.Value.gameObject);
         }
 
-        currentMemberDatas.Clear();
+        namePlateDic.Clear();
+    }
+
+    public void SwitchButtonsOnNotReady()
+    {
+        readyButton.gameObject.SetActive(true); 
+        readyCancelButton.gameObject.SetActive(false);
+        leaveButton.gameObject.SetActive(true);
+    }
+
+    public void DeactivateButtons()
+    {
+        readyButton.gameObject.SetActive(false);
+        readyCancelButton.gameObject.SetActive(false);
+        leaveButton.gameObject.SetActive(false);
+    }
+
+    public void SwitchButtonsOnReady()
+    {
+        readyButton.gameObject.SetActive(false);
+        readyCancelButton.gameObject.SetActive(true);
+        leaveButton.gameObject.SetActive(true);
+    }
+
+    //„Ç≥„Éº„É´„Éê„ÉÉ„ÇØ=========================================================
+
+    public void OnJoined(PlayerData memberData)
+    {
+        Debug.Log("ÂèÇÂä†");
+        AddMemberNamePlate(memberData);
+        CreateLog(memberData, LobbyLogType.JOIN);
+    }
+
+    public void OnMemberDataUpdate(PlayerData memberData)
+    {
+        if (namePlateDic.Count <= 0) return;
+
+        var targetNamePlate = namePlateDic[memberData.puid];
+        if (targetNamePlate == null) return;
+
+        targetNamePlate.UpdateImage(memberData);
+
+        var userLogs = logs.Where(m => m.id == memberData.puid);
+
+        foreach(var log in userLogs)
+        {
+            log.UpdateNameText(memberData.name);
+        }
+    }
+
+    public void OnReady(PlayerData lobbyMemberData)
+    {
+        if (namePlateDic.Count == 0) return;
+
+        var targetNamePlate = namePlateDic[lobbyMemberData.puid];
+        if (targetNamePlate == null) return;
+
+        targetNamePlate.SetReady(lobbyMemberData.ready);
+    }
+
+    public void OnConnected()
+    {
+        readyButton.interactable = false;
+        leaveButton.interactable = true;
+    }
+
+    public void OnLeft(PlayerData memberData)
+    {
+        Debug.Log("ÈÄÄÂÆ§");
+        var remover = namePlateDic[memberData.puid];
+
+        string userName = remover.name;
+        CreateLog(memberData, LobbyLogType.LEAVE);
+
+        Destroy(remover.gameObject);
+        namePlateDic.Remove(memberData.puid);
+    }
+
+    public void OnDisconnect(PlayerData memberData)
+    {
+        var tagetNamePlate = namePlateDic[memberData.puid];
+        if (tagetNamePlate == null) return;
+        tagetNamePlate.SetDisconnect(true);
+        CreateLog(memberData, LobbyLogType.DISCONNECT);
+    }
+
+    public void OnRevive(PlayerData memberData)
+    {
+        var taget = namePlateDic[memberData.puid];
+        if (taget == null) return;
+        taget.SetDisconnect(false);
+        CreateLog(memberData, LobbyLogType.REVIVE);
+    }
+
+    public void OnOwnerChanged(PlayerData newOwnerData)
+    {
+        if (namePlateDic.Count <= 0) return;
+        CreateLog(newOwnerData, LobbyLogType.OWNER_CHANGED);
+
+        foreach (var memberData in namePlateDic)
+        {
+            bool isNewOwner = memberData.Key == newOwnerData.puid;
+            memberData.Value.SetOwner(isNewOwner);
+        }
+
+    }
+
+    public void HeartBeat(PlayerData member)
+    {
+        if (member == null) return;
+        
+        LobbyMemberNamePlate target;
+        bool find = namePlateDic.TryGetValue(member.puid, out target);
+        if (!find) return;
+
+        target.HeartBeat();
+    }
+
+
+    //„Åù„ÅÆ‰ªñ=========================================================
+
+    List<LobbyActionLog> logs = new();
+
+    void CreateLog(PlayerData data, LobbyLogType logType)
+    {
+        var _log = Instantiate(logPrefab, logRoot);
+        var log = _log.GetComponent<LobbyActionLog>();
+        log.UpdateData(data.puid, data.name, logType);
+        logs.Add(log);
     }
 
     void ClearLog()
@@ -99,111 +205,5 @@ public class JoinedLobbyUI : MonoBehaviour
         }
 
         logs.Clear();
-    }
-
-    public void OnJoined(LobbyMember member)
-    {
-        Debug.Log("éQâ¡");
-        AddMemberData(member);
-        CreateLog(member.ProductId, member.DisplayName, LobbyLogType.JOIN);
-    }
-
-    public void OnUserNameApplied(ProductUserId puid, string userName)
-    {
-        if (userName =="") userName = LobbySceneManager.emptyPlayerName;
-     
-        if (currentMemberDatas.Count <= 0) return;
-
-        var member = currentMemberDatas.FirstOrDefault(m => m.displayUI.puid.text == puid.ToString());
-        if (member == null) return;
-        if (member.displayUI == null) return;
-
-        member.displayUI.SetUserName(userName);
-        member.userName = userName;
-
-        var userLogs = logs.Where(m => m.id == puid);
-
-        foreach(var log in userLogs)
-        {
-            log.UpdateNameText(userName);
-        }
-    }
-
-    public void OnReady()
-    {
-        readyButton.interactable = false;
-    }
-
-    public void OnConnecting()
-    {
-        readyButton.interactable = false;
-        leaveButton.interactable = false;
-    }
-
-    public void OnConnected()
-    {
-        readyButton.interactable = false;
-        leaveButton.interactable = true;
-    }
-
-    public void OnLeft(LobbyMember member)
-    {
-        Debug.Log("ëﬁé∫");
-        var remover = currentMemberDatas.Find(m => m.puid == member.ProductId);
-
-        string userName = remover.userName;
-        if (userName == "") userName = LobbySceneManager.emptyPlayerName;
-        CreateLog(member.ProductId, userName, LobbyLogType.LEAVE);
-
-        Destroy(remover.displayUI.gameObject);
-        currentMemberDatas.Remove(remover);
-    }
-
-    public void OnDead(LobbyMember member)
-    {
-        var taget = currentMemberDatas.FirstOrDefault(m => m.puid == member.ProductId);
-        if (taget == null) return; ;
-        taget.displayUI.SetDisconnect(true);
-        CreateLog(member.ProductId, member.DisplayName, LobbyLogType.DISCONNECT);
-    }
-
-    public void OnRevive(LobbyMember member)
-    {
-        var taget = currentMemberDatas.Find(m => m.puid == member.ProductId);
-        if (taget == null) return; ;
-        taget.displayUI.SetDisconnect(false);
-        CreateLog(member.ProductId, member.DisplayName, LobbyLogType.REVIVE);
-    }
-
-    public void OnOwnerChanged(LobbyMember newOwner)
-    {
-        if (currentMemberDatas.Count <= 0) return;
-        
-        CreateLog(newOwner.ProductId, newOwner.DisplayName, LobbyLogType.OWNER_CHANGED);
-
-        foreach (LobbyMemberData memberData in currentMemberDatas)
-        {
-            bool isOwner = memberData.puid == newOwner.ProductId;
-            memberData.displayUI.SetOwner(isOwner);
-            if(isOwner)memberData.displayUI.transform.SetAsFirstSibling();
-        }
-
-    }
-
-    public void HeartBeat(LobbyMember member)
-    {
-        var target = currentMemberDatas.FirstOrDefault(m => m.puid == member.ProductId);
-        if (target == null) return;
-        target.displayUI.HeartBeat();
-    }
-
-    List<LobbyActionLog> logs = new();
-
-    void CreateLog(ProductUserId id, string userName, LobbyLogType logType)
-    {
-        var _log = Instantiate(logPrefab, logRoot);
-        var log = _log.GetComponent<LobbyActionLog>();
-        log.UpdateData(id, userName, logType);
-        logs.Add(log);
     }
 }

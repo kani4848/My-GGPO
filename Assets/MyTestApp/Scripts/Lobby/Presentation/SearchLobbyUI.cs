@@ -1,14 +1,9 @@
 using TMPro;
 using UnityEngine;
-using Epic.OnlineServices.Lobby;
-using NUnit.Framework;
-using PlayEveryWare.EpicOnlineServices.Samples;
 using System.Collections.Generic;
-using System;
 
 public class SearchLobbyUI : MonoBehaviour
 {
-
     [SerializeField] private RectTransform contentRoot; // VerticalLayoutGroupêÑèß
     [SerializeField] private UnityEngine.UI.Button buttonPrefab;
     
@@ -33,29 +28,28 @@ public class SearchLobbyUI : MonoBehaviour
         ClearUI();
     }
     
-    public void RefreshList(Dictionary<Lobby, LobbyDetails> lobbies, Action<Lobby, LobbyDetails> joinAction)
+    public void RefreshList(List<LobbyData> searchLobbyDatas)
     {
-        noLobbies.SetActive(lobbies.Count <= 0);
+        noLobbies.SetActive(searchLobbyDatas.Count <= 0);
 
-        foreach (var lobby in lobbies)
+        foreach (var lobbyData in searchLobbyDatas)
         {
-            CreateLobbyButton(lobby.Key, lobby.Value, joinAction);
+            CreateLobbyButton(lobbyData);
         }
 
         ActivatedButtons();
     }
 
-    private void CreateLobbyButton(Lobby lobby, LobbyDetails details, Action<Lobby, LobbyDetails> joinAction)
+    private void CreateLobbyButton(LobbyData lobbyData)
     {
         var btn = Instantiate(buttonPrefab, contentRoot);
-        var text = btn.GetComponentInChildren<TextMeshProUGUI>();
+        var buttonText = btn.GetComponentInChildren<TextMeshProUGUI>();
 
-        
-        text.text = $"({lobby.Members[0].DisplayName})";
+        buttonText.text = $"({lobbyData.currentMemberDatas[0].name})";
 
         btn.onClick.AddListener(() =>
         {
-            joinAction(lobby, details);
+            LobbyEvent.RaiseLobbyJoin(lobbyData.id);
         });
     }
 

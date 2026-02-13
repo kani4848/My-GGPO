@@ -1,22 +1,7 @@
-using PlayEveryWare.EpicOnlineServices.Samples;
-using PlayEveryWare.EpicOnlineServices;
 using UnityEngine;
-using Cysharp.Threading;
 using Cysharp.Threading.Tasks;
 using System.Threading;
-using Unity.VisualScripting;
-using Epic.OnlineServices;
 using System;
-using UnityEngine.Events;
-using Newtonsoft.Json.Bson;
-using Epic.OnlineServices.Lobby;
-
-public static class LobbyEvent
-{
-    public delegate void LobbyStateChangedAction(LobbyState lobbyState);
-    public static event LobbyStateChangedAction lobbyStateChangedEvent;
-    public static void RaiseLobbyStateChanged(LobbyState lobbyState) => lobbyStateChangedEvent?.Invoke(lobbyState);
-}
 
 public class LobbySceneManager : MonoBehaviour, ILobbySceneManager
 {
@@ -34,24 +19,10 @@ public class LobbySceneManager : MonoBehaviour, ILobbySceneManager
         }
     }
 
-    public static ProductUserId myPUID;
     public static string emptyPlayerName = "No name";
     public static string localUserName = emptyPlayerName;
 
-    EOSLobbyManager lm;
-    [SerializeField]LobbyServiceManager lobbyServiceManager;
-
-    //ÉÅÉìÉoÅ[ëÆê´ÉLÅ[ÇÕïKÇ∏ëÂï∂éö
-    public static string HB_KEY = "HB";
-    public static string HB_STALE_KEY = "STALE";
-    public static string READY_KEY = "READY";
-
-    //ÉçÉrÅ[ÉLÅ[ÅAIDÇÕïKÇ∏è¨ï∂éö
-    public static string LobbyCommonKey = "bucket";
-    public static string LobbyCommonId = "test"; 
-    public static string customKey = "custom";
-
-    
+    IEosService eosSirvice;    
     CancellationTokenSource cts;
 
     public void Awake()
@@ -61,15 +32,19 @@ public class LobbySceneManager : MonoBehaviour, ILobbySceneManager
         cts = new();
     }
 
-    public void Init(IEosService eosService)
+    public void Init(IEosService _eosService)
     {
         state = LobbyState.InLobbySearchRoom;
 
-        lm = eosService.lobbyManager;
-        lobbyServiceManager = new LobbyServiceManager(lm);
+        eosSirvice = _eosService;
         uiManager.Init();
         SearchLobby();
         AutoRefleshLoop(cts.Token).Forget();
+    }
+
+    private void OnEnable()
+    {
+        LobbyEvent.lobbyJoinEvent += OnJoin;
     }
 
     private void OnApplicationQuit()
@@ -82,28 +57,73 @@ public class LobbySceneManager : MonoBehaviour, ILobbySceneManager
         ExitAction();
     }
 
+    private void Update()
+    {
+        if (Input.GetKeyDown(KeyCode.Z))
+        {
+            switch (state)
+            {
+                case LobbyState.InLobbySearchRoom:
+                    //„ÇØ„Ç§„ÉÉ„ÇØ„Éû„ÉÉ„ÉÅ
+                    break;
+
+                case LobbyState.InLobby:
+                    Ready();
+                    break;
+
+                case LobbyState.Ready:
+                    ReadyCancel();
+                    break;
+            }
+        }
+
+        if (Input.GetKeyDown(KeyCode.X))
+        {
+            switch (state)
+            {
+                case LobbyState.InLobbySearchRoom:
+                    CreateAndJoinLobby();
+                    break;
+
+                case LobbyState.Ready:
+                case LobbyState.InLobby:
+                    LeaveLobby();
+                    break;
+            }
+        }
+
+        if (Input.GetKeyDown(KeyCode.C))
+        {
+            switch (state)
+            {
+                case LobbyState.InLobbySearchRoom:
+                    string lobbyPath = uiManager.GetLobbyPath_Search();
+                    SearchLobbyAsync(lobbyPath).Forget();
+                    break;
+            }
+        }
+
+        if (Input.GetKeyDown(KeyCode.V))
+        {
+            switch (state)
+            {
+                case LobbyState.InLobbySearchRoom:
+                    state = LobbyState.GoTitle;
+                    break;
+            }
+        }
+    }
+     
     void ExitAction()
     {
+        LobbyEvent.lobbyJoinEvent -= OnJoin;
+
         cts?.Cancel();
         cts?.Dispose();
         cts = null;
-
-        lobbyServiceManager?.OnDispose();
     }
 
-    //ÉçÉrÅ[åüçıâÊñ ===========================
-    public void LogOut()
-    {
-        LogOutAsync().Forget();
-
-        async UniTask LogOutAsync()
-        {
-            //state = LobbyState.LoggingOut;
-            //await autoLogIn.LogoutAsync();
-
-            state = LobbyState.None;
-        }
-    }
+    //„É≠„Éì„ÉºÊ§úÁ¥¢ÁîªÈù¢===========================
 
     private async UniTask AutoRefleshLoop(CancellationToken token)
     {
@@ -111,9 +131,9 @@ public class LobbySceneManager : MonoBehaviour, ILobbySceneManager
         {
             if (state == LobbyState.InLobbySearchRoom)
             {
-                var searchResult = await lobbyServiceManager.SearchLobby();
+                var searchResult = await eosSirvice.SearchLobby();
                 uiManager.ClearAvairableLobby();
-                uiManager.RefreshAvailableLobby(searchResult, JoinLobby);
+                uiManager.RefreshAvailableLobby(searchResult);
             }
 
             await UniTask.Delay(TimeSpan.FromSeconds(5), cancellationToken: token);
@@ -122,21 +142,23 @@ public class LobbySceneManager : MonoBehaviour, ILobbySceneManager
 
     public void CreateAndJoinLobby()
     {
+        SoundManager.Instance.PlaySE(SE_Handler.SoundType.BUTTON);
         CreateAndJoinLobbyAsync().Forget();
-
 
         async UniTask CreateAndJoinLobbyAsync()
         {
+
             state = LobbyState.CreateLobbyAndJoin;
-            await lobbyServiceManager.CreateLobby(uiManager.GetLobbyPath_Create());
+            var lobbyData = await eosSirvice.CreateLobby(uiManager.GetLobbyPath_Create());
 
             state = LobbyState.InLobby;
-            uiManager.ActivatedInLobbyUI(lm.GetCurrentLobby());
+            uiManager.ActivatedInLobbyUI(lobbyData);
         }
     }
 
     public void SearchLobby()
     {
+        SoundManager.Instance.PlaySE(SE_Handler.SoundType.BUTTON);
         string lobbyPath = uiManager.GetLobbyPath_Search();
         SearchLobbyAsync(lobbyPath).Forget();
     }
@@ -145,79 +167,111 @@ public class LobbySceneManager : MonoBehaviour, ILobbySceneManager
     {
         state = LobbyState.SearchingLobby;
         uiManager.ClearAvairableLobby();
-        var searchResult = await lobbyServiceManager.SearchLobby(lobbyPath);
+        var searchResult = await eosSirvice.SearchLobby(lobbyPath);
 
         state = LobbyState.InLobbySearchRoom;
-        uiManager.RefreshAvailableLobby(searchResult, JoinLobby);
+        uiManager.RefreshAvailableLobby(searchResult);
     }
 
-    void JoinLobby(Lobby lobby, LobbyDetails details)
+    async UniTask OnJoin(string id)
     {
-        JoinLobbyAsync(lobby, details).Forget();
+        state = LobbyState.Joining;
 
+        var lobbyData = await eosSirvice.JoinLobby(id);
 
-        async UniTask JoinLobbyAsync(Lobby lobby, LobbyDetails details)
+        if (lobbyData == null)
         {
-            state = LobbyState.Joining;
-
-            bool joinSuccess = await lobbyServiceManager.Join(lobby, details);
-
-            if (!joinSuccess)
-            {
-                Debug.Log("ÉçÉrÅ[éQâ¡é∏îs");
-                state = LobbyState.InLobbySearchRoom;
-                return;
-            }
-            else
-            {
-                Debug.Log("ÉçÉrÅ[éQâ¡ê¨å˜");
-            }
-
-            state = LobbyState.InLobby;
-            uiManager.ActivatedInLobbyUI(lm.GetCurrentLobby());
+            Debug.Log("„É≠„Éì„ÉºÂèÇÂä†Â§±Êïó");
+            state = LobbyState.InLobbySearchRoom;
+            return;
         }
+        else
+        {
+            Debug.Log("„É≠„Éì„ÉºÂèÇÂä†ÊàêÂäü");
+        }
+
+        state = LobbyState.InLobby;
+        uiManager.ActivatedInLobbyUI(lobbyData);
     }
 
-    //ÉçÉrÅ[âÊñ ===========================
+    //„É≠„Éì„ÉºÁîªÈù¢===========================
 
     public void Ready()
     {
+        SoundManager.Instance.PlaySE(SE_Handler.SoundType.BUTTON);
         ReadyAsync().Forget();
 
         async UniTask ReadyAsync()
         {
-            /*
             state = LobbyState.Ready;
-            lobbyServiceManager.Ready();
-            await UniTask.WaitUntil(() => lobbyServiceManager.ConnectingStart(), cancellationToken: cts.Token);
-            state = LobbyState.Connecting;
-            await UniTask.WaitUntil(() => lobbyServiceManager.ConnectingComplete(), cancellationToken: cts.Token);
-            */
 
-            state = LobbyState.GoMain;
+            cts?.Cancel();
+            cts?.Dispose();
+            cts = new();
+
+            try
+            {
+                await eosSirvice.Ready(cts.Token);
+
+                //Êé•Á∂öÊàêÂäü
+                state = LobbyState.ConnectingOpponent;
+
+                bool connect = await eosSirvice.StartConnectPeer(cts.Token);
+
+                if (!connect)
+                {
+                    Debug.Log("Êé•Á∂öÂ§±Êïó");
+                    return;
+                }
+
+                state = LobbyState.GoMain;
+            }
+            catch (OperationCanceledException)
+            {
+                //„É¨„Éá„Ç£ÂæÖ„Å°„Ç≠„É£„É≥„Çª„É´
+                //„É≠„Éì„ÉºÈÄÄÂÆ§
+                //„Éû„ÉÉ„ÉÅ„É≥„Ç∞Â§±Êïó
+            }
+            finally
+            {
+                cts?.Cancel();
+                cts?.Dispose();
+                cts = null;
+            }
         }
+    }
+
+    public void ReadyCancel()
+    {
+        SoundManager.Instance.PlaySE(SE_Handler.SoundType.BUTTON);
+
+        state = LobbyState.InLobby;
+        eosSirvice.CancelReady();
+
+        cts?.Cancel();
+        cts?.Dispose();
+        cts = null;
     }
 
     public void LeaveLobby()
     {
+        SoundManager.Instance.PlaySE(SE_Handler.SoundType.BUTTON);
         LeaveLobbyAsync().Forget();
 
         async UniTask LeaveLobbyAsync()
         {
-            state = LobbyState.LeavingLobby;
             ExitAction();
-            bool result = await lobbyServiceManager.LeaveAsync();
-
-            if (!result)
-            {
-                Debug.Log("ÉçÉrÅ[ëﬁé∫é∏îs" + result.ToString());
-                return;
-            }
-
+            state = LobbyState.LeavingLobby;
+            await eosSirvice.LeaveLobby();
             await SearchLobbyAsync();
-
             state = LobbyState.InLobbySearchRoom;
         }
+    }
+
+    public void GoTitle()
+    {
+        SoundManager.Instance.PlaySE(SE_Handler.SoundType.BUTTON);
+        state = LobbyState.GoTitle;
     }
 }
 

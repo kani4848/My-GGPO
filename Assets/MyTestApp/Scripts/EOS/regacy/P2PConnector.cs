@@ -71,8 +71,11 @@ public sealed class P2PConnector : IDisposable
         _getP2P = () => EOSManager.Instance.GetEOSPlatformInterface().GetP2PInterface();
     }
 
-    public void Start()
+    IEosService IEosService;
+
+    public void Init(IEosService _eosService)
     {
+        IEosService = _eosService;
         Stop();
         _socketId = new SocketId { SocketName = SOCKET_NAME };
         _cts = new CancellationTokenSource();
@@ -130,8 +133,8 @@ public sealed class P2PConnector : IDisposable
 
 
                 //メンバー情報が取得できるか確認
-                var localMember = members.FirstOrDefault(m => m.ProductId == LobbySceneManager.myPUID);
-                var remoteMember = members.FirstOrDefault(m => m.ProductId != LobbySceneManager.myPUID);
+                var localMember = members.FirstOrDefault(m => m.ProductId == IEosService.myPuid);
+                var remoteMember = members.FirstOrDefault(m => m.ProductId != IEosService.myPuid);
 
                 if (localMember == null || remoteMember == null)
                 {
@@ -203,7 +206,7 @@ public sealed class P2PConnector : IDisposable
             try
             {
                 if (lobbyMember.MemberAttributes == null) return false;
-                if (!lobbyMember.MemberAttributes.TryGetValue(LobbySceneManager.READY_KEY, out var att)) return false;
+                if (!lobbyMember.MemberAttributes.TryGetValue(IEosService.MEMBER_KEY_READY, out var att)) return false;
                 return att.AsString == "1";
             }
             catch
@@ -262,7 +265,7 @@ public sealed class P2PConnector : IDisposable
             //受信するデータのフィルタリング
             var receiveOptions = new ReceivePacketOptions
             {
-                LocalUserId = LobbySceneManager.myPUID,//送信側が設定した受信可能なPUIDと照合するID（基本的には自分）
+                LocalUserId = IEosService.myPuid,//送信側が設定した受信可能なPUIDと照合するID（基本的には自分）
                 MaxDataSizeBytes = (uint)_recvBuffer.Length,//今回の受信で許容するサイズ。これを超えるパケットは受け取れない
                 RequestedChannel = null,//受信するメッセージの種類をフィルタリング。GGPOは送信情報を種類分けしないので設定しない。
             };
@@ -336,7 +339,7 @@ public sealed class P2PConnector : IDisposable
 
         var opt = new SendPacketOptions
         {
-            LocalUserId = LobbySceneManager.myPUID,
+            LocalUserId = IEosService.myPuid,
             RemoteUserId = remote,
             SocketId = _socketId,
             Channel = 0,
@@ -360,7 +363,7 @@ public sealed class P2PConnector : IDisposable
 
         var opt = new SendPacketOptions
         {
-            LocalUserId = LobbySceneManager.myPUID,
+            LocalUserId = IEosService.myPuid,
             RemoteUserId = remote,
             SocketId = _socketId,
             Channel = 0,
@@ -380,7 +383,7 @@ public sealed class P2PConnector : IDisposable
 
         var opt = new AcceptConnectionOptions
         {
-            LocalUserId = LobbySceneManager.myPUID,
+            LocalUserId = IEosService.myPuid,
             RemoteUserId = remote,
             SocketId = _socketId
         };
@@ -399,7 +402,7 @@ public sealed class P2PConnector : IDisposable
 
         var opt = new AddNotifyPeerConnectionRequestOptions
         {
-            LocalUserId = LobbySceneManager.myPUID,
+            LocalUserId = IEosService.myPuid,
             SocketId = _socketId
         };
 
@@ -430,7 +433,7 @@ public sealed class P2PConnector : IDisposable
             {
                 var close = new CloseConnectionOptions
                 {
-                    LocalUserId = LobbySceneManager.myPUID,
+                    LocalUserId = IEosService.myPuid,
                     RemoteUserId = _remotePuid,
                     SocketId = _socketId
                 };

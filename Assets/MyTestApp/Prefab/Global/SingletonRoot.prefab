@@ -1,50 +1,5 @@
 %YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
---- !u!1 &463649165738824429
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 8326977773147369330}
-  - component: {fileID: 7108648584578566970}
-  m_Layer: 0
-  m_Name: login
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &8326977773147369330
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 463649165738824429}
-  serializedVersion: 2
-  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 35.12647, y: -5.7196503, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 5067549044579665919}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &7108648584578566970
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 463649165738824429}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 749dbe1941f1cbf4d8705679b18eedd5, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::AutoLogin_DeviceId
-  waitEosReadyTimeoutSec: 15
 --- !u!1 &548223541424929299
 GameObject:
   m_ObjectHideFlags: 0
@@ -92,7 +47,6 @@ MonoBehaviour:
   playerName: 
   myPUID_obs: 
   remotePUID_obs: 
-  loginService: {fileID: 7108648584578566970}
 --- !u!1 &759322429461315673
 GameObject:
   m_ObjectHideFlags: 0
@@ -301,7 +255,6 @@ Transform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
-  - {fileID: 8326977773147369330}
   - {fileID: 7626648826393916461}
   - {fileID: 8933653361729360952}
   - {fileID: 1197879881007269815}
@@ -373,6 +326,7 @@ MonoBehaviour:
   signal: {fileID: 8300000, guid: d66b542f8ceeb154bb4616db4281106b, type: 3}
   shot: {fileID: 8300000, guid: 4172243e19ab9254297aee6d0ef2ae7b, type: 3}
   down: {fileID: 8300000, guid: 477b16a5d73205749a525d378782c7c9, type: 3}
+  buttonClick: {fileID: 0}
 --- !u!1 &4085020703754823147
 GameObject:
   m_ObjectHideFlags: 0

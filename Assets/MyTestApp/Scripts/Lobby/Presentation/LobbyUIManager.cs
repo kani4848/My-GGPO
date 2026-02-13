@@ -4,13 +4,6 @@ using System.Linq;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
-using Epic.OnlineServices;
-using Epic.OnlineServices.Lobby;
-using PlayEveryWare.EpicOnlineServices.Samples;
-using PlayEveryWare.EpicOnlineServices;
-using UnityEngine.UIElements;
-using Cysharp.Threading.Tasks;
-using Unity.VisualScripting;
 
 public sealed class LobbyUIManager : MonoBehaviour
 {
@@ -18,44 +11,38 @@ public sealed class LobbyUIManager : MonoBehaviour
     [SerializeField] SearchLobbyUI searchUI;
     [SerializeField] JoinedLobbyUI inLobbyUI;
     [SerializeField] GameObject loading;
-
     [SerializeField] TextMeshProUGUI systemMessage;
-
-    [Header("Dependencies")]
-    [SerializeField] private LobbyService_search lobbyService; // íºëOÉXÉNÉäÉvÉgÅiJoiníSìñÅj
-
-    // SearchResultsÇÕ Dictionary<Lobby, LobbyDetails>
-    private Dictionary<Lobby, LobbyDetails> _cachedResults = new();
 
     public void Init()
     {
         ActivateLoadUI();
     }
-
     private void OnEnable()
     {
         LobbyEvent.lobbyStateChangedEvent += OnChangeLobbyState;
 
-        LobbyMemberEvent.AppliedUserName += inLobbyUI.OnUserNameApplied;
+        LobbyMemberEvent.AppliedUserName += inLobbyUI.OnMemberDataUpdate;
         LobbyMemberEvent.Joined += inLobbyUI.OnJoined;
         LobbyMemberEvent.Left += inLobbyUI.OnLeft;
-        LobbyMemberEvent.Death += inLobbyUI.OnDead;
+        LobbyMemberEvent.Death += inLobbyUI.OnDisconnect;
         LobbyMemberEvent.Revive += inLobbyUI.OnRevive;
         LobbyMemberEvent.OwnerChanged += inLobbyUI.OnOwnerChanged;
         LobbyMemberEvent.HeartBeat += inLobbyUI.HeartBeat;
+        LobbyMemberEvent.Ready += inLobbyUI.OnReady;
     }
 
     private void OnDisable()
     {
         LobbyEvent.lobbyStateChangedEvent -= OnChangeLobbyState;
 
-        LobbyMemberEvent.AppliedUserName -= inLobbyUI.OnUserNameApplied;
+        LobbyMemberEvent.AppliedUserName -= inLobbyUI.OnMemberDataUpdate;
         LobbyMemberEvent.Joined -= inLobbyUI.OnJoined;
         LobbyMemberEvent.Left -= inLobbyUI.OnLeft;
-        LobbyMemberEvent.Death -= inLobbyUI.OnDead;
+        LobbyMemberEvent.Death -= inLobbyUI.OnDisconnect;
         LobbyMemberEvent.Revive -= inLobbyUI.OnRevive;
         LobbyMemberEvent.OwnerChanged -= inLobbyUI.OnOwnerChanged;
         LobbyMemberEvent.HeartBeat -= inLobbyUI.HeartBeat;
+        LobbyMemberEvent.Ready -= inLobbyUI.OnReady;
     }
 
     void OnChangeLobbyState(LobbyState state)
@@ -76,35 +63,34 @@ public sealed class LobbyUIManager : MonoBehaviour
                 ActivateLoadUI();
                 break;
 
-            case LobbyState.Ready:
-                inLobbyUI.OnReady();
+
+            case LobbyState.InLobby:
+                inLobbyUI.SwitchButtonsOnNotReady();
                 break;
 
-            case LobbyState.Connecting:
-                inLobbyUI.OnConnecting();
+            case LobbyState.Ready:
+                inLobbyUI.SwitchButtonsOnReady();
+                break;
+
+            case LobbyState.ConnectingOpponent:
+                inLobbyUI.DeactivateButtons();
                 loading.SetActive(true);
                 break;
 
-            case LobbyState.Connected:
-                inLobbyUI.OnConnected();
-                loading.SetActive(false);
-                break;
-
-                
             case LobbyState.SearchingLobby:
                 loading.SetActive(true);
                 break;
         }
     }
 
-    //ÉçÉrÅ[åüçıâÊñ ÇÃãNìÆ
+    //„É≠„Éì„ÉºÊ§úÁ¥¢ÁîªÈù¢„ÅÆËµ∑Âãï
     void ActivatedSearchUI()
     {
         searchUI.Activated();
         inLobbyUI.Deactivated();
         loading.SetActive(false);
     }
-    //ÉçÅ[ÉhâÊñ ÇÃãNìÆ
+    //„É≠„Éº„ÉâÁîªÈù¢„ÅÆËµ∑Âãï
     void ActivateLoadUI()
     {
         searchUI.Deactivated();
@@ -112,17 +98,16 @@ public sealed class LobbyUIManager : MonoBehaviour
         loading.SetActive(true);
     }
 
-    public void ActivatedInLobbyUI(Lobby lobby)
+    public void ActivatedInLobbyUI(LobbyData data)
     {
         searchUI.Deactivated();
         loading.SetActive(false);
-        var customAtt = lobby.Attributes.FirstOrDefault(m => m.Key == LobbySceneManager.customKey);
-        inLobbyUI.Activated(customAtt.AsString, lobby.Id, lobby.Members);
+        inLobbyUI.Activated(data);
     }
 
-    public void RefreshAvailableLobby(Dictionary<Lobby, LobbyDetails> lobbies, Action<Lobby,LobbyDetails> joinAction)
+    public void RefreshAvailableLobby(List<LobbyData> searchLobbyDatas)
     {
-        searchUI.RefreshList(lobbies, joinAction);
+        searchUI.RefreshList(searchLobbyDatas);
     }
 
     public string GetLobbyPath_Create()

@@ -30,7 +30,7 @@ public class MainSceneManager : MonoBehaviour, IMainSceneManager
     IEosService eosService;
     ICharaImageHandler charaImageHandler;
 
-    private void Awake()
+    private void Start()
     {
         SoundManager.Instance.PlayBgm(BgmHandler.BgmType.Main);
         Application.targetFrameRate = 60;
@@ -38,7 +38,7 @@ public class MainSceneManager : MonoBehaviour, IMainSceneManager
         gameSystem = new();
     }
 
-    public async UniTask StartFlow(ICharaImageHandler _charaImageHandler, IEosService _eosService, GameMode gameMode)
+    public async UniTask StartFlow(IEosService _eosService, ICharaImageHandler _charaImageHandler, GameMode gameMode)
     {
         state = MainGameState.INITIALIZE;
 
@@ -55,15 +55,32 @@ public class MainSceneManager : MonoBehaviour, IMainSceneManager
             rand = new System.Random();
         }
 
-        var charaData_local = charaImageHandler.GetCharaImageData_local();
-        var charaData_random = mode == GameMode.Solo ?
-            charaImageHandler.GetCpuImageDataByLevel(0) : charaImageHandler.GetCharaImageData_notLocal();
+        var playerData_local = eosService.GetLocalPlayerData();
 
-        uiManager.Init(mode, true, charaData_local, charaData_random);
+        var localImageData = new PlayerImageData(playerData_local.charaId, playerData_local.hatCol, playerData_local.umaCol);
+
+        PlayerImageData OpponentData = new();
 
         switch (mode)
         {
             case GameMode.Online:
+                var remotePlayerData = eosService.GetRemotePlayerData();
+                OpponentData.charaId = remotePlayerData.charaId;
+                OpponentData.hatCol = remotePlayerData.hatCol;
+                OpponentData.umaCol = remotePlayerData.umaCol;
+                break;
+
+            case GameMode.Solo:
+                OpponentData.charaId = 0;
+                break;
+        }
+        
+        uiManager.Init(mode, true, localImageData, OpponentData);
+
+        switch (mode)
+        {
+            case GameMode.Online:
+                await GameLoop_Online();
                 break;
             case GameMode.Solo:
                 await GameLoop_Solo();
@@ -75,6 +92,8 @@ public class MainSceneManager : MonoBehaviour, IMainSceneManager
                 //await UniTask.Delay(10);
                 break;
         }
+
+        await uiManager.ExitScene();
     }
 
     public async UniTask<System.Random> GetRandWithSeed()
@@ -106,7 +125,7 @@ public class MainSceneManager : MonoBehaviour, IMainSceneManager
         shotFrame_p2 = -1;
         mainGameFrameCount = 0;
 
-        //ƒ‰ƒEƒ“ƒhƒZƒbƒgƒAƒbƒvB‘Šè‚Æ’ÊM‚Å‚«‚é‚Ü‚Å‘Ò‹@
+        //ãƒ©ã‚¦ãƒ³ãƒ‰ã‚»ãƒƒãƒˆã‚¢ãƒƒãƒ—ã€‚ç›¸æ‰‹ã¨é€šä¿¡ã§ãã‚‹ã¾ã§å¾…æ©Ÿ
         state = MainGameState.ROUND_SETUP;
 
         int nextSignal = rand.Next(0, 180);
@@ -116,13 +135,13 @@ public class MainSceneManager : MonoBehaviour, IMainSceneManager
     async UniTask WaitRoundReady()
     {
 
-        p2p.SendRoundReadyMsg();//Ø‚è‘Ö‚¦•”•ª
-        await p2p.WaitAndRecieveReady();//Ø‚è‘Ö‚¦•”•ª4
+        p2p.SendRoundReadyMsg();//åˆ‡ã‚Šæ›¿ãˆéƒ¨åˆ†
+        await p2p.WaitAndRecieveReady();//åˆ‡ã‚Šæ›¿ãˆéƒ¨åˆ†4
     }
 
     async UniTask RoundStart()
     {
-        //ƒQ[ƒ€ŠJn‰‰o
+        //ã‚²ãƒ¼ãƒ é–‹å§‹æ¼”å‡º
         state = MainGameState.ROUND_START;
         await uiManager.RoundStart();
     }
@@ -144,7 +163,7 @@ public class MainSceneManager : MonoBehaviour, IMainSceneManager
             await RoundStart();
             await MainLoop(cts.Token);
 
-            //”’”ò‚ÑƒXƒe[ƒg
+            //ç™½é£›ã³ã‚¹ãƒ†ãƒ¼ãƒˆ
             if (state == MainGameState.SHOT_WHITE_OUT)
             {
                 await WhiteOut();
@@ -154,14 +173,14 @@ public class MainSceneManager : MonoBehaviour, IMainSceneManager
 
             switch (roundResult.roundResult)
             {
-                //Ÿ—˜
+                //å‹åˆ©
                 case RoundResult.WIN_P1:
                     win = true;
                     cpuLv = gameSystem.CpuLevelUp();
                     gameClear = cpuLv == -1;
                     break;
 
-                //•‰‚¯F
+                //è² ã‘ï¼š
                 case RoundResult.WIN_P2:
                 case RoundResult.FLYING_P1:
                 case RoundResult.DOUBLE_KO:
@@ -175,7 +194,7 @@ public class MainSceneManager : MonoBehaviour, IMainSceneManager
                         break;
                     }
 
-                    //ƒŠƒgƒ‰ƒCƒƒjƒ…[•\¦
+                    //ãƒªãƒˆãƒ©ã‚¤ãƒ¡ãƒ‹ãƒ¥ãƒ¼è¡¨ç¤º
                     bool retry = await uiManager.WaitRetryRequest_Solo();
                     if (!retry) gameOver = true;
                     break;
@@ -187,7 +206,7 @@ public class MainSceneManager : MonoBehaviour, IMainSceneManager
 
             if (win)
             {
-                var cpuImageData = charaImageHandler.GetCpuImageDataByLevel(cpuLv);
+                var cpuImageData = new PlayerImageData (cpuLv);
                 uiManager.UpdateCpuImage(cpuImageData);
             }
         }
@@ -212,7 +231,7 @@ public class MainSceneManager : MonoBehaviour, IMainSceneManager
                 
                 await MainLoop(cts.Token);
 
-                //”’”ò‚ÑƒXƒe[ƒg
+                //ç™½é£›ã³ã‚¹ãƒ†ãƒ¼ãƒˆ
                 if (state == MainGameState.SHOT_WHITE_OUT)
                 {
                     await WhiteOut();
@@ -244,6 +263,70 @@ public class MainSceneManager : MonoBehaviour, IMainSceneManager
         }
     }
 
+    async UniTask GameLoop_Online()
+    {
+        triggerAction_1p = () => UnityEngine.Input.GetKeyDown(KeyCode.Z);
+        triggerAction_2p = () => eosService.GetRemoteInput();
+
+        while (true)
+        {
+            MatchResult matchResult = MatchResult.NONE;
+
+            //å¯¾æˆ¦ãƒ«ãƒ¼ãƒ—
+            while (true)
+            {
+                RoundSetUp();
+
+                await WaitRoundReady();
+
+                await RoundStart();
+
+                await MainLoop(cts.Token);
+
+                //ç™½é£›ã³ã‚¹ãƒ†ãƒ¼ãƒˆ
+                if (state == MainGameState.SHOT_WHITE_OUT)
+                {
+                    await WhiteOut();
+                }
+
+                var result = await Result_Online();
+
+                matchResult = gameSystem.CheckMatchResult(result.roundResult);
+                if (matchResult != MatchResult.NONE) break;
+
+                await uiManager.OnRoundReset(false, false);
+            }
+
+            state = MainGameState.END_MENU;
+            if (matchResult == MatchResult.WIN_P1)
+            {
+                //å‹åˆ©ç”»é¢è¡¨ç¤º
+            }
+
+            //ã‚¨ãƒ³ãƒ‰ç”»é¢ãƒ«ãƒ¼ãƒ—
+            while (true)
+            {
+                //ã‚¨ãƒ³ãƒ‰ãƒ¡ãƒ‹ãƒ¥ãƒ¼è¡¨ç¤ºï¼†å…¥åŠ›å¾…ã¡
+                state = await uiManager.ActivateEndMenuButtons_Online();
+
+                if (state == MainGameState.GO_LOBBY) break;
+                if (state == MainGameState.GO_TITLE) break;
+
+                bool findPlayer = await eosService.StartQuickMatch();
+
+                if (findPlayer)
+                {
+                    //è¦‹ã¤ã‹ã£ãŸã‚‰break;
+                    break;
+                }
+                else
+                {
+                    //ã‚¿ã‚¤ãƒ ã‚¢ã‚¦ãƒˆãªã‚‰ãƒ«ãƒ¼ãƒ—
+                    continue;
+                }
+            }
+        }
+    }
 
     int shotFrame_p1 = -1;
     int shotFrame_p2 = -1;
@@ -282,7 +365,7 @@ public class MainSceneManager : MonoBehaviour, IMainSceneManager
 
     async UniTask<MainGameResultData> Result_Local()
     {
-        //ƒŠƒUƒ‹ƒgƒXƒe[ƒg
+        //ãƒªã‚¶ãƒ«ãƒˆã‚¹ãƒ†ãƒ¼ãƒˆ
         state = MainGameState.RESULT;
         fixedUpdateAction = null;
         MainGameResultData result = gameSystem.CheckResult(mainGameFrameCount, shotFrame_p1, shotFrame_p2);
@@ -317,9 +400,9 @@ public class MainSceneManager : MonoBehaviour, IMainSceneManager
     {
         await UniTask.Delay(TimeSpan.FromSeconds(2));
 
-        //ƒ‚[ƒhƒ†ƒj[ƒN•”•ª
+        //ãƒ¢ãƒ¼ãƒ‰ãƒ¦ãƒ‹ãƒ¼ã‚¯éƒ¨åˆ†ï¼ï¼ï¼ï¼ï¼
         p2p?.OnRoundReset();
-        //ƒ‚[ƒhƒ†ƒj[ƒN•”•ª
+        //ãƒ¢ãƒ¼ãƒ‰ãƒ¦ãƒ‹ãƒ¼ã‚¯éƒ¨åˆ†ï¼ï¼ï¼ï¼ï¼
 
 
         await uiManager.OnRoundReset();
@@ -342,10 +425,10 @@ public class MainSceneManager : MonoBehaviour, IMainSceneManager
                     return;
                 }
 
-                //ƒ†ƒj[ƒN
+                //ãƒ¦ãƒ‹ãƒ¼ã‚¯
                 bool pressed_local = p2p.SendAndSaveLocalInput(mainGameFrameCount);
                 bool pressed_remote = p2p.RecieveAndSaveRemoteInput();
-                //ƒ†ƒj[ƒN
+                //ãƒ¦ãƒ‹ãƒ¼ã‚¯
 
                 if (pressed_local || pressed_remote)
                 {
@@ -356,13 +439,13 @@ public class MainSceneManager : MonoBehaviour, IMainSceneManager
                 mainGameFrameCount++;
                 break;
 
-            //ƒVƒ‡ƒbƒgŒã‚ÌƒzƒƒCƒgƒAƒEƒg’†‚É‚à“ü—Í‚ğ‹L˜^AŒë·C³
+            //ã‚·ãƒ§ãƒƒãƒˆå¾Œã®ãƒ›ãƒ¯ã‚¤ãƒˆã‚¢ã‚¦ãƒˆä¸­ã«ã‚‚å…¥åŠ›ã‚’è¨˜éŒ²ã€èª¤å·®ä¿®æ­£
             case MainGameState.SHOT_WHITE_OUT:
 
-                //ƒ†ƒj[ƒN
+                //ãƒ¦ãƒ‹ãƒ¼ã‚¯
                 p2p.SendAndSaveLocalInput(mainGameFrameCount);
                 p2p.RecieveAndSaveRemoteInput();
-                //ƒ†ƒj[ƒN
+                //ãƒ¦ãƒ‹ãƒ¼ã‚¯
 
                 mainGameFrameCount++;
                 break;
@@ -370,51 +453,23 @@ public class MainSceneManager : MonoBehaviour, IMainSceneManager
          */
     }
 
-    async UniTask GameLoop_Online()
-    {
-        while (true)
-        {
-            RoundSetUp();
-
-            await WaitRoundReady();
-
-            await RoundStart();
-
-            await MainLoop_Online(cts.Token);
-
-            //”’”ò‚ÑƒXƒe[ƒg
-            if (state == MainGameState.SHOT_WHITE_OUT)
-            {
-                await WhiteOut();
-            }
-
-            var result = await Result_Online();
-
-
-            //await RoundReset();
-        }
-
-        //Ÿ—˜‰æ–Ê
-        //ƒƒr[Aƒ^ƒCƒgƒ‹AƒNƒCƒbƒNƒ}ƒbƒ`‚·‚é‚©‘I‘ğ
-        //ƒNƒCƒbƒNƒ}ƒbƒ`‚È‚çƒ}ƒbƒ`ƒ“ƒOˆ—
-    }
 
     async UniTask MainLoop_Online(CancellationToken token)
     {
         state = MainGameState.MAIN_GAME;
-        Peer_Online peer = new Peer_Online(PeerType.Local, eosService);
-        fixedUpdateAction = peer.MainLoop;
+        //Peer_Online peer = new Peer_Online(PeerType.Local, eosService);
+        //fixedUpdateAction = peer.MainLoop;
 
-        await UniTask.WaitUntil(() => peer.shot, cancellationToken: token);
+        //await UniTask.WaitUntil(() => peer.shot, cancellationToken: token);
     }
     async UniTask<MainGameResultData> Result_Online()
     {
-        //ƒŠƒUƒ‹ƒgƒXƒe[ƒg
+        //ãƒªã‚¶ãƒ«ãƒˆã‚¹ãƒ†ãƒ¼ãƒˆ
         state = MainGameState.RESULT;
 
-        //ƒ‚[ƒhƒ†ƒj[ƒN•”•ª
+        //ãƒ¢ãƒ¼ãƒ‰ãƒ¦ãƒ‹ãƒ¼ã‚¯éƒ¨åˆ†ï¼ï¼ï¼ï¼ï¼
         var pressedFrameData = p2p.GetBothInput();
-        //ƒ‚[ƒhƒ†ƒj[ƒN•”•ª
+        //ãƒ¢ãƒ¼ãƒ‰ãƒ¦ãƒ‹ãƒ¼ã‚¯éƒ¨åˆ†ï¼ï¼ï¼ï¼ï¼
 
         MainGameResultData result = gameSystem.CheckResult(mainGameFrameCount, pressedFrameData.local, pressedFrameData.remote);
 

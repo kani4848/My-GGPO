@@ -1,5 +1,4 @@
 using Cysharp.Threading.Tasks;
-using PlayEveryWare.EpicOnlineServices;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 

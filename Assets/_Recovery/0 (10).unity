@@ -6724,7 +6724,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 480eef12b084dc5449b41e48fa6f7055, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::TitleSceneManager
-  playerNameField: {fileID: 1244790400}
+  playerNameField: {fileID: 100659489}
   onlineButton: {fileID: 1954598075}
   soloButton: {fileID: 815398418}
   localButton: {fileID: 1777172986}

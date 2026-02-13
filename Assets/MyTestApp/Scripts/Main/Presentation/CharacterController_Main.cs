@@ -49,7 +49,7 @@ public class CharacterController_Main : MonoBehaviour
 
         foreach (var image in charaImages)
         {
-            image.sprite = myImageData.charaSprite;
+            image.sprite = CharaImageHandler.Instance.GetCharaSpriteById(myImageData.charaId);
         }
     }
 
@@ -121,7 +121,7 @@ public class CharacterController_Main : MonoBehaviour
 
     public void StepBack()
     {
-        Debug.Log("ƒXƒeƒbƒvƒoƒbƒN");
+        Debug.Log("ã‚¹ãƒ†ãƒƒãƒ—ãƒãƒƒã‚¯");
         alive.transform.DOLocalMoveX(-walkDistance * 4, 0);
     }
 
@@ -133,12 +133,13 @@ public class CharacterController_Main : MonoBehaviour
     public void UpdateCharaImage(PlayerImageData charaImageData)
     {
         myImageData = charaImageData;
+        Sprite charaSprite = CharaImageHandler.Instance.GetCharaSpriteById(charaImageData.charaId);
         hat_alive.color = myImageData.hatCol;
         hat_dead.color = myImageData.hatCol;
 
         foreach (var image in charaImages)
         {
-            image.sprite = myImageData.charaSprite;
+            image.sprite = charaSprite;
         }
     }
 }

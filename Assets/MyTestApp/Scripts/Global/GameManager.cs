@@ -4,7 +4,6 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using System;
-using Epic.OnlineServices.Auth;
 
 public enum SceneName
 {
@@ -54,8 +53,6 @@ public class GameManager : Singleton<GameManager>
         cts?.Dispose();
         cts = new();
 
-        charaImageHandler.SetCharaImageData();
-
         GameLoop().Forget();
     }
 
@@ -68,17 +65,20 @@ public class GameManager : Singleton<GameManager>
             switch (nextScene)
             {
                 case TitleState.GoOnline:
-                    //StartOnlineMode();
+                    currentGameMode = GameMode.Online;
+                    await OnlineFlow();
                     break;
+
                 case TitleState.GoLocal:
                     currentGameMode = GameMode.Local;
+                    await MainGameFlow(currentGameMode);
                     break;
+
                 case TitleState.GoSolo:
                     currentGameMode = GameMode.Solo;
+                    await MainGameFlow(currentGameMode);
                     break;
             }
-
-            await MainGameFlow(currentGameMode);
         }
     }
 
@@ -87,71 +87,65 @@ public class GameManager : Singleton<GameManager>
         state = GameState.Title;
         currentGameMode = GameMode.None;
         if (SceneManager.GetActiveScene().name != "Title") SceneManager.LoadScene(SceneName.Title.ToString());
-        await eos_Service.LogOut();
-
+        
         await UniTask.WaitUntil(() => IGameManager.titleSceneManager != null, cancellationToken: cts.Token);
         
-        IGameManager.titleSceneManager.Init(charaImageHandler);
+        IGameManager.titleSceneManager.Init(eos_Service.GetLocalPlayerData());
 
         await UniTask.WaitUntil(() => IGameManager.titleSceneManager.state != TitleState.None, cancellationToken: cts.Token);
+
+        eos_Service.SetLocalPlayerName(IGameManager.titleSceneManager.GetPlayerName());
 
         var nextSecne = IGameManager.titleSceneManager.state;
         IGameManager.titleSceneManager = null;
         return nextSecne;
     }
 
-    public void StartOnlineMode() //タイトル画面のボタンに直置き
+    async UniTask OnlineFlow()
     {
-        StartOnlineModeAsync().Forget();
-
-        async UniTask StartOnlineModeAsync()
+        while (true)
         {
-            currentGameMode = GameMode.Online;
-            //await eos_Service.LogInAsync(playerName,cts);
+            await LobbyFlow();
+            var nextScene = IGameManager.lobbySceneManager.state;
+            IGameManager.lobbySceneManager = null;
 
-            bool goTitle = false;
+            if (nextScene == LobbyState.GoTitle) break;
 
-            while (!goTitle)
-            {
-                await LobbyFlow();
-                goTitle = IGameManager.lobbySceneManager.state == LobbyState.GoTitle;
-                IGameManager.lobbySceneManager = null;
-                
-                if (goTitle) break;
-                
-                await MainGameFlow(currentGameMode);
-            }
+            await MainGameFlow(currentGameMode);
+
+            if (IGameManager.mainSceneManager.state == MainGameState.GO_TITLE) break;
+        }
+        
+        async UniTask LobbyFlow()
+        {
+            if (SceneManager.GetActiveScene().name != "Lobby") SceneManager.LoadScene(SceneName.Lobby.ToString());
+
+            state = GameState.Lobby;
+
+            if (IGameManager.lobbySceneManager == null) await UniTask.WaitUntil(() => IGameManager.lobbySceneManager != null, cancellationToken: cts.Token);
+
+            await eos_Service.LogInAsync(cts.Token);
+            IGameManager.lobbySceneManager.Init(eos_Service);
+
+            await UniTask.WaitUntil(() =>
+                IGameManager.lobbySceneManager.state == LobbyState.GoTitle
+                || IGameManager.lobbySceneManager.state == LobbyState.GoMain,
+                cancellationToken: cts.Token);
+
+            cts?.Cancel();
+            cts.Dispose();
+            cts = new();
         }
     }
-   
-    public async UniTask LobbyFlow()
-    {
 
-        if (SceneManager.GetActiveScene().name != "Lobby") SceneManager.LoadScene(SceneName.Lobby.ToString());
-        state = GameState.Lobby;
-
-        if (IGameManager.lobbySceneManager == null) await UniTask.WaitUntil(() => IGameManager.lobbySceneManager != null, cancellationToken: cts.Token);
-        
-        IGameManager.lobbySceneManager.Init(eos_Service);
-
-        await UniTask.WaitUntil(() =>
-            IGameManager.lobbySceneManager.state == LobbyState.GoTitle
-            || IGameManager.lobbySceneManager.state == LobbyState.GoMain, 
-            cancellationToken: cts.Token);
-
-        cts?.Cancel();
-        cts.Dispose();
-        cts = new();
-    }
-
-    public async UniTask MainGameFlow(GameMode mode)
+    async UniTask MainGameFlow(GameMode mode)
     {
         if(SceneManager.GetActiveScene().name != "Main") SceneManager.LoadScene(SceneName.Main.ToString());
         state = GameState.Main;
 
         if (IGameManager.mainSceneManager == null) await UniTask.WaitUntil(() => IGameManager.mainSceneManager != null, cancellationToken: cts.Token);
 
-        await IGameManager.mainSceneManager.StartFlow(charaImageHandler, eos_Service, mode);
+        await IGameManager.mainSceneManager.StartFlow(eos_Service, charaImageHandler, mode);
         IGameManager.mainSceneManager = null;
     }
 }

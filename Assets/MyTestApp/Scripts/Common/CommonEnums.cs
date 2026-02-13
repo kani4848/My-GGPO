@@ -13,20 +13,18 @@ public enum LobbyState
 
     InLobbySearchRoom,
     SearchingLobby,
-
     CreateLobbyAndJoin,
 
     Joining,
+
     InLobby,
-
-    Connecting,
-    Connected,
-    Ready,
-
     LeavingLobby,
 
-    GoTitle,
+    Ready,
+    ConnectingOpponent,
     GoMain,
 
+    GoTitle,
+    
     Error,
 }

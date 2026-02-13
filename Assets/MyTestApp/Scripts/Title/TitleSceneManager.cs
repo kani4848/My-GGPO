@@ -9,7 +9,7 @@ using System;
 public class TitleSceneManager : MonoBehaviour, ITitleSceneManager
 {
     public TitleState state { get;  set; } = TitleState.None;
-    [SerializeField] TextMeshProUGUI playerNameField;
+    [SerializeField] TMP_InputField playerNameField;
     [SerializeField] Button onlineButton;
     [SerializeField] Button soloButton;
     [SerializeField] Button localButton;
@@ -54,14 +54,12 @@ public class TitleSceneManager : MonoBehaviour, ITitleSceneManager
         }
     }
 
-    public void Init(ICharaImageHandler charaImageHandler)
+    public void Init(PlayerData playerData)
     {
-        charaHandler = charaImageHandler;
-
-        var charaImageData = charaHandler.GetCharaImageData_local();
+        var charaImageData = new PlayerImageData(playerData.charaId, playerData.hatCol, playerData.umaCol);
 
         hat.color = charaImageData.hatCol;
-        chara.sprite = charaImageData.charaSprite;
+        chara.sprite = CharaImageHandler.Instance.GetCharaSpriteById(charaImageData.charaId);
         uma.color = charaImageData.umaCol;
 
 
@@ -120,6 +118,9 @@ public class TitleSceneManager : MonoBehaviour, ITitleSceneManager
     public string GetPlayerName()
     {
         string playerName = playerNameField.text;
+
+        //結果＞0 : true ; false : true : true
+       // Debug.Log($"{playerNameField.text.Length}:{playerNameField.text == ""}:{playerNameField.text == default}:{string.IsNullOrWhiteSpace(playerNameField.text)}:{string.IsNullOrEmpty(playerNameField.text)}");
 
         return playerName == "" ? "no name" : playerName;
     }
