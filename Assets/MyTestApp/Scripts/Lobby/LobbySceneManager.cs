@@ -44,7 +44,7 @@ public class LobbySceneManager : MonoBehaviour, ILobbySceneManager
 
     private void OnEnable()
     {
-        LobbyEvent.lobbyJoinEvent += OnJoin;
+        LobbyEvent.RequestJoinlobbyEvent += OnJoin;
     }
 
     private void OnApplicationQuit()
@@ -116,7 +116,7 @@ public class LobbySceneManager : MonoBehaviour, ILobbySceneManager
      
     void ExitAction()
     {
-        LobbyEvent.lobbyJoinEvent -= OnJoin;
+        LobbyEvent.RequestJoinlobbyEvent -= OnJoin;
 
         cts?.Cancel();
         cts?.Dispose();

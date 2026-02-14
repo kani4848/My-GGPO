@@ -10,21 +10,21 @@ public class EOS_LoginService
 {
     [SerializeField] private float waitEosReadyTimeoutSec = 15f;
 
-    public async UniTask CoAutoLogin(CancellationToken token)
+    public async UniTask<bool> CoAutoLogin(CancellationToken token)
     {
         // 念のため毎回初期化
         token.ThrowIfCancellationRequested();
 
         // 1) EOSManager / Platform が準備できるまで待つ（returnで抜けない）
         bool eosReady = await WaitEosReadyAsync(token);
-        if (!eosReady) return;
+        if (!eosReady) return false;
 
         // 2) すでにログイン済みなら終了
         var puid = EOSManager.Instance.GetProductUserId();
         if (puid != null && puid.IsValid())
         {
             Debug.Log("[AutoLogin_DeviceId] Already logged in.");
-            return;
+            return false;
         }
 
         // 3) まずは CreateDeviceId せずに Login を試す（既存DeviceId環境で余計なErrorを出さない）
@@ -33,7 +33,7 @@ public class EOS_LoginService
         if (loginInfo.ResultCode == Result.Success)
         {
             Debug.Log($"[AutoLogin_DeviceId] Connect Login Success. PUID={EOSManager.Instance.GetProductUserId()}");
-            return;
+            return true;
         }
 
         // 4) 初回などで Connect User が無い場合は作成
@@ -42,7 +42,7 @@ public class EOS_LoginService
             Debug.Log("[AutoLogin_DeviceId] InvalidUser -> CreateConnectUser");
             await CreateConnectUserAsync(loginInfo.ContinuanceToken, token);
             Debug.Log($"[AutoLogin_DeviceId] CreateConnectUser Success. PUID={EOSManager.Instance.GetProductUserId()}");
-            return;
+            return true;
         }
 
         // 5) 「DeviceIdが無い/無効」系っぽい失敗だけ、ここで DeviceId を作ってリトライ
@@ -54,7 +54,7 @@ public class EOS_LoginService
             if (createResult != Result.Success && createResult != Result.DuplicateNotAllowed)
             {
                 Debug.LogError($"[AutoLogin_DeviceId] CreateDeviceId failed: {createResult}");
-                return;
+                return false;
             }
 
             // リトライ
@@ -63,7 +63,7 @@ public class EOS_LoginService
             if (retryInfo.ResultCode == Result.Success)
             {
                 Debug.Log($"[AutoLogin_DeviceId] Connect Login Success (retry). PUID={EOSManager.Instance.GetProductUserId()}");
-                return;
+                return true;
             }
 
             if (retryInfo.ResultCode == Result.InvalidUser)
@@ -71,15 +71,16 @@ public class EOS_LoginService
                 Debug.Log("[AutoLogin_DeviceId] InvalidUser (retry) -> CreateConnectUser");
                 await CreateConnectUserAsync(retryInfo.ContinuanceToken, token);
                 Debug.Log($"[AutoLogin_DeviceId] CreateConnectUser Success. PUID={EOSManager.Instance.GetProductUserId()}");
-                return;
+                return true;
             }
 
             Debug.LogError($"[AutoLogin_DeviceId] Connect Login failed (retry): {retryInfo.ResultCode}");
-            return;
+            return false;
         }
 
         // その他の失敗は普通にエラーとして扱う
         Debug.LogError($"[AutoLogin_DeviceId] Connect Login failed: {loginInfo.ResultCode}");
+        return false;
     }
 
     private async UniTask<bool> WaitEosReadyAsync(CancellationToken ct)

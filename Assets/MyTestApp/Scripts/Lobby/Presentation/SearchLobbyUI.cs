@@ -52,7 +52,7 @@ public class SearchLobbyUI : MonoBehaviour
 
         btn.onClick.AddListener(() =>
         {
-            LobbyEvent.RaiseLobbyJoin(lobbyData.lobbyId);
+            LobbyEvent.RaiseRequestJoinLobby(lobbyData.lobbyId);
         });
     }
 

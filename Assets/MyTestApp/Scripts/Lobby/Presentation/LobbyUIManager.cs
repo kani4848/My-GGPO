@@ -22,13 +22,13 @@ public sealed class LobbyUIManager : MonoBehaviour
         LobbyEvent.lobbyStateChangedEvent += OnChangeLobbyState;
 
         LobbyMemberEvent.AppliedUserName += inLobbyUI.OnMemberDataUpdate;
-        LobbyMemberEvent.Joined += inLobbyUI.OnJoined;
-        LobbyMemberEvent.Left += inLobbyUI.OnLeft;
-        LobbyMemberEvent.Death += inLobbyUI.OnDisconnect;
-        LobbyMemberEvent.Revive += inLobbyUI.OnRevive;
-        LobbyMemberEvent.OwnerChanged += inLobbyUI.OnOwnerChanged;
-        LobbyMemberEvent.HeartBeat += inLobbyUI.HeartBeat;
-        LobbyMemberEvent.Ready += inLobbyUI.OnReady;
+        LobbyMemberEvent.MemberJoinedEvent += inLobbyUI.OnJoined;
+        LobbyMemberEvent.MemberLeftEvent += inLobbyUI.OnLeft;
+        LobbyMemberEvent.MemberHbStopEvent += inLobbyUI.OnDisconnect;
+        LobbyMemberEvent.MemberReviveEvent += inLobbyUI.OnRevive;
+        LobbyMemberEvent.OwnerChangedEvent += inLobbyUI.OnOwnerChanged;
+        LobbyMemberEvent.HeartBeatEvent += inLobbyUI.HeartBeat;
+        LobbyMemberEvent.MemberReadyEvent += inLobbyUI.OnReady;
     }
 
     private void OnDisable()
@@ -36,13 +36,13 @@ public sealed class LobbyUIManager : MonoBehaviour
         LobbyEvent.lobbyStateChangedEvent -= OnChangeLobbyState;
 
         LobbyMemberEvent.AppliedUserName -= inLobbyUI.OnMemberDataUpdate;
-        LobbyMemberEvent.Joined -= inLobbyUI.OnJoined;
-        LobbyMemberEvent.Left -= inLobbyUI.OnLeft;
-        LobbyMemberEvent.Death -= inLobbyUI.OnDisconnect;
-        LobbyMemberEvent.Revive -= inLobbyUI.OnRevive;
-        LobbyMemberEvent.OwnerChanged -= inLobbyUI.OnOwnerChanged;
-        LobbyMemberEvent.HeartBeat -= inLobbyUI.HeartBeat;
-        LobbyMemberEvent.Ready -= inLobbyUI.OnReady;
+        LobbyMemberEvent.MemberJoinedEvent -= inLobbyUI.OnJoined;
+        LobbyMemberEvent.MemberLeftEvent -= inLobbyUI.OnLeft;
+        LobbyMemberEvent.MemberHbStopEvent -= inLobbyUI.OnDisconnect;
+        LobbyMemberEvent.MemberReviveEvent -= inLobbyUI.OnRevive;
+        LobbyMemberEvent.OwnerChangedEvent -= inLobbyUI.OnOwnerChanged;
+        LobbyMemberEvent.HeartBeatEvent -= inLobbyUI.HeartBeat;
+        LobbyMemberEvent.MemberReadyEvent -= inLobbyUI.OnReady;
     }
 
     void OnChangeLobbyState(LobbyState state)

@@ -32,6 +32,8 @@ public class JoinedLobbyUI : MonoBehaviour
         readyButton.interactable = true;
         leaveButton.interactable = true;
 
+        Debug.Log($"人数は{lobbyData.currentMemberDatas.Count}人");
+
         foreach (var memberData in lobbyData.currentMemberDatas)
         {
             AddMemberNamePlate(memberData);
@@ -103,8 +105,9 @@ public class JoinedLobbyUI : MonoBehaviour
     {
         if (namePlateDic.Count <= 0) return;
 
-        var targetNamePlate = namePlateDic[memberData.puid];
-        if (targetNamePlate == null) return;
+        LobbyMemberNamePlate targetNamePlate;
+
+        if(namePlateDic.TryGetValue(memberData.puid, out targetNamePlate)) return;
 
         targetNamePlate.UpdateImage(memberData);
 

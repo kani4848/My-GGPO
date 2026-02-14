@@ -217,8 +217,8 @@ public sealed class LobbyService_search
         {
             foreach (var member in lobby.Members)
             {
-                string puid = member.ProductId.ToString();
-                string name = member.DisplayName;
+                string puid = member.ProductId == null ? "" : member.ProductId.ToString();
+                string name = member.DisplayName == null ? "no name": member.DisplayName;
                 
                 int charaId = -1;
                 if (member.MemberAttributes.TryGetValue(IEosService.MEMBER_KEY_CHARA, out var cid)) 

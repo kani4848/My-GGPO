@@ -37,17 +37,26 @@ public class EOS_Service : MonoBehaviour, IEosService
     }
 
     //タイトルシーン===============================================
+
+    bool loggedin = false;
+
     public async UniTask LogInAsync(CancellationToken token)
     {
-        await loginService.CoAutoLogin(token);
+        if (loggedin) return;
 
-        // 前提：EOSManagerがInitialize済み + Login済み（ProductUserIdが有効）
-        await UniTask.WaitUntil(() => lobbyManager != null, cancellationToken: token);
-        lobbyManager.OnLoggedIn();
+        bool r = await loginService.CoAutoLogin(token);
         
-        myPuid = EOSManager.Instance.GetProductUserId();
-        playerData_Local.puid = myPuid.ToString();
-        playerPeer = new(myPuid);
+        if (r)
+        {
+            // 前提：EOSManagerがInitialize済み + Login済み（ProductUserIdが有効）
+            await UniTask.WaitUntil(() => lobbyManager != null, cancellationToken: token);
+            lobbyManager.OnLoggedIn();
+            myPuid = EOSManager.Instance.GetProductUserId();
+            playerData_Local.puid = myPuid.ToString();
+            playerPeer = new(myPuid);
+
+            loggedin = true;
+        }
     }
 
 
@@ -63,6 +72,8 @@ public class EOS_Service : MonoBehaviour, IEosService
     public async UniTask<LobbyData> JoinLobby(string id)
     {
         var data = await lobbySearchService.Join(id, playerData_Local);
+        if (data == null) return null;
+
         inLobbyService.EnterLobbyAction();
         return data;
     }
