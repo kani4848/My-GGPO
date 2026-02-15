@@ -1,22 +1,19 @@
 using Cysharp.Threading.Tasks;
 using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using UnityEditor.UI;
 using UnityEngine;
 
 public interface INetTransport
 {
-    // ©•ª‚ª‘—‚éi‘Šè‚É“Í‚­‘z’èj
+    // è‡ªåˆ†ãŒé€ã‚‹ï¼ˆç›¸æ‰‹ã«å±Šãæƒ³å®šï¼‰
     void Send(byte[] payload);
 
-    // óMƒLƒ…[i“Í‚¢‚½‡‚Éæ‚èo‚·j
+    // å—ä¿¡ã‚­ãƒ¥ãƒ¼ï¼ˆå±Šã„ãŸé †ã«å–ã‚Šå‡ºã™ï¼‰
     bool TryDequeue(out byte[] payload);
 }
 
 /// <summary>
-/// ƒ[ƒJƒ‹2P‹^—’ÊMiEOS·‚µ‘Ö‚¦‘O‚Ì“®ìŠm”F—pj
+/// ãƒ­ãƒ¼ã‚«ãƒ«2Pç–‘ä¼¼é€šä¿¡ï¼ˆEOSå·®ã—æ›¿ãˆå‰ã®å‹•ä½œç¢ºèªç”¨ï¼‰
 /// </summary>
 public sealed class LoopbackTransport : INetTransport
 {
@@ -30,7 +27,7 @@ public sealed class LoopbackTransport : INetTransport
 
     public void Send(byte[] payload)
     {
-        // ‘Šè‚ÌóMƒLƒ…[‚É“Ë‚Á‚Ş
+        // ç›¸æ‰‹ã®å—ä¿¡ã‚­ãƒ¥ãƒ¼ã«çªã£è¾¼ã‚€
         _peer._rx.Enqueue(payload);
     }
 
@@ -58,13 +55,13 @@ public sealed class MainFlow_p2pTest
     [SerializeField] private KeyCode p1Key = KeyCode.Space;
     [SerializeField] private KeyCode p2Key = KeyCode.Return;
 
-    // ©•ª‹“_‚Å‚Ìƒlƒbƒg
+    // è‡ªåˆ†è¦–ç‚¹ã§ã®ãƒãƒƒãƒˆ
     private INetTransport _net;
 
-    // ƒ‹[ƒvƒoƒbƒN—pi•Ğ•û‚ğ‘Šèˆµ‚¢‚É‚·‚é‚¾‚¯j
+    // ãƒ«ãƒ¼ãƒ—ãƒãƒƒã‚¯ç”¨ï¼ˆç‰‡æ–¹ã‚’ç›¸æ‰‹æ‰±ã„ã«ã™ã‚‹ã ã‘ï¼‰
     private INetTransport _netPeer;
 
-    // “ü—Íƒoƒbƒtƒ@Fframe -> pressed
+    // å…¥åŠ›ãƒãƒƒãƒ•ã‚¡ï¼šframe -> pressed
     private readonly Dictionary<int, bool> _localInputDic = new();
     private readonly Dictionary<int, bool> _remoteInputDic = new();
 
@@ -77,19 +74,19 @@ public sealed class MainFlow_p2pTest
     int localPressedFrame = -1;
     int remotePressedFrame = -1;
 
-    //‰Šú‰»ƒXƒe[ƒg================================
+    //åˆæœŸåŒ–ã‚¹ãƒ†ãƒ¼ãƒˆ================================
     public void Init()
     {
         if (useLoopback)
         {
-            // 1‘ä‚ÅP1/P2‚ğ“®‚©‚·‚½‚ß‚Ì‹^—2’[––
+            // 1å°ã§P1/P2ã‚’å‹•ã‹ã™ãŸã‚ã®ç–‘ä¼¼2ç«¯æœ«
             var a = new LoopbackTransport(null);
             var b = new LoopbackTransport(a);
 
-            // a‚Ìpeer‚ğb‚É‚·‚éi‘ŠŒİQÆ‚ğì‚éj
-            // ¦LoopbackTransport‚ÌİŒv“s‡‚ÅA‚±‚±‚¾‚¯”½Ë“I‚É·‚µ‘Ö‚¦‚é‚æ‚èA
-            //   2‚Â‚ÌƒCƒ“ƒXƒ^ƒ“ƒX‚ğì‚éŒ`‚É‚µ‚Ä‚¢‚é
-            // ‚±‚±‚Å‚Íua‚ª©•ªvub‚ª‘Šèv‚Æ‚µ‚Äˆµ‚¤
+            // aã®peerã‚’bã«ã™ã‚‹ï¼ˆç›¸äº’å‚ç…§ã‚’ä½œã‚‹ï¼‰
+            // â€»LoopbackTransportã®è¨­è¨ˆéƒ½åˆã§ã€ã“ã“ã ã‘åå°„çš„ã«å·®ã—æ›¿ãˆã‚‹ã‚ˆã‚Šã€
+            //   2ã¤ã®ã‚¤ãƒ³ã‚¹ã‚¿ãƒ³ã‚¹ã‚’ä½œã‚‹å½¢ã«ã—ã¦ã„ã‚‹
+            // ã“ã“ã§ã¯ã€ŒaãŒè‡ªåˆ†ã€ã€ŒbãŒç›¸æ‰‹ã€ã¨ã—ã¦æ‰±ã†
             typeof(LoopbackTransport)
                 .GetField("_peer", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
                 ?.SetValue(a, b);
@@ -97,12 +94,12 @@ public sealed class MainFlow_p2pTest
             _net = a;
             _netPeer = b;
 
-            // ƒ‹[ƒvƒoƒbƒN‚Ìê‡A‘Šè‘¤‚à“¯‚¶Start‚ğó‚¯‚ÄŠJn‚·‚é‘z’è‚È‚Ì‚ÅA
-            // ‚±‚ÌƒTƒ“ƒvƒ‹‚Å‚Í‘Šè‘¤‚Ì“ü—Í‚àƒ[ƒJƒ‹‚Å¶¬‚µ‚Ä‘—‚éiReturnƒL[j
+            // ãƒ«ãƒ¼ãƒ—ãƒãƒƒã‚¯ã®å ´åˆã€ç›¸æ‰‹å´ã‚‚åŒã˜Startã‚’å—ã‘ã¦é–‹å§‹ã™ã‚‹æƒ³å®šãªã®ã§ã€
+            // ã“ã®ã‚µãƒ³ãƒ—ãƒ«ã§ã¯ç›¸æ‰‹å´ã®å…¥åŠ›ã‚‚ãƒ­ãƒ¼ã‚«ãƒ«ã§ç”Ÿæˆã—ã¦é€ã‚‹ï¼ˆReturnã‚­ãƒ¼ï¼‰
         }
         else
         {
-            // TODO: ‚±‚±‚ğEOS P2PÀ‘•‚É·‚µ‘Ö‚¦‚éiINetTransport‚ğÀ‘•j
+            // TODO: ã“ã“ã‚’EOS P2På®Ÿè£…ã«å·®ã—æ›¿ãˆã‚‹ï¼ˆINetTransportã‚’å®Ÿè£…ï¼‰
             Debug.LogError("INetTransport is not set. Replace with EOS P2P transport.");
         }
     }
@@ -112,16 +109,16 @@ public sealed class MainFlow_p2pTest
 
     }
 
-    //ƒI[ƒi[‚È‚çƒV[ƒh’l‚ğ¶¬
+    //ã‚ªãƒ¼ãƒŠãƒ¼ãªã‚‰ã‚·ãƒ¼ãƒ‰å€¤ã‚’ç”Ÿæˆ
     public uint CreateAndSendSeed()
     {
-        // owner‚ªseed‚ğŒˆ‚ß‚Ä‘—‚éiƒƒr[owner‘z’èj
+        // ownerãŒseedã‚’æ±ºã‚ã¦é€ã‚‹ï¼ˆãƒ­ãƒ“ãƒ¼owneræƒ³å®šï¼‰
         _seed = (uint)UnityEngine.Random.Range(1, int.MaxValue);
         _net.Send(NetMessage.PackStart(_seed, inputDelayFrames));
 
         if (useLoopback)
         {
-            // ƒ‹[ƒvƒoƒbƒN‘Šè‚É‚àŠJn’Ê’m‚ğ“Í‚¯‚éi“¯ˆêƒvƒƒZƒX“àj
+            // ãƒ«ãƒ¼ãƒ—ãƒãƒƒã‚¯ç›¸æ‰‹ã«ã‚‚é–‹å§‹é€šçŸ¥ã‚’å±Šã‘ã‚‹ï¼ˆåŒä¸€ãƒ—ãƒ­ã‚»ã‚¹å†…ï¼‰
             _netPeer.Send(NetMessage.PackStart(_seed, inputDelayFrames));
         }
 
@@ -149,7 +146,7 @@ public sealed class MainFlow_p2pTest
         }
     }
 
-    //ƒI[ƒi[‚Å‚È‚¯‚ê‚ÎƒV[ƒh’l‚ğó‚¯æ‚é‚Ü‚Å‘Ò‹@
+    //ã‚ªãƒ¼ãƒŠãƒ¼ã§ãªã‘ã‚Œã°ã‚·ãƒ¼ãƒ‰å€¤ã‚’å—ã‘å–ã‚‹ã¾ã§å¾…æ©Ÿ
     public async UniTask<uint> WaitForRecievingSeed()
     {
         while (true)
@@ -173,12 +170,12 @@ public sealed class MainFlow_p2pTest
         }
     }
 
-    //ƒ‰ƒEƒ“ƒh€”õƒXƒe[ƒg================================
+    //ãƒ©ã‚¦ãƒ³ãƒ‰æº–å‚™ã‚¹ãƒ†ãƒ¼ãƒˆ================================
     public void SendRoundReadyMsg()
     {
         _net.Send(NetMessage.PackReady());
 
-        //ŒŸØ—p‚È‚ç©•ª‚É‚à‘—‚é
+        //æ¤œè¨¼ç”¨ãªã‚‰è‡ªåˆ†ã«ã‚‚é€ã‚‹
         if (useLoopback)
         {
             _netPeer.Send(NetMessage.PackReady());
@@ -223,8 +220,8 @@ public sealed class MainFlow_p2pTest
     }
 
 
-    //ƒƒCƒ“ƒQ[ƒ€ƒXƒe[ƒg================================
-    // –ˆƒtƒŒ[ƒ€uƒ[ƒJƒ‹“ü—Ív‚ğ‘—MA•Û‘¶
+    //ãƒ¡ã‚¤ãƒ³ã‚²ãƒ¼ãƒ ã‚¹ãƒ†ãƒ¼ãƒˆ================================
+    // æ¯ãƒ•ãƒ¬ãƒ¼ãƒ ã€Œãƒ­ãƒ¼ã‚«ãƒ«å…¥åŠ›ã€ã‚’é€ä¿¡ã€ä¿å­˜
     public bool SendAndSaveLocalInput(int currentFrame)
     {
         bool _localPressed = Input.GetKeyDown(p1Key);
@@ -242,7 +239,7 @@ public sealed class MainFlow_p2pTest
 
         _net.Send(NetMessage.PackInput(currentFrame, _localPressed));
 
-        //ƒ[ƒJƒ‹ŒŸØ—p‚É‘Šèƒf[ƒ^‚à¶¬‚µ‚Ä‘—‚éiReturnƒL[‚ğu‘Šèƒ{ƒ^ƒ“vˆµ‚¢j
+        //ãƒ­ãƒ¼ã‚«ãƒ«æ¤œè¨¼ç”¨ã«ç›¸æ‰‹ãƒ‡ãƒ¼ã‚¿ã‚‚ç”Ÿæˆã—ã¦é€ã‚‹ï¼ˆReturnã‚­ãƒ¼ã‚’ã€Œç›¸æ‰‹ãƒœã‚¿ãƒ³ã€æ‰±ã„ï¼‰
         if (useLoopback)
         {
             SendLoopBack();
@@ -267,14 +264,14 @@ public sealed class MainFlow_p2pTest
         }
     }
 
-    //‘Šè‚Ì“ü—Íî•ñ‚ÌóM‚Æ•Û‘¶
+    //ç›¸æ‰‹ã®å…¥åŠ›æƒ…å ±ã®å—ä¿¡ã¨ä¿å­˜
     public bool RecieveAndSaveRemoteInput() 
     {
         bool remotePressed = false;
 
         while (_net.TryDequeue(out var payload))
         {
-            //payload‚Ìæ“ª1ƒoƒCƒg‚Å‰½‚Ìƒf[ƒ^‚©¯•Ê
+            //payloadã®å…ˆé ­1ãƒã‚¤ãƒˆã§ä½•ã®ãƒ‡ãƒ¼ã‚¿ã‹è­˜åˆ¥
             var type = NetMessage.PeekType(payload);
 
             if (type == NetMessage.MsgType.Input)
@@ -289,7 +286,7 @@ public sealed class MainFlow_p2pTest
     }
 
 
-    //ƒŠƒUƒ‹ƒgƒXƒe[ƒg================================
+    //ãƒªã‚¶ãƒ«ãƒˆã‚¹ãƒ†ãƒ¼ãƒˆ================================
     public (int local, int remote) GetBothInput()
     {
         return (localPressedFrame, remotePressedFrame);

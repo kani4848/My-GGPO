@@ -99,34 +99,32 @@ public sealed class LobbyService_search
 
         UniTask<LobbyData> ModifyLobbyAwait(Lobby lobby)
         {
-            var lobbyDataTask = new UniTaskCompletionSource<LobbyData>();
+            var modifyTask = new UniTaskCompletionSource<LobbyData>();
 
             _lobbyManager.ModifyLobby(lobby, modifyResult =>
             {
                 if (modifyResult != Result.Success)
                 {
-                    lobbyDataTask.TrySetResult(null);
+                    modifyTask.TrySetResult(null);
                     return;
                 }
 
                 var lobbyData = CreateLobbyData(_lobbyManager.GetCurrentLobby());
                 EOS_Service.SetMyMemberLobbyAttribute(playerData_local);
-                lobbyDataTask.TrySetResult(lobbyData);
+                modifyTask.TrySetResult(lobbyData);
             });
 
-            return lobbyDataTask.Task;
+            return modifyTask.Task;
         }
     }
 
     public UniTask<LobbyData> Join(string lobbyId, PlayerData playerData_local)
     {
-        Lobby targetLobby;
         LobbyDetails details;
 
         try
         {
             var targetLobbyInfo = searchedLobbies.First(m => m.Key.Id == lobbyId);
-            targetLobby = targetLobbyInfo.Key;
             details = targetLobbyInfo.Value;
         }
         catch(NullReferenceException)
@@ -138,11 +136,12 @@ public sealed class LobbyService_search
 
         _lobbyManager.JoinLobby(lobbyId, details, presenceEnabled: false, result =>
         {
-            var current = _lobbyManager.GetCurrentLobby();
-            bool success = result == Result.Success;
-            if (success) EOS_Service.SetMyMemberLobbyAttribute(playerData_local);
+            if(result != Result.Success)return;
 
-            var lobbyData = CreateLobbyData(targetLobby);
+            var current = _lobbyManager.GetCurrentLobby();
+            Debug.Log($"lobbyservice 人数は{current.Members.Count}人");
+            EOS_Service.SetMyMemberLobbyAttribute(playerData_local);
+            var lobbyData = CreateLobbyData(current);
 
             tcs.TrySetResult(lobbyData);    
         });
@@ -213,6 +212,7 @@ public sealed class LobbyService_search
         if (p != null) path = p.AsString;
 
         List<PlayerData> playerDatas = new();
+
         if(lobby.Members.Count != 0)
         {
             foreach (var member in lobby.Members)

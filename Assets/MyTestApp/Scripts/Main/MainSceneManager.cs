@@ -161,12 +161,12 @@ public class MainSceneManager : MonoBehaviour, IMainSceneManager
             RoundSetUp();
             if (win) await uiManager.ShowSoloModeStageLevel(cpuLv + 1);
             await RoundStart();
-            await MainLoop(cts.Token);
+            bool flying =  await MainLoop(cts.Token);
 
             //白飛びステート
             if (state == MainGameState.SHOT_WHITE_OUT)
             {
-                await WhiteOut();
+                await WhiteOut(flying);
             }
 
             var roundResult = await Result_Local();
@@ -229,12 +229,12 @@ public class MainSceneManager : MonoBehaviour, IMainSceneManager
                 RoundSetUp();
                 await RoundStart();
                 
-                await MainLoop(cts.Token);
+                bool flying = await MainLoop(cts.Token);
 
                 //白飛びステート
                 if (state == MainGameState.SHOT_WHITE_OUT)
                 {
-                    await WhiteOut();
+                    await WhiteOut(flying);
                 }
 
                 var result = await Result_Local();
@@ -281,12 +281,12 @@ public class MainSceneManager : MonoBehaviour, IMainSceneManager
 
                 await RoundStart();
 
-                await MainLoop(cts.Token);
+                bool flying = await MainLoop(cts.Token);
 
                 //白飛びステート
                 if (state == MainGameState.SHOT_WHITE_OUT)
                 {
-                    await WhiteOut();
+                    await WhiteOut(flying);
                 }
 
                 var result = await Result_Online();
@@ -333,11 +333,12 @@ public class MainSceneManager : MonoBehaviour, IMainSceneManager
     Func<bool> triggerAction_1p;
     Func<bool> triggerAction_2p;
 
-    async UniTask MainLoop(CancellationToken token)
+    async UniTask<bool> MainLoop(CancellationToken token)
     {
         state = MainGameState.MAIN_GAME;
 
         bool timeUp = false;
+        bool signal = false;
 
         fixedUpdateAction = (frame) =>
         {
@@ -353,7 +354,11 @@ public class MainSceneManager : MonoBehaviour, IMainSceneManager
 
             timeUp = gameSystem.RaiseTimeUp(mainGameFrameCount);
 
-            if (gameSystem.RaiseSignal(frame))MainGameEvent.RaiseSignal();
+            if (gameSystem.RaiseSignal(frame))
+            {
+                signal = true;
+                MainGameEvent.RaiseSignal();
+            }
 
             mainGameFrameCount++;
         };
@@ -361,6 +366,9 @@ public class MainSceneManager : MonoBehaviour, IMainSceneManager
         await UniTask.WaitUntil(() => shotFrame_p1 != -1 || shotFrame_p2  != -1 || timeUp, cancellationToken: token);
 
         state = timeUp ? MainGameState.RESULT : MainGameState.SHOT_WHITE_OUT;
+        
+        //フライングを判定
+        return !signal && state == MainGameState.SHOT_WHITE_OUT;
     }
 
     async UniTask<MainGameResultData> Result_Local()
@@ -374,10 +382,11 @@ public class MainSceneManager : MonoBehaviour, IMainSceneManager
         return result;
     }
 
-    async UniTask WhiteOut()
+    async UniTask WhiteOut(bool flying)
     {
         fixedUpdateAction = (frame) =>
         {
+            if (flying) return;
             if (shotFrame_p1 == -1 && triggerAction_1p())
             {
                 shotFrame_p1 = mainGameFrameCount;

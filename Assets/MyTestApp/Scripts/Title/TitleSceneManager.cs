@@ -1,11 +1,8 @@
 using Cysharp.Threading.Tasks;
-using System.IO;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 using DG.Tweening;
-using System;
-
 public class TitleSceneManager : MonoBehaviour, ITitleSceneManager
 {
     public TitleState state { get;  set; } = TitleState.None;
@@ -13,6 +10,7 @@ public class TitleSceneManager : MonoBehaviour, ITitleSceneManager
     [SerializeField] Button onlineButton;
     [SerializeField] Button soloButton;
     [SerializeField] Button localButton;
+    [SerializeField] Button exitButton;
 
     [SerializeField] Image hat;
     [SerializeField] Image chara;
@@ -37,6 +35,8 @@ public class TitleSceneManager : MonoBehaviour, ITitleSceneManager
     
         if (Input.GetKeyDown(KeyCode.Z))
         {
+            if (!onlineButton.gameObject.activeSelf) return;
+            if (!onlineButton.interactable) return;
             onlineButton.onClick.Invoke();
             return;
         }
@@ -50,6 +50,13 @@ public class TitleSceneManager : MonoBehaviour, ITitleSceneManager
         if (Input.GetKeyDown(KeyCode.C))
         {
             localButton.onClick.Invoke();
+            return;
+        }
+
+
+        if (Input.GetKeyDown(KeyCode.V))
+        {
+            exitButton.onClick.Invoke();
             return;
         }
     }
@@ -86,6 +93,14 @@ public class TitleSceneManager : MonoBehaviour, ITitleSceneManager
         ExitScene(TitleState.GoSolo).Forget();
     }
 
+    public void OnExit() 
+    {
+#if UNITY_EDITOR
+        UnityEditor.EditorApplication.isPlaying = false;
+#endif
+        Application.Quit();
+    }
+
     [SerializeField] Image black;
 
     async UniTask ExitScene(TitleState _state)
@@ -106,6 +121,7 @@ public class TitleSceneManager : MonoBehaviour, ITitleSceneManager
         onlineButton.interactable = false;
         soloButton.interactable = false;
         localButton.interactable = false;
+        exitButton.interactable = false;
     }
 
     void ActivateButtons()
@@ -113,6 +129,7 @@ public class TitleSceneManager : MonoBehaviour, ITitleSceneManager
         onlineButton.interactable = true;
         soloButton.interactable = true;
         localButton.interactable = true;
+        exitButton.interactable = true;
     }
 
     public string GetPlayerName()

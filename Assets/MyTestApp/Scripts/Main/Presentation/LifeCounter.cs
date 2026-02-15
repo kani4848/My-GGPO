@@ -11,8 +11,6 @@ public class LifeCounter : MonoBehaviour
     [SerializeField] List<Image> lifes = new();
     int currentLife = 0;
 
-
-
     public void SetLifeCounter(int num)
     {
         for(int i = 0; i < num; i++)

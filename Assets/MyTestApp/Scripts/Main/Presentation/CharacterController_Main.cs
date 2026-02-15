@@ -1,9 +1,6 @@
 using DG.Tweening;
 using UnityEngine;
-using static UnityEditor.PlayerSettings;
-using UnityEngine.EventSystems;
 using Cysharp.Threading.Tasks;
-using NUnit.Framework;
 using System.Collections.Generic;
 using UnityEngine.UI;
 
@@ -91,14 +88,15 @@ public class CharacterController_Main : MonoBehaviour
         ;
     }
 
-    public void OnRestart()
+    public void OnRestart(bool resetLife = false)
     {
+        if (resetLife) lifeCounter.ResetLife();
+
         localMarker.SetActive(isOwner);
         alive.SetActive(true);
         dead.SetActive(false);
         lifeCounter.gameObject.SetActive(false);
     }
-
 
     public void GoDead()
     {

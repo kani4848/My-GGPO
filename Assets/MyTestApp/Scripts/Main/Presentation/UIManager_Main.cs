@@ -1,20 +1,9 @@
 using Cysharp.Threading.Tasks;
 using DG.Tweening;
-using DG.Tweening.Core;
-using DG.Tweening.Plugins.Options;
-
-using DG.Tweening.CustomPlugins;
-using Mono.Cecil;
 using System;
-using System.Threading;
-using System.Xml.Serialization;
 using TMPro;
-using Unity.VisualScripting;
 using UnityEngine;
-using UnityEngine.EventSystems;
 using UnityEngine.UI;
-using static System.Net.Mime.MediaTypeNames;
-using static UIManager_Main;
 
 public class UIManager_Main : MonoBehaviour
 {
@@ -294,6 +283,7 @@ public class UIManager_Main : MonoBehaviour
 
     public async UniTask OnResult(MainGameResultData resultData)
     {
+        keyGuides.SetActive(false);
         roundResultUI.SetActive(true);
 
         if (resultData.roundResult == RoundResult.TIME_UP)
@@ -321,7 +311,6 @@ public class UIManager_Main : MonoBehaviour
 
         chara_p1.ShowLife(true);
         chara_p2.ShowLife(true);
-
 
         string GetString(int time)
         {
@@ -367,7 +356,7 @@ public class UIManager_Main : MonoBehaviour
         texts[1].text = win ? "○" : "×";
     }
 
-    public async UniTask OnRoundReset(bool _goBackChara, bool logReset)
+    public async UniTask OnRoundReset(bool _goBackChara, bool rematch)
     {
         await fillScreenCol_black.DOFade(1, 0.5f);
 
@@ -383,17 +372,17 @@ public class UIManager_Main : MonoBehaviour
             walkAnim = true;
             chara_p1.StepBack();
             chara_p2.StepBack();
-            chara_p1.OnRestart();
-            chara_p2.OnRestart();
+            chara_p1.OnRestart(rematch);
+            chara_p2.OnRestart(rematch);
         }
         else
         {
             walkAnim = false;
-            chara_p1.OnRestart();
-            chara_p2.OnRestart();
+            chara_p1.OnRestart(rematch);
+            chara_p2.OnRestart(rematch);
         }
 
-        if (logReset) ResetLogs();
+        if (rematch) ResetLogs();
 
         await UniTask.Delay(TimeSpan.FromSeconds(0.5f));
         await fillScreenCol_black.DOFade(0, 0.5f);

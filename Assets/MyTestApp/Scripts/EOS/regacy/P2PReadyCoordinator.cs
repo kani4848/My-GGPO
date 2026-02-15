@@ -10,12 +10,11 @@ using PlayEveryWare.EpicOnlineServices;
 using PlayEveryWare.EpicOnlineServices.Samples;
 using Unity.VisualScripting;
 using UnityEngine;
-using UnityEngine.tvOS;
 
 /// <summary>
-/// 2lŒÅ’è + Ready•û®F
-/// Lobby‚Ìmembers/READY‚ğŠÄ‹‚µA—¼ÒReady¬—§‚ÅP2P handshakeiAccept + Ping/Pongj‚ğŠ®—¹‚³‚¹‚éB
-/// ¬Œ÷‚µ‚½‚ç OnConnected(remotePuid) ‚ğ”­‰ÎB’†’fğŒ‚ª—ˆ‚½‚ç Stop() ‚ÅŠmÀ‚ÉŒãn––‚·‚éB
+/// 2äººå›ºå®š + Readyæ–¹å¼ï¼š
+/// Lobbyã®members/READYã‚’ç›£è¦–ã—ã€ä¸¡è€…Readyæˆç«‹ã§P2P handshakeï¼ˆAccept + Ping/Pongï¼‰ã‚’å®Œäº†ã•ã›ã‚‹ã€‚
+/// æˆåŠŸã—ãŸã‚‰ OnConnected(remotePuid) ã‚’ç™ºç«ã€‚ä¸­æ–­æ¡ä»¶ãŒæ¥ãŸã‚‰ Stop() ã§ç¢ºå®Ÿã«å¾Œå§‹æœ«ã™ã‚‹ã€‚
 /// </summary>
 public sealed class P2PReadyCoordinator : IDisposable
 {
@@ -33,29 +32,29 @@ public sealed class P2PReadyCoordinator : IDisposable
     public event Action<string> OnAborted;
     public event Action<string> OnError;
 
-    // ====== İ’è ======
-    public string SOCKET_NAME = "GAME"; // 2lŒÅ’è‚È‚ç‚±‚ê1‚Â‚ÅOK
+    // ====== è¨­å®š ======
+    public string SOCKET_NAME = "GAME"; // 2äººå›ºå®šãªã‚‰ã“ã‚Œ1ã¤ã§OK
     public int PollIntervalMs = 200;
 
-    public int HandshakeTimeoutMs = 6000; // Ping/Pong‚ª¬—§‚·‚é‚Ü‚Å‚Ì—P—\
+    public int HandshakeTimeoutMs = 6000; // Ping/PongãŒæˆç«‹ã™ã‚‹ã¾ã§ã®çŒ¶äºˆ
     public int PingIntervalMs = 500;
     public int PingMaxTries = 10;
 
-    // ====== ŠO•”ˆË‘¶ ======
-    private EOSLobbyManager _lobbyManager;            // ‚ ‚È‚½‚Ì LobbyService
-    private Func<P2PInterface> _getP2P;            // P2PInterface‚Ìæ“¾•û–@‚ğ’“üiƒvƒƒWƒFƒNƒg·•ª‹zûj
+    // ====== å¤–éƒ¨ä¾å­˜ ======
+    private EOSLobbyManager _lobbyManager;            // ã‚ãªãŸã® LobbyService
+    private Func<P2PInterface> _getP2P;            // P2PInterfaceã®å–å¾—æ–¹æ³•ã‚’æ³¨å…¥ï¼ˆãƒ—ãƒ­ã‚¸ã‚§ã‚¯ãƒˆå·®åˆ†å¸åï¼‰
 
-    // ====== “à•”ó‘Ô ======
+    // ====== å†…éƒ¨çŠ¶æ…‹ ======
     private CancellationTokenSource _cts;
     private State _state = State.Stopped;
 
-    private ProductUserId _remotePuid;             // handshakingŠJn‚ÉŠm’è‚µ‚ÄŒÅ’è
+    private ProductUserId _remotePuid;             // handshakingé–‹å§‹æ™‚ã«ç¢ºå®šã—ã¦å›ºå®š
     private SocketId _socketId;
 
     private ulong _notifyPeerRequestId = 0;
     private bool _notifyRegistered = false;
 
-    // óMƒoƒbƒtƒ@i“K“–‚É‘å‚«‚ßj
+    // å—ä¿¡ãƒãƒƒãƒ•ã‚¡ï¼ˆé©å½“ã«å¤§ãã‚ï¼‰
     private readonly byte[] _recvBuffer = new byte[4096];
 
     public State CurrentState => _state;
@@ -72,7 +71,7 @@ public sealed class P2PReadyCoordinator : IDisposable
     {
         IEosService = _eosService;
 
-        Stop(); // ‘½d‹N“®–h~
+        Stop(); // å¤šé‡èµ·å‹•é˜²æ­¢
         _socketId = new SocketId { SocketName = SOCKET_NAME };
         _cts = new CancellationTokenSource();
         SetState(State.WaitingLobby);
@@ -89,7 +88,7 @@ public sealed class P2PReadyCoordinator : IDisposable
             _cts = null;
         }
 
-        // P2PŒãn––inotify‰ğœ/connection closej
+        // P2På¾Œå§‹æœ«ï¼ˆnotifyè§£é™¤/connection closeï¼‰
         CleanupP2P();
 
         _remotePuid = null;
@@ -101,12 +100,12 @@ public sealed class P2PReadyCoordinator : IDisposable
         Stop();
     }
 
-    // ====== ƒƒCƒ“ŠÄ‹ƒ‹[ƒv ======
+    // ====== ãƒ¡ã‚¤ãƒ³ç›£è¦–ãƒ«ãƒ¼ãƒ— ======
     private async UniTaskVoid RunLoop(CancellationToken ct)
     {
         try
         {
-            // notify‚Íuó‚¯“ü‚ê€”õv‚Æ‚µ‚Äæ‚Éí’“‚³‚¹‚éiæ‚è‚±‚Ú‚µ–h~j
+            // notifyã¯ã€Œå—ã‘å…¥ã‚Œæº–å‚™ã€ã¨ã—ã¦å…ˆã«å¸¸é§ã•ã›ã‚‹ï¼ˆå–ã‚Šã“ã¼ã—é˜²æ­¢ï¼‰
             EnsureNotifyRegistered();
 
             while (!ct.IsCancellationRequested)
@@ -117,7 +116,7 @@ public sealed class P2PReadyCoordinator : IDisposable
                 {
                     SetState(State.WaitingLobby);
                     await UniTask.Delay(PollIntervalMs, cancellationToken: ct);
-                    UnityEngine.Debug.Log("ƒƒr[î•ñ‚ğæ“¾’†");
+                    UnityEngine.Debug.Log("ãƒ­ãƒ“ãƒ¼æƒ…å ±ã‚’å–å¾—ä¸­");
                     continue;
                 }
 
@@ -125,7 +124,7 @@ public sealed class P2PReadyCoordinator : IDisposable
 
                 if (members == null || members.Count != 2)
                 {
-                    // 2lŒÅ’èF¬—§‚µ‚È‚¢‚È‚çHandshake/Connected‚ÍˆÛ‚µ‚È‚¢
+                    // 2äººå›ºå®šï¼šæˆç«‹ã—ãªã„ãªã‚‰Handshake/Connectedã¯ç¶­æŒã—ãªã„
                     if (_state == State.Handshaking || _state == State.Connected)
                     {
                         Abort("members.Count != 2");
@@ -135,12 +134,12 @@ public sealed class P2PReadyCoordinator : IDisposable
                         SetState(State.WaitingReady);
                     }
 
-                    UnityEngine.Debug.Log("‘Îí‘Šè‘Ò‚¿ó‚¯’†");
+                    UnityEngine.Debug.Log("å¯¾æˆ¦ç›¸æ‰‹å¾…ã¡å—ã‘ä¸­");
                     await UniTask.Delay(PollIntervalMs, cancellationToken: ct);
                     continue;
                 }
 
-                // local/remote ”»’èiremote‚Í handshaking ŠJn‚ÉŒÅ’è‚·‚éj
+                // local/remote åˆ¤å®šï¼ˆremoteã¯ handshaking é–‹å§‹æ™‚ã«å›ºå®šã™ã‚‹ï¼‰
                 var localMember = members.FirstOrDefault(m => m.ProductId == IEosService.myPuid);
                 var remoteMember = members.FirstOrDefault(m => m.ProductId != IEosService.myPuid);
 
@@ -155,11 +154,11 @@ public sealed class P2PReadyCoordinator : IDisposable
                     continue;
                 }
 
-                // READY ”»’èiTryGetValue¸”s‚Í false ˆµ‚¢j
+                // READY åˆ¤å®šï¼ˆTryGetValueå¤±æ•—ã¯ false æ‰±ã„ï¼‰
                 bool localReady = TryGetReady(localMember);
                 bool remoteReady = TryGetReady(remoteMember);
 
-                // óMˆ—‚Íí‚É‰ñ‚·iPING‚Ö‚Ì‰“š‚È‚Çj
+                // å—ä¿¡å‡¦ç†ã¯å¸¸ã«å›ã™ï¼ˆPINGã¸ã®å¿œç­”ãªã©ï¼‰
                 PumpReceive(remoteMember.ProductId);
 
                 if (!localReady || !remoteReady)
@@ -170,16 +169,16 @@ public sealed class P2PReadyCoordinator : IDisposable
                         SetState(State.WaitingReady);
 
 
-                    UnityEngine.Debug.Log("ƒƒ“ƒo[‚Ì€”õŠ®—¹‘Ò‚¿");
+                    UnityEngine.Debug.Log("ãƒ¡ãƒ³ãƒãƒ¼ã®æº–å‚™å®Œäº†å¾…ã¡");
 
                     await UniTask.Delay(PollIntervalMs, cancellationToken: ct);
                     continue;
                 }
 
-                // Ready¬—§
+                // Readyæˆç«‹
                 if (_state == State.WaitingReady || _state == State.WaitingLobby)
                 {
-                    _remotePuid = remoteMember.ProductId; // ‚±‚±‚ÅŠm’è
+                    _remotePuid = remoteMember.ProductId; // ã“ã“ã§ç¢ºå®š
                     SetState(State.Handshaking);
 
                     bool ok = await DoHandshake(_remotePuid, ct);
@@ -200,7 +199,7 @@ public sealed class P2PReadyCoordinator : IDisposable
         }
         catch (OperationCanceledException)
         {
-            // Stop‚É‚æ‚éƒLƒƒƒ“ƒZƒ‹‚Í³í
+            // Stopã«ã‚ˆã‚‹ã‚­ãƒ£ãƒ³ã‚»ãƒ«ã¯æ­£å¸¸
         }
         catch (Exception ex)
         {
@@ -215,10 +214,10 @@ public sealed class P2PReadyCoordinator : IDisposable
         {
             if (lobbyMember.MemberAttributes == null) return false;
 
-            // MemberAttributes.TryGetValue ‚ªg‚¦‚é‘O’ñ
+            // MemberAttributes.TryGetValue ãŒä½¿ãˆã‚‹å‰æ
             if (!lobbyMember.MemberAttributes.TryGetValue(IEosService.MEMBER_KEY_READY, out var att)) return false;
 
-            // AsString ‚ª "1" ‚È‚ç ready
+            // AsString ãŒ "1" ãªã‚‰ ready
             string s = att.AsString;
             return s == "1";
         }
@@ -233,11 +232,11 @@ public sealed class P2PReadyCoordinator : IDisposable
     {
         EnsureNotifyRegistered();
 
-        // Accepti—¼‘¤‚Å“¯‚ÉŒÄ‚ñ‚ÅOKj
+        // Acceptï¼ˆä¸¡å´ã§åŒæ™‚ã«å‘¼ã‚“ã§OKï¼‰
         if (!Accept(remote))
             return false;
 
-        // Ping/Pong ‘a’ÊŠm”F
+        // Ping/Pong ç–é€šç¢ºèª
         int tries = 0;
         var start = Time.realtimeSinceStartup;
 
@@ -245,11 +244,11 @@ public sealed class P2PReadyCoordinator : IDisposable
         {
             tries++;
 
-            // PING‘—M
+            // PINGé€ä¿¡
             SendText(remote, "PING:" + DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
             Debug.Log($"[P2P][PING->] to {remote}");
 
-            // óM‚ğ­‚µ‰ñ‚µ‚ÄAPONG‘Ò‚¿
+            // å—ä¿¡ã‚’å°‘ã—å›ã—ã¦ã€PONGå¾…ã¡
             var pong = await WaitForPong(remote, PingIntervalMs, ct);
             if (pong)
                 return true;
@@ -292,14 +291,14 @@ public sealed class P2PReadyCoordinator : IDisposable
         var p2p = _getP2P?.Invoke();
         if (p2p == null) return;
 
-        // óM‚ğ‰Â”\‚ÈŒÀ‚èJ‚­iƒtƒŒ[ƒ€“à‚Å”‰ñ’ö“xj
+        // å—ä¿¡ã‚’å¯èƒ½ãªé™ã‚ŠæŒãï¼ˆãƒ•ãƒ¬ãƒ¼ãƒ å†…ã§æ•°å›ç¨‹åº¦ï¼‰
         for (int i = 0; i < 8; i++)
         {
             var receiveOptions = new ReceivePacketOptions
             {
                 LocalUserId = IEosService.myPuid,
                 MaxDataSizeBytes = (uint)_recvBuffer.Length,
-                RequestedChannel = null, // ƒ`ƒƒƒ“ƒlƒ‹–¢w’è
+                RequestedChannel = null, // ãƒãƒ£ãƒ³ãƒãƒ«æœªæŒ‡å®š
             };
 
             var socketId = _socketId;
@@ -314,13 +313,13 @@ public sealed class P2PReadyCoordinator : IDisposable
             if (outPeerId == null || outBytesWritten == 0)
                 continue;
 
-            // ‘ŠèˆÈŠO‚Í–³‹i2lŒÅ’èj
+            // ç›¸æ‰‹ä»¥å¤–ã¯ç„¡è¦–ï¼ˆ2äººå›ºå®šï¼‰
             if (outPeerId != remote)
                 continue;
 
             string msg = Encoding.UTF8.GetString(_recvBuffer, 0, (int)outBytesWritten);
 
-            // Å¬ƒvƒƒgƒRƒ‹FPING‚É‚ÍPONG‚Å•Ô‚· / PONG‚ğŒ©‚½‚çƒtƒ‰ƒO
+            // æœ€å°ãƒ—ãƒ­ãƒˆã‚³ãƒ«ï¼šPINGã«ã¯PONGã§è¿”ã™ / PONGã‚’è¦‹ãŸã‚‰ãƒ•ãƒ©ã‚°
             if (msg.StartsWith("PING"))
             {
                 SendText(remote, "PONG");
@@ -349,7 +348,7 @@ public sealed class P2PReadyCoordinator : IDisposable
             Data = data,
             //DataLengthBytes = (uint)data.Length,
             AllowDelayedDelivery = true,
-            //DeliveryReliability = PacketReliability.ReliableUnordered, // ‘a’ÊŠm”F‚Í‚±‚ê‚ÅOK
+            //DeliveryReliability = PacketReliability.ReliableUnordered, // ç–é€šç¢ºèªã¯ã“ã‚Œã§OK
         };
 
         var r = p2p.SendPacket(ref sendOptions);
@@ -369,7 +368,7 @@ public sealed class P2PReadyCoordinator : IDisposable
         };
 
         var r = p2p.AcceptConnection(ref opt);
-        return r == Result.Success || r == Result.AlreadyPending; // AlreadyŒn‚ÍŠÂ‹«‚Åo‚é‚Ì‚Å‹–—e
+        return r == Result.Success || r == Result.AlreadyPending; // Alreadyç³»ã¯ç’°å¢ƒã§å‡ºã‚‹ã®ã§è¨±å®¹
     }
 
     // ====== notify ======
@@ -388,7 +387,7 @@ public sealed class P2PReadyCoordinator : IDisposable
 
         _notifyPeerRequestId = p2p.AddNotifyPeerConnectionRequest(ref opt, null, (ref OnIncomingConnectionRequestInfo data) =>
         {
-            // ‚±‚±‚Åu—ˆ‚½‚çAcceptv‚µ‚Ä‚¨‚­‚Æ‚æ‚èŒ˜‚¢i‘Šè‚Ìæs—v‹‚ğæ‚è‚±‚Ú‚³‚È‚¢j
+            // ã“ã“ã§ã€Œæ¥ãŸã‚‰Acceptã€ã—ã¦ãŠãã¨ã‚ˆã‚Šå …ã„ï¼ˆç›¸æ‰‹ã®å…ˆè¡Œè¦æ±‚ã‚’å–ã‚Šã“ã¼ã•ãªã„ï¼‰
             if (data.RemoteUserId != null)
             {
                 Accept(data.RemoteUserId);
@@ -441,7 +440,7 @@ public sealed class P2PReadyCoordinator : IDisposable
     }
 
 
-    // ====== ƒf[ƒ^‘—Mƒ`ƒFƒbƒN ======
+    // ====== ãƒ‡ãƒ¼ã‚¿é€ä¿¡ãƒã‚§ãƒƒã‚¯ ======
     int timeoutMs = 8;
     volatile bool _frame0Acked;
 
@@ -452,27 +451,27 @@ public sealed class P2PReadyCoordinator : IDisposable
 
         try
         {
-            Debug.Log("[ƒf[ƒ^‘—MƒeƒXƒg] ŠJn.");
+            Debug.Log("[ãƒ‡ãƒ¼ã‚¿é€ä¿¡ãƒ†ã‚¹ãƒˆ] é–‹å§‹.");
 
-            // 2) frame=0 input ‚ğ‘—‚é
+            // 2) frame=0 input ã‚’é€ã‚‹
             SendFrame0Input(remote, inputBits);
             Debug.Log($"[OneFrameNetTest] Sent frame=0 input={inputBits}");
 
-            // 3) ACK‘Ò‚¿itimeout•t‚«j
+            // 3) ACKå¾…ã¡ï¼ˆtimeoutä»˜ãï¼‰
             bool ok = await WaitFrame0AckAsync(timeoutMs, ct);
 
             if (!ok)
             {
-                Debug.LogWarning("[ƒf[ƒ^‘—MƒeƒXƒg] ƒ^ƒCƒ€ƒAƒEƒg: frame=0 ACK ‚Í‘—‚ê‚Ü‚¹‚ñ‚Å‚µ‚½.");
+                Debug.LogWarning("[ãƒ‡ãƒ¼ã‚¿é€ä¿¡ãƒ†ã‚¹ãƒˆ] ã‚¿ã‚¤ãƒ ã‚¢ã‚¦ãƒˆ: frame=0 ACK ã¯é€ã‚Œã¾ã›ã‚“ã§ã—ãŸ.");
                 return false;
             }
 
-            Debug.Log("[ƒf[ƒ^‘—MƒeƒXƒg] ¬Œ÷: frame=0 ACK ‚ğó‚¯æ‚è‚Ü‚µ‚½.");
+            Debug.Log("[ãƒ‡ãƒ¼ã‚¿é€ä¿¡ãƒ†ã‚¹ãƒˆ] æˆåŠŸ: frame=0 ACK ã‚’å—ã‘å–ã‚Šã¾ã—ãŸ.");
             return true;
         }
         finally
         {
-            // 4) óMƒ‹[ƒv’â~
+            // 4) å—ä¿¡ãƒ«ãƒ¼ãƒ—åœæ­¢
             recvCts.Cancel();
             try { await recvTask; } catch { /* ignore */ }
         }
@@ -491,7 +490,7 @@ public sealed class P2PReadyCoordinator : IDisposable
             var p2p = _getP2P?.Invoke();
             if (p2p == null) return;
 
-            // óM‚ğ”‰ñJ‚­i‘½‚·‚¬‚é‚Æd‚¢‚Ì‚Å8‰ñ‚­‚ç‚¢j
+            // å—ä¿¡ã‚’æ•°å›æŒãï¼ˆå¤šã™ãã‚‹ã¨é‡ã„ã®ã§8å›ãã‚‰ã„ï¼‰
             for (int i = 0; i < 8; i++)
             {
                 byte[] buf = new byte[256];
@@ -512,7 +511,7 @@ public sealed class P2PReadyCoordinator : IDisposable
                 if (r != Result.Success) break;
                 if (outPeerId == null || outBytes == 0) continue;
 
-                // 2lŒÅ’èF‘ŠèˆÈŠO‚Í–³‹
+                // 2äººå›ºå®šï¼šç›¸æ‰‹ä»¥å¤–ã¯ç„¡è¦–
                 if (outPeerId != remote) continue;
 
                 HandlePacket(outPeerId, buf, (int)outBytes);
@@ -537,7 +536,7 @@ public sealed class P2PReadyCoordinator : IDisposable
 
     void SendFrame0Input(ProductUserId remotePuid, ushort input)
     {
-        var p2p = _getP2P?.Invoke(); // Šù‘¶‚Ìæ“¾•û–@
+        var p2p = _getP2P?.Invoke(); // æ—¢å­˜ã®å–å¾—æ–¹æ³•
         byte[] data = CreateInputPacket(0, input);
 
         var opt = new SendPacketOptions
