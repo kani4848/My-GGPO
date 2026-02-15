@@ -21,28 +21,30 @@ public sealed class LobbyUIManager : MonoBehaviour
     {
         LobbyEvent.lobbyStateChangedEvent += OnChangeLobbyState;
 
-        LobbyMemberEvent.AppliedUserName += inLobbyUI.OnMemberDataUpdate;
+        LobbyMemberEvent.UpdatePlayerData += inLobbyUI.OnMemberDataUpdate;
+
         LobbyMemberEvent.MemberJoinedEvent += inLobbyUI.OnJoined;
         LobbyMemberEvent.MemberLeftEvent += inLobbyUI.OnLeft;
         LobbyMemberEvent.MemberHbStopEvent += inLobbyUI.OnDisconnect;
+        
         LobbyMemberEvent.MemberReviveEvent += inLobbyUI.OnRevive;
+        
         LobbyMemberEvent.OwnerChangedEvent += inLobbyUI.OnOwnerChanged;
+        
         LobbyMemberEvent.HeartBeatEvent += inLobbyUI.HeartBeat;
-        LobbyMemberEvent.MemberReadyEvent += inLobbyUI.OnReady;
     }
 
     private void OnDisable()
     {
         LobbyEvent.lobbyStateChangedEvent -= OnChangeLobbyState;
 
-        LobbyMemberEvent.AppliedUserName -= inLobbyUI.OnMemberDataUpdate;
+        LobbyMemberEvent.UpdatePlayerData -= inLobbyUI.OnMemberDataUpdate;
         LobbyMemberEvent.MemberJoinedEvent -= inLobbyUI.OnJoined;
         LobbyMemberEvent.MemberLeftEvent -= inLobbyUI.OnLeft;
         LobbyMemberEvent.MemberHbStopEvent -= inLobbyUI.OnDisconnect;
         LobbyMemberEvent.MemberReviveEvent -= inLobbyUI.OnRevive;
         LobbyMemberEvent.OwnerChangedEvent -= inLobbyUI.OnOwnerChanged;
         LobbyMemberEvent.HeartBeatEvent -= inLobbyUI.HeartBeat;
-        LobbyMemberEvent.MemberReadyEvent -= inLobbyUI.OnReady;
     }
 
     void OnChangeLobbyState(LobbyState state)
@@ -58,7 +60,14 @@ public sealed class LobbyUIManager : MonoBehaviour
                 break; 
 
             case LobbyState.InLobbySearchRoom:
-                ActivatedSearchUI();
+                searchUI.Activated();
+                inLobbyUI.Deactivated();
+                loading.SetActive(false);
+                break;
+
+            case LobbyState.SearchingLobby:
+                loading.SetActive(true);
+                searchUI.DeactivatedButtons();
                 break;
 
             case LobbyState.CreateLobbyAndJoin:
@@ -69,7 +78,7 @@ public sealed class LobbyUIManager : MonoBehaviour
 
 
             case LobbyState.InLobby:
-                inLobbyUI.SwitchButtonsOnNotReady();
+                inLobbyUI.SwitchButtonsOnReadyCancel();
                 break;
 
             case LobbyState.Ready:
@@ -80,20 +89,9 @@ public sealed class LobbyUIManager : MonoBehaviour
                 inLobbyUI.DeactivateButtons();
                 loading.SetActive(true);
                 break;
-
-            case LobbyState.SearchingLobby:
-                loading.SetActive(true);
-                break;
         }
     }
 
-    //ロビー検索画面の起動
-    void ActivatedSearchUI()
-    {
-        searchUI.Activated();
-        inLobbyUI.Deactivated();
-        loading.SetActive(false);
-    }
     //ロード画面の起動
     void ActivateLoadUI()
     {
@@ -124,7 +122,7 @@ public sealed class LobbyUIManager : MonoBehaviour
         return searchUI.GetLobbyPath_Search();
     }
 
-    public void ClearAvairableLobby()
+    public void ClearSearchedLobbyList()
     {
         searchUI.ClearUI();
     }

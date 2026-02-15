@@ -48,6 +48,7 @@ public class PlayerData
     public Color hatCol;
     public Color umaCol;
     public bool ready;
+    public bool isOwner;
 
     public PlayerData(
         string puid = "", 
@@ -55,7 +56,8 @@ public class PlayerData
         int charaId = -1, 
         Color hatCol = default, 
         Color umaCol = default, 
-        bool ready = false)
+        bool ready = false,
+        bool isOwner = false)
     {
         this.puid = puid;
         this.name = name;
@@ -63,6 +65,7 @@ public class PlayerData
         this.hatCol = hatCol == default? GetRondmColor() : hatCol;
         this.umaCol = umaCol == default ? GetRondmColor() : umaCol;
         this.ready = ready;
+        this.isOwner = isOwner;
 
         Color GetRondmColor()
         {

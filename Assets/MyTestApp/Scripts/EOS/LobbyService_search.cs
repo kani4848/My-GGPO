@@ -71,7 +71,6 @@ public sealed class LobbyService_search
 
         if (lobbyPath != "")
         {
-            //カスタム用にアトリビュートを付与
             lobbySettings.Attributes.Add(new LobbyAttribute
             {
                 Key = IEosService.LOBBY_KEY_PATH,
@@ -148,13 +147,12 @@ public sealed class LobbyService_search
 
         return tcs.Task;
     }
-
-    public UniTask<List<SearchedLobbyData>> SearchLobby(string lobbyPath = "")
+    public UniTask<List<SearchedLobbyData>> SearchLobbyAuto(string lobbyPath = "")
     {
         string key;
         string path;
 
-        if(lobbyPath == "")
+        if (lobbyPath == "")
         {
             key = IEosService.LobbyCommonKey;
             path = IEosService.LobbyCommonId;
@@ -168,6 +166,53 @@ public sealed class LobbyService_search
         var tcs = new UniTaskCompletionSource<List<SearchedLobbyData>>();
         Dictionary<Lobby, LobbyDetails> findLobbies = new();
         _lobbyManager.SearchByAttribute(key, path, OnSearchCompleted);
+
+        return tcs.Task;
+
+        void OnSearchCompleted(Result result)
+        {
+            if (result != Result.Success)
+            {
+                tcs.TrySetResult(null);
+                return;
+            }
+
+            searchedLobbies = _lobbyManager.GetSearchResults();
+
+            if (searchedLobbies.Count == 0)
+            {
+                tcs.TrySetResult(null);
+                return;
+            }
+
+            // 表示用に並べ替え（例：空きスロット多い順）
+            var lobbies = searchedLobbies.Keys
+                .Where(l => l != null && l.IsValid())
+                .OrderByDescending(l => l.AvailableSlots)
+                .ToList();
+
+            List<SearchedLobbyData> lobbyDatas = new();
+
+            foreach (var searchedLobby in searchedLobbies)
+            {
+                var lobbyData = CreateSearchedLobbyData(searchedLobby.Value);
+                lobbyDatas.Add(lobbyData);
+                if (lobbyDatas.Count == 8) break;
+            }
+
+            tcs.TrySetResult(lobbyDatas);
+        }
+    }
+
+    public UniTask<List<SearchedLobbyData>> SearchLobbyAuto()
+    {
+        string key = IEosService.LobbyCommonKey;
+        string path = IEosService.LobbyCommonId;
+
+        var tcs = new UniTaskCompletionSource<List<SearchedLobbyData>>();
+        Dictionary<Lobby, LobbyDetails> findLobbies = new();
+        _lobbyManager.SearchByAttribute(key, path, OnSearchCompleted);
+        
         return tcs.Task;
 
         void OnSearchCompleted(Result result)
@@ -268,13 +313,18 @@ public sealed class LobbyService_search
         //ロビーアトリビュートに追加したオーナーネームを取得
         var opt_owner = new LobbyDetailsCopyAttributeByKeyOptions
         {
-            AttrKey = IEosService.LOBBY_KEY_OWNER_NAME
+            AttrKey = IEosService.LOBBY_KEY_OWNER_NAME,
         };
+
         r = details.CopyAttributeByKey(ref opt_owner, out var ownerInfo);
         if(r == Result.Success && ownerInfo.HasValue && ownerInfo.Value.Data.HasValue) 
         {
             var d = ownerInfo.Value.Data.Value.Value;
             if (d.ValueType == AttributeType.String) ownerName = d.AsUtf8.ToString();
+        }
+        else
+        {
+            Debug.Log("ownerattのデータはありません");
         }
 
         //同様にキャラを取得
@@ -307,5 +357,44 @@ public sealed class LobbyService_search
 
         SearchedLobbyData data = new SearchedLobbyData(lobbyId, ownerName, charaId, hatCol);
         return data;
+    }
+}
+
+public sealed class LobbySearchGuard
+{
+    // 現在“有効”な検索要求ID（これと一致した結果だけUIに反映する）
+    private int _activeRequestId = 0;
+
+    // 現在走っている検索数（任意：デバッグやUIのローディング表示用）
+    private int _inFlightCount = 0;
+
+    public int ActiveRequestId => Volatile.Read(ref _activeRequestId);
+    public int InFlightCount => Volatile.Read(ref _inFlightCount);
+
+    /// <summary>
+    /// 新しい検索要求を開始し、requestId を返す
+    /// </summary>
+    public int BeginRequest()
+    {
+        // 新しい要求IDを発行して「これが最新」とする
+        int id = Interlocked.Increment(ref _activeRequestId);
+        Interlocked.Increment(ref _inFlightCount);
+        return id;
+    }
+
+    /// <summary>
+    /// この requestId の結果を採用してよいか？
+    /// </summary>
+    public bool IsLatest(int requestId)
+    {
+        return requestId == Volatile.Read(ref _activeRequestId);
+    }
+
+    /// <summary>
+    /// 検索終了（finallyで呼ぶ）
+    /// </summary>
+    public void EndRequest()
+    {
+        Interlocked.Decrement(ref _inFlightCount);
     }
 }

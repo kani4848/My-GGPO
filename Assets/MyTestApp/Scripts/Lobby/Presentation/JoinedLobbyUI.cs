@@ -3,6 +3,9 @@ using TMPro;
 using UnityEngine.UI;
 using System.Collections.Generic;
 using System.Linq;
+using Cysharp.Threading.Tasks;
+using System;
+using System.Threading;
 
 public class JoinedLobbyUI : MonoBehaviour
 {
@@ -22,7 +25,6 @@ public class JoinedLobbyUI : MonoBehaviour
     //キーには名前ではなくPUIDを入力
     Dictionary<string, LobbyMemberNamePlate> namePlateDic = new();
 
-
     public void Activated(LobbyData lobbyData)
     {
         gameObject.SetActive(true);
@@ -33,11 +35,6 @@ public class JoinedLobbyUI : MonoBehaviour
         leaveButton.interactable = true;
 
         Debug.Log($"人数は{lobbyData.currentMemberDatas.Count}人");
-
-        foreach (var memberData in lobbyData.currentMemberDatas)
-        {
-            AddMemberNamePlate(memberData);
-        }
     }
 
     public void Deactivated()
@@ -71,11 +68,11 @@ public class JoinedLobbyUI : MonoBehaviour
         namePlateDic.Clear();
     }
 
-    public void SwitchButtonsOnNotReady()
+    public void SwitchButtonsOnReadyCancel()
     {
-        readyButton.gameObject.SetActive(true); 
         readyCancelButton.gameObject.SetActive(false);
         leaveButton.gameObject.SetActive(true);
+        readyButton.gameObject.SetActive(true);
     }
 
     public void DeactivateButtons()
@@ -88,8 +85,8 @@ public class JoinedLobbyUI : MonoBehaviour
     public void SwitchButtonsOnReady()
     {
         readyButton.gameObject.SetActive(false);
-        readyCancelButton.gameObject.SetActive(true);
         leaveButton.gameObject.SetActive(true);
+        readyCancelButton.gameObject.SetActive(true);
     }
 
     //コールバック=========================================================
@@ -103,11 +100,13 @@ public class JoinedLobbyUI : MonoBehaviour
 
     public void OnMemberDataUpdate(PlayerData memberData)
     {
-        if (namePlateDic.Count <= 0) return;
+        if (namePlateDic.Count == 0) return;
 
-        LobbyMemberNamePlate targetNamePlate;
-
-        if(namePlateDic.TryGetValue(memberData.puid, out targetNamePlate)) return;
+        if (!namePlateDic.TryGetValue(memberData.puid, out var targetNamePlate))
+        {
+            Debug.Log("kokoda");
+            return;
+        }
 
         targetNamePlate.UpdateImage(memberData);
 
@@ -117,16 +116,6 @@ public class JoinedLobbyUI : MonoBehaviour
         {
             log.UpdateNameText(memberData.name);
         }
-    }
-
-    public void OnReady(PlayerData lobbyMemberData)
-    {
-        if (namePlateDic.Count == 0) return;
-
-        var targetNamePlate = namePlateDic[lobbyMemberData.puid];
-        if (targetNamePlate == null) return;
-
-        targetNamePlate.SetReady(lobbyMemberData.ready);
     }
 
     public void OnConnected()
@@ -140,7 +129,6 @@ public class JoinedLobbyUI : MonoBehaviour
         Debug.Log("退室");
         var remover = namePlateDic[memberData.puid];
 
-        string userName = remover.name;
         CreateLog(memberData, LobbyLogType.LEAVE);
 
         Destroy(remover.gameObject);
@@ -165,7 +153,7 @@ public class JoinedLobbyUI : MonoBehaviour
 
     public void OnOwnerChanged(PlayerData newOwnerData)
     {
-        if (namePlateDic.Count <= 0) return;
+        if (namePlateDic.Count == 0) return;
         CreateLog(newOwnerData, LobbyLogType.OWNER_CHANGED);
 
         foreach (var memberData in namePlateDic)

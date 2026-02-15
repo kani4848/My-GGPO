@@ -3,6 +3,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 using DG.Tweening;
+
 public class TitleSceneManager : MonoBehaviour, ITitleSceneManager
 {
     public TitleState state { get;  set; } = TitleState.None;
@@ -27,16 +28,19 @@ public class TitleSceneManager : MonoBehaviour, ITitleSceneManager
         hat.gameObject.SetActive(false);
         chara.gameObject.SetActive(false);
         uma.gameObject.SetActive(false);
+
+        playerNameField.text = UserDataManager.LoadUserName();
     }
 
     private void Update()
     {
         if (!onlineButton.interactable) return;
-    
+
+        if (UiInputGuard.IsTypingInTextField()) return;
+
         if (Input.GetKeyDown(KeyCode.Z))
         {
             if (!onlineButton.gameObject.activeSelf) return;
-            if (!onlineButton.interactable) return;
             onlineButton.onClick.Invoke();
             return;
         }
@@ -134,10 +138,11 @@ public class TitleSceneManager : MonoBehaviour, ITitleSceneManager
 
     public string GetPlayerName()
     {
-        string playerName = playerNameField.text;
+        string playerName = playerNameField.text == "" ? "no name" : playerNameField.text;
 
         //結果＞0 : true ; false : true : true
-       // Debug.Log($"{playerNameField.text.Length}:{playerNameField.text == ""}:{playerNameField.text == default}:{string.IsNullOrWhiteSpace(playerNameField.text)}:{string.IsNullOrEmpty(playerNameField.text)}");
+        // Debug.Log($"{playerNameField.text.Length}:{playerNameField.text == ""}:{playerNameField.text == default}:{string.IsNullOrWhiteSpace(playerNameField.text)}:{string.IsNullOrEmpty(playerNameField.text)}");
+        UserDataManager.SaveUserName(playerName);
 
         return playerName == "" ? "no name" : playerName;
     }

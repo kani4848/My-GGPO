@@ -49,13 +49,10 @@ public class LobbyMemberNamePlate : MonoBehaviour
             chara.sprite = CharaImageHandler.Instance.GetCharaSpriteById(memberData.charaId);
         }
 
-        ownerRabel.SetActive(false);
+        ownerRabel.SetActive(memberData.isOwner);
         puid.text = memberData.puid;
-    }
 
-    public void SetReady(bool _ready)
-    {
-        ready.SetActive(_ready);
+        ready.SetActive(memberData.ready);
     }
 
     public void SetOwner(bool active)

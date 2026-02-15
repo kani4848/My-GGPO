@@ -60,7 +60,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LobbyActionLog
   id: 
-  text: {fileID: 0}
+  text: {fileID: 2849961704639716491}
 --- !u!114 &2849961704639716491
 MonoBehaviour:
   m_ObjectHideFlags: 0

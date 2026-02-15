@@ -19,19 +19,12 @@ public class LobbyService_InLobby
 
     [SerializeField] private float memberPollIntervalSec = 2.0f;
     private CancellationTokenSource _memberPollCts;
-
-    HashSet<LobbyMember> prevMembers = new();
-    ProductUserId prevOwnerId;
-    Dictionary<ProductUserId, long> lastBeatDic = new();
-    Dictionary<ProductUserId, bool> deadMemberList = new();
-    Dictionary<ProductUserId, string> memberNameDic = new();
-
     UniTaskCompletionSource tcs_HB;
+    CancellationTokenSource _hbCts;
 
-    private CancellationTokenSource _hbCts;
-
-    LobbyMember opponentdata;
-    ProductUserId ownerPUID;
+    //退室時用リセット=============
+    ProductUserId prevOwnerId = null;
+    List<ProductUserId> preMemberPuids = new();
 
     public LobbyService_InLobby(EOSLobbyManager lm)
     {
@@ -52,8 +45,7 @@ public class LobbyService_InLobby
         _memberPollCts?.Dispose();
         _memberPollCts = new();
 
-        HeartbeatLoopAsync().Forget();
-        CheckOtherMemberAlive(_memberPollCts.Token).Forget();
+        //HeartbeatLoopAsync().Forget();
     }
     public void ExitAction()
     {
@@ -71,19 +63,7 @@ public class LobbyService_InLobby
         _memberPollCts?.Cancel();
         _memberPollCts?.Dispose();
         _memberPollCts = null;
-
-        memberNameDic.Clear();
-        prevMembers.Clear();
-        prevOwnerId = null;
-
-        lastBeatDic.Clear();
-        deadMemberList.Clear();
-
-        opponentdata = null;
-        ownerPUID = null;
     }
-
-    //コールバックとループ処理===============================
 
     //ロビー情報アップデート時のコールバック処理
     void OnLobbyUpdated()
@@ -92,203 +72,76 @@ public class LobbyService_InLobby
         if (currentLobby == null) return;
         if (IEosService.myPuid == null) return;
 
-        var currentMembers = new HashSet<LobbyMember>(currentLobby.Members);
+        var currentMembers = currentLobby.Members;
         if (currentMembers.Count <= 0) return;
-        if (currentMembers == prevMembers) return;
 
-        ownerPUID = null;
-        opponentdata = null;
+        CheckOwnerChanged();//オーナー変更イベント発行
 
-        foreach(var member in currentMembers)
-        {
-            if (currentLobby.IsOwner(member.ProductId)) ownerPUID = member.ProductId;
-            if (member.ProductId != IEosService.myPuid) opponentdata = member;
-        }
-
-        var currentPUIDs = new HashSet<ProductUserId>(currentMembers.Select(m => m.ProductId));
-        var prevPUIDs = new HashSet<ProductUserId>(prevMembers.Select(m => m.ProductId));
-
-        OnJoined();//入室イベント発行
-        OnLeft();//退室イベント発行
-        OnOwnerChanged();//オーナー変更イベント発行
-
-        prevMembers = currentMembers;
-
-        void OnJoined()
-        {
-            foreach (var joined in currentPUIDs.Except(prevPUIDs))
-            {
-                var joinedMember = currentMembers.FirstOrDefault(m => m.ProductId == joined);
-                LobbyMemberEvent.RaiseJoined(EOS_Service.CreatePlayerData(joinedMember));
-            }
-        }
-
-        void OnLeft()
-        {
-            foreach (var removed in prevPUIDs.Except(currentPUIDs))
-            {
-                var removedMember = prevMembers.FirstOrDefault(m => m.ProductId == removed);
-                LobbyMemberEvent.RaiseLeft(EOS_Service.CreatePlayerData(removedMember));
-            }
-        }
-
-        void OnOwnerChanged()
+        void CheckOwnerChanged()
         {
             var newOwner = currentMembers.FirstOrDefault(m => currentLobby.IsOwner(m.ProductId));
 
             if (newOwner == null) return;
 
-            if (newOwner.ProductId != prevOwnerId)
+            if (prevOwnerId == null || newOwner.ProductId != prevOwnerId)
             {
+                Debug.Log("オーナー変更");
                 LobbyMemberEvent.RaiseOwnerChanged(EOS_Service.CreatePlayerData(newOwner));
                 prevOwnerId = newOwner.ProductId;
             }
         }
     }
 
-
-    //メンバー情報アップデート時のコールバック処理
+    //メンバー情報アップデート時のコールバック処理===============================
     private void OnMemberUpdated(string LobbyId, ProductUserId MemberId)
     {
+        Debug.Log("メンバー通知");
         var currentLobby = _lobbyManager.GetCurrentLobby();
         if (currentLobby == null || !currentLobby.IsValid()) return;
 
-        var currentMembers = currentLobby.Members;
-        if (currentMembers.Count <= 0) return;
-        var memberData = currentLobby.Members.First(m => m.ProductId == MemberId);
+        var currentMemberDatas = currentLobby.Members;
+        if (currentMemberDatas.Count <= 0) return;
 
-        //他メンバーハートビートの更新
-        LobbyAttribute lastBeatAtt;
-        memberData.MemberAttributes.TryGetValue(IEosService.HB_KEY, out lastBeatAtt);
+        var currentMemberPuids = currentMemberDatas.Select(m => m.ProductId).ToList();
 
-        if (lastBeatAtt != null)
+        var targetMemberData = currentLobby.Members.First(m => m.ProductId == MemberId);
+
+        /*駄目な例：PUIDが存在していてもアトリビュートが異なるとfalseを返してしまう。
+        var preExists = preLobbyMemberDatas.Contains(targetMemberData);
+        var currentExits = currentMemberDatas.Contains(targetMemberData);
+        PUIDベースの比較をしないと意図しない結果となる*/
+
+        /*駄目な例：リスト同士を比較するとき、参照渡しで代入しているとtrueを返す。
+         * if(preMemberData == currentMemberData)
+         */
+
+        PlayerData playerData = EOS_Service.CreatePlayerData(targetMemberData);
+
+        bool preExists = preMemberPuids.Contains(targetMemberData.ProductId);
+        bool currentExists = currentMemberPuids.Contains(targetMemberData.ProductId);
+
+        //入室
+        if (!preExists && currentExists)
         {
-            var newLastBeat = long.Parse(memberData.MemberAttributes[IEosService.HB_KEY].AsString);
-
-            if (lastBeatDic.ContainsKey(MemberId))
-            {
-                lastBeatDic[MemberId] = newLastBeat;
-            }
-            else
-            {
-                lastBeatDic.Add(MemberId, newLastBeat);
-            }
-
-            LobbyMemberEvent.RaiseHeartBeat(EOS_Service.CreatePlayerData(memberData));
+            Debug.Log("メンバー入室");
+            LobbyMemberEvent.RaiseJoined(playerData);
         }
 
-        UpdateMemberName();
-        OnReady();//readyイベント発行
-                  
-        //名前適用完了イベント発行
-
-        void UpdateMemberName()
+        //退室
+        if (preExists && !currentExists)
         {
-            var updateMember = currentMembers.FirstOrDefault(m => m.ProductId == MemberId);
-            string prevName;
-
-            bool nameExisted = !memberNameDic.TryGetValue(MemberId, out prevName);
-            bool nameChanged = updateMember.DisplayName != prevName;
-
-            if (!nameExisted || nameChanged)
-            {
-                var updateMemberData = EOS_Service.CreatePlayerData(updateMember);
-                LobbyMemberEvent.RaiseAppliedUserName(updateMemberData);
-                memberNameDic[MemberId] = updateMember.DisplayName;
-            }
+            Debug.Log("メンバー退室");
+            LobbyMemberEvent.RaiseLeft(playerData);//情報適用イベント
         }
 
-
-        void OnReady()
+        //データのアップデート
+        if (preExists && currentExists)
         {
-            foreach (var member in currentMembers)
-            {
-                LobbyAttribute currentReadyAtt;
-                if (!member.MemberAttributes.TryGetValue(IEosService.MEMBER_KEY_READY, out currentReadyAtt)) continue;
-
-                var prevData = prevMembers.FirstOrDefault(m => m.ProductId == member.ProductId);
-
-                if (prevData == null)
-                {
-                    Debug.Log($"ready is {(bool)currentReadyAtt.AsBool}");
-                    LobbyMemberEvent.RaiseReady(EOS_Service.CreatePlayerData(member));
-                    continue;
-                }
-
-                LobbyAttribute prevReadyAtt;
-                bool prevReadyExits = prevData.MemberAttributes.TryGetValue(IEosService.MEMBER_KEY_READY, out prevReadyAtt);
-
-                if (!prevReadyExits)
-                {
-                    Debug.Log($"ready is {(bool)currentReadyAtt.AsBool}");
-                    LobbyMemberEvent.RaiseReady(EOS_Service.CreatePlayerData(member));
-                    continue;
-                }
-
-                if (currentReadyAtt.AsBool == prevReadyAtt.AsBool) continue;
-
-                Debug.Log($"ready is {(bool)currentReadyAtt.AsBool}");
-                LobbyMemberEvent.RaiseReady(EOS_Service.CreatePlayerData(member));
-            }
+            Debug.Log("メンバー情報アップデート");
+            LobbyMemberEvent.RaiseUpdatePlayerData(playerData);
         }
-    }
 
-    //他メンバーハートビートの定期自動チェック処理
-    async UniTask CheckOtherMemberAlive(CancellationToken token)
-    {
-        while (!token.IsCancellationRequested)
-        {
-            Lobby currentLobby = _lobbyManager.GetCurrentLobby();
-
-            if (currentLobby == null)
-            {
-                await UniTask.Delay(TimeSpan.FromSeconds(1));
-                continue;
-            }
-
-            var members = currentLobby.Members;
-            if (members.Count <= 0)
-            {
-                await UniTask.Delay(TimeSpan.FromSeconds(1));
-                continue;
-            }
-
-            Dictionary<ProductUserId, bool> newDeadList = new();
-
-            foreach (LobbyMember member in members)
-            {
-                long lastBeat;
-                if (!lastBeatDic.TryGetValue(member.ProductId, out lastBeat)) continue;
-
-                var now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-
-                bool newDead;
-                bool wasDead;
-
-                if (!deadMemberList.TryGetValue(member.ProductId, out wasDead))
-                {
-                    newDeadList.Add(member.ProductId, false);
-                    continue;
-                }
-    
-                newDead = now - lastBeat >= 5;
-
-                if (newDead && wasDead != newDead)
-                {
-                    LobbyMemberEvent.RaiseDeath(EOS_Service.CreatePlayerData(member));
-                }
-
-                if (!newDead && wasDead != newDead)
-                {
-                    LobbyMemberEvent.RaiseRevive(EOS_Service.CreatePlayerData(member));
-                }
-
-                newDeadList.Add(member.ProductId, newDead);
-            }
-
-            deadMemberList = newDeadList;
-            await UniTask.Delay(TimeSpan.FromSeconds(1));
-        }
+        preMemberPuids = currentMemberDatas.Select(m=>m.ProductId).ToList();
     }
 
     async UniTask HeartbeatLoopAsync()
@@ -344,7 +197,7 @@ public class LobbyService_InLobby
     }
 
     //レディ===============================
-    public async UniTask OnReady(CancellationToken token)
+    public void OnReady()
     {
         var readyAtt = new LobbyAttribute()
         {
@@ -353,9 +206,13 @@ public class LobbyService_InLobby
             ValueType = AttributeType.Boolean,
             Visibility = LobbyAttributeVisibility.Public
         };
+        Debug.Log("レディをセットしようとする");
 
         _lobbyManager.SetMemberAttribute(readyAtt);
+    }
 
+    public async UniTask WaitAllReady(CancellationToken token)
+    {
         bool allReady = false;
 
         _lobbyManager.AddNotifyLobbyUpdate(CheckAllReady);
@@ -374,9 +231,9 @@ public class LobbyService_InLobby
         {
             Lobby lobby = _lobbyManager.GetCurrentLobby();
             if (lobby == null) return;
-            if(lobby.Members.Count != 2)return;
+            if (lobby.Members.Count != 2) return;
 
-            foreach(var member in lobby.Members)
+            foreach (var member in lobby.Members)
             {
                 if (!member.MemberAttributes.TryGetValue(IEosService.MEMBER_KEY_READY, out var memberReady)) return;
                 if (!(bool)memberReady.AsBool) return;
@@ -403,12 +260,9 @@ public class LobbyService_InLobby
     bool leaveLobby = false;
     public async UniTask LeaveLobby()
     {
-        _hbCts?.Cancel();
-        _hbCts?.Dispose();
-        _hbCts = null;
+        if(_lobbyManager.GetCurrentLobby() == null) return;
 
         leaveLobby = true;
-
         var tcs = new UniTaskCompletionSource();
 
         _lobbyManager.LeaveLobby(result =>
@@ -417,20 +271,16 @@ public class LobbyService_InLobby
         });
 
         await tcs.Task;
-
-        //leavelobbyより先に実行するとヌルエラー
-        ExitAction();
     }
 
 
     // データ取得 ===============================
-    public LobbyMember GetOpponentData()
+    public LobbyMember GetOpponentMemberData()
     {
-        return opponentdata;
-    }
+        var lobby = _lobbyManager.GetCurrentLobby();
 
-    public ProductUserId GetOwnerPUID()
-    {
-        return ownerPUID;
+        var opponent = lobby.Members.FirstOrDefault(m=>m.ProductId != IEosService.myPuid);
+
+        return opponent;
     }
 }

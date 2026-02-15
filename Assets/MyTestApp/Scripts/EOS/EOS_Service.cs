@@ -32,6 +32,7 @@ public class EOS_Service : MonoBehaviour, IEosService
 
     private void OnDisable()
     {
+        inLobbyService?.LeaveLobby().Forget();
         inLobbyService?.ExitAction();
         playerPeer?.Dispose();
     }
@@ -63,10 +64,9 @@ public class EOS_Service : MonoBehaviour, IEosService
     //ロビーシーン===============================================
     public async UniTask<List<SearchedLobbyData>> SearchLobby(string path = "")
     {
-        var data = await lobbySearchService.SearchLobby(path);
+        var data = await lobbySearchService.SearchLobbyAuto(path);
         inLobbyService.EnterLobbyAction();
         return data;
-
     }
 
     public async UniTask<LobbyData> JoinLobby(string id)
@@ -81,7 +81,8 @@ public class EOS_Service : MonoBehaviour, IEosService
     //ロビーのメンバー全員がレディ状態になったらシーンマネジャから呼ぶ
     public async UniTask Ready(CancellationToken token)
     {
-        await inLobbyService.OnReady(token);
+        inLobbyService.OnReady();
+        await inLobbyService.WaitAllReady(token);
     }
 
     public void CancelReady()
@@ -91,11 +92,9 @@ public class EOS_Service : MonoBehaviour, IEosService
 
     public async UniTask<bool> StartConnectPeer(CancellationToken token)
     {
-        var opponentPuid = inLobbyService.GetOpponentData().ProductId;
-        bool isOwner = myPuid == inLobbyService.GetOwnerPUID();
-
-        //ピアによる通信開始
-        return await playerPeer.StartConnectToPeer(isOwner, opponentPuid, token);
+        var m = inLobbyService.GetOpponentMemberData();
+        bool isOwner = lobbyManager.GetCurrentLobby().IsOwner(m.ProductId);
+        return await playerPeer.StartConnectToPeer(isOwner, m.ProductId, token);
     }
 
     public  async UniTask<LobbyData> CreateLobby(string path)
@@ -107,6 +106,7 @@ public class EOS_Service : MonoBehaviour, IEosService
     {
         playerPeer.CloseConnection();
         await inLobbyService.LeaveLobby();
+        inLobbyService.ExitAction();
     }
 
     public static PlayerData CreatePlayerData(LobbyMember lobbyMember)
@@ -132,7 +132,11 @@ public class EOS_Service : MonoBehaviour, IEosService
         bool d = lobbyMember.MemberAttributes.TryGetValue(IEosService.MEMBER_KEY_READY, out readyAtt);
         bool ready = d ? (bool)readyAtt.AsBool : false;
 
-        return new PlayerData(puid, memberName, charaId, hatCol, umaCol, ready);
+        Debug.Log(ready);
+
+        bool isOwner = lobbyManager.GetCurrentLobby().IsOwner(_puid);
+
+        return new PlayerData(puid, memberName, charaId, hatCol, umaCol, ready, isOwner);
     }
 
 

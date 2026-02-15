@@ -1,12 +1,15 @@
 using TMPro;
 using UnityEngine;
 using System.Collections.Generic;
+using UnityEngine.UI;
 
 public class SearchLobbyUI : MonoBehaviour
 {
     [SerializeField] private RectTransform contentRoot; // VerticalLayoutGroup推奨
-    [SerializeField] private UnityEngine.UI.Button buttonPrefab;
-    
+    [SerializeField] LobbyJoinButton lobbyJoinButtonPrefab;
+
+
+    [SerializeField] UnityEngine.UI.Button quickBtn;
     [SerializeField] UnityEngine.UI.Button createBtn;
     [SerializeField] UnityEngine.UI.Button searchBtn;
     [SerializeField] UnityEngine.UI.Button logOutBtn;
@@ -15,11 +18,9 @@ public class SearchLobbyUI : MonoBehaviour
     [SerializeField] TMP_InputField lobbyPath_search;
 
     [SerializeField] GameObject noLobbies;
-
     public void Activated()
     {
         gameObject.SetActive(true);
-        noLobbies.SetActive(false);
         ActivatedButtons();
     }
 
@@ -31,9 +32,13 @@ public class SearchLobbyUI : MonoBehaviour
     
     public void RefreshList(List<SearchedLobbyData> searchLobbyDatas)
     {
-        if (searchLobbyDatas == null) return;
+        if (searchLobbyDatas == null || searchLobbyDatas.Count == 0)
+        {
+            noLobbies.SetActive(true);
+            return;
+        }
 
-        noLobbies.SetActive(searchLobbyDatas.Count == 0);
+        noLobbies.SetActive(false);
 
         foreach (var lobbyData in searchLobbyDatas)
         {
@@ -45,15 +50,9 @@ public class SearchLobbyUI : MonoBehaviour
 
     private void CreateLobbyButton(SearchedLobbyData lobbyData)
     {
-        var btn = Instantiate(buttonPrefab, contentRoot);
-        var buttonText = btn.GetComponentInChildren<TextMeshProUGUI>();
-
-        buttonText.text = $"({lobbyData.ownerName})";
-
-        btn.onClick.AddListener(() =>
-        {
-            LobbyEvent.RaiseRequestJoinLobby(lobbyData.lobbyId);
-        });
+        var btn = Instantiate(lobbyJoinButtonPrefab, contentRoot);
+        
+        btn.SetLobbyDatas(lobbyData);
     }
 
     public void ClearUI()
@@ -66,8 +65,6 @@ public class SearchLobbyUI : MonoBehaviour
         {
             Destroy(contentRoot.GetChild(i).gameObject);
         }
-
-        DeactivatedButtons();
     }
 
     public string GetLobbyPath_Create()
@@ -81,8 +78,9 @@ public class SearchLobbyUI : MonoBehaviour
     }
 
 
-    void DeactivatedButtons()
+    public void DeactivatedButtons()
     {
+        quickBtn.interactable = false;
         createBtn.interactable = false;
         searchBtn.interactable = false;
         logOutBtn.interactable =false;
@@ -90,6 +88,7 @@ public class SearchLobbyUI : MonoBehaviour
 
     void ActivatedButtons()
     {
+        quickBtn.interactable = true;
         createBtn.interactable = true;
         searchBtn.interactable = true;
         logOutBtn.interactable = true;
