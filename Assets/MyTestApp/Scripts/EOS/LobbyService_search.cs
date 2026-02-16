@@ -128,6 +128,7 @@ public sealed class LobbyService_search
         }
         catch(NullReferenceException)
         {
+            Debug.Log("ロビー参加失敗");
             return UniTask.FromResult<LobbyData>(null);
         }
 

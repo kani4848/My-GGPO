@@ -20,6 +20,8 @@ public class EOS_Service : MonoBehaviour, IEosService
     EOS_LoginService loginService;
     PlayerPeer playerPeer;
 
+    [SerializeField] double ping;
+
     private void Start()
     {
         lobbyManager = EOSManager.Instance.GetOrCreateManager<EOSLobbyManager>();
@@ -53,7 +55,7 @@ public class EOS_Service : MonoBehaviour, IEosService
             lobbyManager.OnLoggedIn();
             EosCommonData.myPuid = EOSManager.Instance.GetProductUserId();
             playerData_Local.puid = EosCommonData.myPuid.ToString();
-            playerPeer = new(EosCommonData.myPuid);
+            playerPeer = new();
 
             loggedin = true;
         }
@@ -93,7 +95,16 @@ public class EOS_Service : MonoBehaviour, IEosService
     {
         var m = inLobbyService.GetOpponentMemberData();
         bool isOwner = lobbyManager.GetCurrentLobby().IsOwner(m.ProductId);
-        return await playerPeer.StartConnectToPeer(isOwner, m.ProductId, token);
+
+        bool accept = await playerPeer.AcceptConnectionRequest(m.ProductId);
+
+        if (!accept)
+        {
+            Debug.Log("通信許可失敗");
+            return false;
+        }
+
+        return await playerPeer.StartConnectToPeer(isOwner, token);
     }
 
     public  async UniTask<LobbyData> CreateLobby(string path)
@@ -138,6 +149,11 @@ public class EOS_Service : MonoBehaviour, IEosService
         return new PlayerData(puid, memberName, charaId, hatCol, umaCol, ready, isOwner);
     }
 
+    public void HeartBeatTic()
+    {
+        if (lobbyManager.GetCurrentLobby().Members.Count != 2) return;
+        ping = playerPeer.HbTick();
+    }
 
     //メインシーン===============================================
     public bool GetRemoteInput()
