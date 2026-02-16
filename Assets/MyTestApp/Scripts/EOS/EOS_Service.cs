@@ -149,8 +149,18 @@ public class EOS_Service : MonoBehaviour, IEosService
         return new PlayerData(puid, memberName, charaId, hatCol, umaCol, ready, isOwner);
     }
 
-    public void HeartBeatTic()
+    public async UniTask HeartBeatTic()
     {
+        var m = inLobbyService.GetOpponentMemberData();
+
+        bool accept = await playerPeer.AcceptConnectionRequest(m.ProductId);
+
+        if (!accept)
+        {
+            Debug.Log("通信許可失敗");
+            return;
+        }
+
         if (lobbyManager.GetCurrentLobby().Members.Count != 2) return;
         ping = playerPeer.HbTick();
     }

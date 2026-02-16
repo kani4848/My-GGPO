@@ -45,10 +45,10 @@ public class PlayerPeer: IDisposable
     const int HandshakeTimeoutMs = 6;
 
     // Packet types
-    private const byte PKT_Hb = 0;
-    private const byte PKT_Seed = 1;
-    private const byte PKT_SeedAck = 2;
-    private const byte PKT_Input = 3;
+
+    private const byte PKT_Seed = 3;
+    private const byte PKT_SeedAck = 4;
+    private const byte PKT_Input = 5;
     
     P2PInterface p2pInterface;
 
@@ -277,11 +277,16 @@ public class PlayerPeer: IDisposable
     void SendHB(byte[] payload)
     {
         if (p2pInterface == null) return;
-        if (remotePuid == null) return;
+        if (remotePuid == null)
+        {
+            UnityEngine.Debug.Log($"remotepuidがヌルだ");
+            return;
+        }
 
         sendPacketOptions.RemoteUserId = remotePuid;
         sendPacketOptions.Data = payload; // 渡されたpayloadをそのまま送る
-        p2pInterface.SendPacket(ref sendPacketOptions);
+        var r = p2pInterface.SendPacket(ref sendPacketOptions);
+        UnityEngine.Debug.Log($"送信結果{r}");
     }
 
     public void SendInput(int frame, bool _input)
@@ -336,22 +341,32 @@ public class PlayerPeer: IDisposable
 
             //successではないなら、キュー内に条件に合うパケットがないので終了
             if (result != Result.Success)
+            {
+                UnityEngine.Debug.Log($"受信失敗{result}");
                 break;
+            }
 
             //通信相手以外からのパケットをはじく
             if (outPeerId == null || outBytesWritten == 0)
+            {
+                UnityEngine.Debug.Log("送信元ブロック");
                 continue;
+            }
             if (outPeerId != remotePuid)
+            {
+                UnityEngine.Debug.Log("PUIDブロック");
                 continue;
+            }
+
+            heartBeat.TryConsume(_recvBuffer);
+
             //受信データタイプを識別、タイプごとに処理を分岐
             byte packetType = _recvBuffer[0];
 
             switch (packetType)
             {
-                case PKT_Hb:
+                case 1:
 
-                    UnityEngine.Debug.Log("ピンを受けた");
-                    heartBeat.TryConsume(_recvBuffer);
                     break;
 
                 case PKT_Seed:
