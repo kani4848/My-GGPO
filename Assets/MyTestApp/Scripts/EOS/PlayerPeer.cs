@@ -42,7 +42,7 @@ public class PlayerPeer: IDisposable
     // ===== Settings =====
     const string SOCKET_NAME = "GAME";
     const int PollIntervalMs = 200;
-    const int HandshakeTimeoutMs = 6000;
+    const int HandshakeTimeoutMs = 6;
 
     // Packet types
     private const byte PKT_Hb = 0;
@@ -278,12 +278,8 @@ public class PlayerPeer: IDisposable
         if (p2pInterface == null) return;
         if (remotePuid == null) return;
 
-        _sendBuffer_hb[0] = PKT_Hb;
-        BitConverter.GetBytes(System.Diagnostics.Stopwatch.GetTimestamp()).CopyTo(_sendBuffer_hb, 1);
-
         sendPacketOptions.RemoteUserId = remotePuid;
-        sendPacketOptions.Data = _sendBuffer_hb;
-
+        sendPacketOptions.Data = payload; // 渡されたpayloadをそのまま送る
         p2pInterface.SendPacket(ref sendPacketOptions);
     }
 
