@@ -94,4 +94,6 @@ public interface IEosService
     public bool GetRemoteInput();
 
     public UniTask<bool> StartQuickMatch();
+
+    public void HeartBeatTic();
 }

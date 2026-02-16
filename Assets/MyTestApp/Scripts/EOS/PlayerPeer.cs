@@ -90,6 +90,9 @@ public class PlayerPeer: IDisposable
 
     ProductUserId remotePuid;
 
+    HeartbeatSession heartBeat;
+
+
     public PlayerPeer()
     {
         _socketId = new SocketId { SocketName = SOCKET_NAME };
@@ -119,6 +122,8 @@ public class PlayerPeer: IDisposable
             inputFrames_local[i] = -1;
             inputFrames_remote[i] = -1;
         }
+
+        heartBeat = new(SendHB);
     }
 
     public void Dispose()
@@ -170,16 +175,7 @@ public class PlayerPeer: IDisposable
         }
     }
 
-    HeartBeat heartBeat = new HeartBeat();
-
-    public double HeartBeat()
-    {
-        heartBeat.TickHb();
-        ReceivePump();
-
-        return heartBeat.PingMs;
-    }
-
+    
 
     public async UniTask<bool> StartConnectToPeer(bool _isLobbyHost, CancellationToken token)
     {
@@ -271,7 +267,13 @@ public class PlayerPeer: IDisposable
 
     int lastAckFrame = -1;
 
-    public void SendHB()
+    public double HbTick()
+    {
+        heartBeat.Tick();
+        return heartBeat.PingMs;
+    }
+
+    void SendHB(byte[] payload)
     {
         if (p2pInterface == null) return;
         if (remotePuid == null) return;
@@ -349,10 +351,6 @@ public class PlayerPeer: IDisposable
 
             switch (packetType)
             {
-                default:
-                    heartBeat.OnReceiveRaw(_recvBuffer);
-                    break;
-
                 case PKT_Seed:
                     if (outBytesWritten < 5) continue;
                     UnPackSeedData(_recvBuffer);
@@ -496,68 +494,66 @@ public class PlayerPeer: IDisposable
 
 }
 
-public sealed class HeartBeat
+public sealed class HeartbeatSession
 {
-    // ===== HB設定 =====
-    private const int HB_INTERVAL_MS = 200;      // HB送信間隔（レディ前/試合中どちらでも無難）
-    private const int HB_TIMEOUT_MS = 1500;     // これ以上返らないHBは破棄（切断判定にも使える）
+    // ===== 設定 =====
+    private readonly int _intervalMs;
+    private readonly int _timeoutMs;
+    private readonly double _emaAlpha;
 
-    // ===== HB状態 =====
-    private uint _hbSeq = 0;
-    private long _nextHbSendAtTs = 0;            // Stopwatch ticks
-    private readonly Dictionary<uint, long> _hbPending = new(); // seq -> sendTimestamp
-    private long _lastHbRecvTs = 0;              // 最後にHB系を受けた時刻（Stopwatch ticks）
+    // ===== 外部依存（PlayerPeerから注入） =====
+    private readonly Func<long> _nowTs;                 // Stopwatch ticks を返す
+    private readonly Action<byte[]> _send;              // 実際の送信（PlayerPeerのSendに接続）
 
-    // 表示用（平滑化）
-    public double PingMs { get; private set; } = -1;        // 表示用 ping（RTT/2）
-    public double RttMs { get; private set; } = -1;        // 参考用 RTT
-    private double _pingEmaMs = -1;                         // EMA内部
+    // ===== 状態 =====
+    private uint _seq = 0;
+    private long _nextSendAtTs = 0;
+    private long _lastRecvAtTs = 0;
 
-    // EMA係数（小さいほど滑らか）
-    private const double PING_EMA_ALPHA = 0.15;
+    // 未返信ぶんだけ保持
+    private readonly Dictionary<uint, long> _pending = new();
+    private readonly List<uint> _tmpRemove = new();
 
-    // ===== 外部から呼ぶ想定 =====
-    // 毎フレーム or 定期的に呼ばれる Update 的な場所から呼ぶ
-    public void TickHb()
+    // 計測値（外部に見せる）
+    public double PingMs { get; private set; } = -1;
+    public double RttMs { get; private set; } = -1;
+
+    private double _pingEmaMs = -1;
+
+    public HeartbeatSession(
+        Action<byte[]> send,
+        int intervalMs = 200,
+        int timeoutMs = 1500,
+        double emaAlpha = 0.15)
     {
-        var nowTs = NowTs();
+        _send = send ?? throw new ArgumentNullException(nameof(send));
+        _intervalMs = intervalMs;
+        _timeoutMs = timeoutMs;
+        _emaAlpha = emaAlpha;
 
-        // 未返信の掃除（溜まり続けないように）
-        CleanupHbPending(nowTs);
-
-        // 次の送信時刻になったら送る
-        if (nowTs < _nextHbSendAtTs) return;
-
-        SendHbPing(nowTs);
-
-        // 次回の送信時刻を設定
-        _nextHbSendAtTs = nowTs + MsToTs(HB_INTERVAL_MS);
+        // 時刻源はStopwatch固定（ロールバックやTime.timeの影響を避ける）
+        _nowTs = Stopwatch.GetTimestamp;
     }
 
-    // 生存判定が欲しいなら（任意）
-    public bool IsAlive()
+    /// <summary>
+    /// PlayerPeerのUpdateなどから毎フレーム呼ぶ
+    /// </summary>
+    public void Tick()
     {
-        if (_lastHbRecvTs == 0) return true; // まだ一度も受けてない初期状態は生存扱い
-        var nowTs = NowTs();
-        var elapsedMs = TsToMs(nowTs - _lastHbRecvTs);
-        return elapsedMs <= HB_TIMEOUT_MS;
+        var nowTs = _nowTs();
+
+        CleanupPending(nowTs);
+
+        if (nowTs < _nextSendAtTs) return;
+
+        SendPing(nowTs);
+        _nextSendAtTs = nowTs + MsToTs(_intervalMs);
     }
 
-    // ===== 送受信 =====
-    private void SendHbPing(long nowTs)
-    {
-        var seq = ++_hbSeq;
-
-        // 送信時刻をpendingに保存（未返信ぶんだけ）
-        _hbPending[seq] = nowTs;
-
-        // payload: [MsgType][seq]
-        var payload = NetMsg.PackHbPing(seq);
-        SendRaw(payload);
-    }
-
-    // 受信入口（既存の受信処理から呼ぶ想定）
-    public void OnReceiveRaw(byte[] payload)
+    /// <summary>
+    /// 受信パケットがHBなら消費してtrueを返す（PlayerPeer側で以降の処理を止められる）
+    /// </summary>
+    public bool TryConsume(byte[] payload)
     {
         var type = NetMsg.PeekType(payload);
 
@@ -567,107 +563,104 @@ public sealed class HeartBeat
                 {
                     var seq = NetMsg.UnpackHbPing(payload);
 
-                    // 受け取った seq をそのまま返す（相手時刻は不要）
+                    // 受け取ったseqをそのまま返す（相手の時刻は不要）
                     var pong = NetMsg.PackHbPong(seq);
-                    SendRaw(pong);
+                    _send(pong);
 
-                    _lastHbRecvTs = NowTs();
-                    break;
+                    _lastRecvAtTs = _nowTs();
+                    return true;
                 }
 
             case NetMsg.MsgType.HbPong:
                 {
                     var seq = NetMsg.UnpackHbPong(payload);
-                    OnHbPong(seq);
-                    _lastHbRecvTs = NowTs();
-                    break;
+                    OnPong(seq);
+
+                    _lastRecvAtTs = _nowTs();
+                    return true;
                 }
 
             default:
-                // 既存の他メッセージ処理へ
-                OnReceiveOther(payload);
-                break;
+                return false;
         }
     }
 
-    private void OnHbPong(uint seq)
+    public bool IsAlive()
     {
-        var nowTs = NowTs();
+        if (_lastRecvAtTs == 0) return true; // 初期は生存扱い
+        var elapsedMs = TsToMs(_nowTs() - _lastRecvAtTs);
+        return elapsedMs <= _timeoutMs;
+    }
 
-        if (!_hbPending.TryGetValue(seq, out var sendTs))
+    // ===== 内部処理 =====
+    private void SendPing(long nowTs)
+    {
+        var seq = ++_seq;
+
+        // 未返信ぶんだけ保存
+        _pending[seq] = nowTs;
+
+        var ping = NetMsg.PackHbPing(seq);
+        _send(ping);
+    }
+
+    private void OnPong(uint seq)
+    {
+        var nowTs = _nowTs();
+
+        if (!_pending.TryGetValue(seq, out var sentTs))
         {
-            // もう掃除済み / 重複 / 順序ずれ等（無視でOK）
+            // timeoutで掃除済み / 重複など
             return;
         }
 
-        _hbPending.Remove(seq);
+        _pending.Remove(seq);
 
-        var rttMs = TsToMs(nowTs - sendTs);
+        var rttMs = TsToMs(nowTs - sentTs);
         var pingMs = rttMs * 0.5;
 
         RttMs = rttMs;
 
-        // EMAで平滑化（最初の1回はそのまま採用）
+        // 表示のブレを抑える（EMA）
         if (_pingEmaMs < 0) _pingEmaMs = pingMs;
-        else _pingEmaMs = _pingEmaMs + (pingMs - _pingEmaMs) * PING_EMA_ALPHA;
+        else _pingEmaMs = _pingEmaMs + (pingMs - _pingEmaMs) * _emaAlpha;
 
         PingMs = _pingEmaMs;
     }
 
-    private void CleanupHbPending(long nowTs)
+    private void CleanupPending(long nowTs)
     {
-        if (_hbPending.Count == 0) return;
+        if (_pending.Count == 0) return;
 
-        // timeout超過したseqを消す（Dictionaryを直接foreachで消せないので一旦リスト化）
         _tmpRemove.Clear();
 
-        foreach (var kv in _hbPending)
+        foreach (var kv in _pending)
         {
             var elapsedMs = TsToMs(nowTs - kv.Value);
-            if (elapsedMs > HB_TIMEOUT_MS) _tmpRemove.Add(kv.Key);
+            if (elapsedMs > _timeoutMs) _tmpRemove.Add(kv.Key);
         }
 
         for (int i = 0; i < _tmpRemove.Count; i++)
         {
-            _hbPending.Remove(_tmpRemove[i]);
+            _pending.Remove(_tmpRemove[i]);
         }
-
-        // ここで「未返信が多すぎる」「一定回数連続でtimeout」などをカウントして
-        // 切断扱いにしてもOK（設計次第）
     }
 
-    private readonly List<uint> _tmpRemove = new();
-
-    // ===== 時刻ユーティリティ（Stopwatch ticks） =====
-    private static long NowTs() => Stopwatch.GetTimestamp();
-
+    // ===== ticks/ms変換 =====
     private static long MsToTs(int ms)
         => (long)(ms * (Stopwatch.Frequency / 1000.0));
 
     private static double TsToMs(long dtTs)
         => dtTs * 1000.0 / Stopwatch.Frequency;
-
-    // ===== 既存想定メソッド（あなたの環境に合わせて置き換え） =====
-    private void SendRaw(byte[] payload)
-    {
-        // TODO: 既存のP2P sendへ接続する
-        // 例: _p2p.Send(peerPuid, payload);
-    }
-
-    private void OnReceiveOther(byte[] payload)
-    {
-        // TODO: 既存のメッセージ処理
-    }
 }
 
-// ===== メッセージパック/アンパック（例） =====
 public static class NetMsg
 {
     public enum MsgType : byte
     {
         HbPing = 1,
         HbPong = 2,
-        // ... 既存
+        // ...その他
     }
 
     public static MsgType PeekType(byte[] p) => (MsgType)p[0];
