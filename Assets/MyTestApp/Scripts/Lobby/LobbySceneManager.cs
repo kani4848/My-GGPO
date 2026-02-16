@@ -245,11 +245,13 @@ public class LobbySceneManager : MonoBehaviour, ILobbySceneManager
             {
                 await eosSirvice.Ready(cts.Token);
 
-                //接続成功
+                //全員ready完了
                 state = LobbyState.ConnectingOpponent;
 
-                await UniTask.Delay(TimeSpan.FromSeconds(1));
+                bool connectSuccess = await eosSirvice.StartConnectPeer(cts.Token);
+                if (!connectSuccess) return;
 
+                state = LobbyState.GoMain;
             }
             catch (OperationCanceledException)
             {

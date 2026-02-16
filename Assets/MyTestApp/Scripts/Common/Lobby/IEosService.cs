@@ -29,13 +29,13 @@ public class LobbyData
 {
     public string id;
     public string path;
-    public List<PlayerData> currentMemberDatas;
+    public List<PlayerData> playerDatas;
 
     public LobbyData (string id, string path, List<PlayerData> currentMemberDatas)
     {
         this.id = id;
         this.path = path;
-        this.currentMemberDatas = currentMemberDatas;
+        this.playerDatas = currentMemberDatas;
     }
 }
 

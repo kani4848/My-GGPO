@@ -34,18 +34,26 @@ public class JoinedLobbyUI : MonoBehaviour
         readyButton.interactable = true;
         leaveButton.interactable = true;
 
-        Debug.Log($"人数は{lobbyData.currentMemberDatas.Count}人");
+        ClearNamePlates();
+        ClearLog();
+
+        foreach(var playerData in lobbyData.playerDatas)
+        {
+            AddMemberNamePlate(playerData);
+        }
     }
 
     public void Deactivated()
     {
         gameObject.SetActive(false);
-        ClearCurrentNamePlates();
+        ClearNamePlates();
         ClearLog();
     }
 
     void AddMemberNamePlate(PlayerData memberData)
     {
+        if (namePlateDic.ContainsKey(memberData.puid)) return;
+
         LobbyMemberNamePlate memberNamePlate = Instantiate(memberNamePlatePrefab, memberRoot);
 
         memberNamePlate.UpdateImage(memberData);
@@ -58,7 +66,7 @@ public class JoinedLobbyUI : MonoBehaviour
         Canvas.ForceUpdateCanvases();
     }
 
-    void ClearCurrentNamePlates()
+    void ClearNamePlates()
     {
         foreach(var data in namePlateDic)
         {
