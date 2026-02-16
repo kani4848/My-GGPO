@@ -351,6 +351,10 @@ public class PlayerPeer: IDisposable
 
             switch (packetType)
             {
+                case PKT_Hb:
+                    heartBeat.TryConsume(_recvBuffer);
+                    break;
+
                 case PKT_Seed:
                     if (outBytesWritten < 5) continue;
                     UnPackSeedData(_recvBuffer);

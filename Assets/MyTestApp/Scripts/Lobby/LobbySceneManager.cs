@@ -66,7 +66,7 @@ public class LobbySceneManager : MonoBehaviour, ILobbySceneManager
 
     private void Update()
     {
-        eosSirvice.HeartBeatTic();
+        eosSirvice?.HeartBeatTic();
 
         if (UiInputGuard.IsTypingInTextField()) return;
 
