@@ -140,8 +140,8 @@ public sealed class P2PReadyCoordinator : IDisposable
                 }
 
                 // local/remote 判定（remoteは handshaking 開始時に固定する）
-                var localMember = members.FirstOrDefault(m => m.ProductId == IEosService.myPuid);
-                var remoteMember = members.FirstOrDefault(m => m.ProductId != IEosService.myPuid);
+                var localMember = members.FirstOrDefault(m => m.ProductId == EosCommonData.myPuid);
+                var remoteMember = members.FirstOrDefault(m => m.ProductId != EosCommonData.myPuid);
 
                 if (localMember == null || remoteMember == null)
                 {
@@ -215,7 +215,7 @@ public sealed class P2PReadyCoordinator : IDisposable
             if (lobbyMember.MemberAttributes == null) return false;
 
             // MemberAttributes.TryGetValue が使える前提
-            if (!lobbyMember.MemberAttributes.TryGetValue(IEosService.MEMBER_KEY_READY, out var att)) return false;
+            if (!lobbyMember.MemberAttributes.TryGetValue(EosCommonData.MEMBER_KEY_READY, out var att)) return false;
 
             // AsString が "1" なら ready
             string s = att.AsString;
@@ -296,7 +296,7 @@ public sealed class P2PReadyCoordinator : IDisposable
         {
             var receiveOptions = new ReceivePacketOptions
             {
-                LocalUserId = IEosService.myPuid,
+                LocalUserId = EosCommonData.myPuid,
                 MaxDataSizeBytes = (uint)_recvBuffer.Length,
                 RequestedChannel = null, // チャンネル未指定
             };
@@ -341,7 +341,7 @@ public sealed class P2PReadyCoordinator : IDisposable
 
         var sendOptions = new SendPacketOptions
         {
-            LocalUserId = IEosService.myPuid,
+            LocalUserId = EosCommonData.myPuid,
             RemoteUserId = remote,
             SocketId = _socketId,
             Channel = 0,
@@ -362,7 +362,7 @@ public sealed class P2PReadyCoordinator : IDisposable
 
         var opt = new AcceptConnectionOptions
         {
-            LocalUserId = IEosService.myPuid,
+            LocalUserId = EosCommonData.myPuid,
             RemoteUserId = remote,
             SocketId = _socketId
         };
@@ -381,7 +381,7 @@ public sealed class P2PReadyCoordinator : IDisposable
 
         var opt = new AddNotifyPeerConnectionRequestOptions
         {
-            LocalUserId = IEosService.myPuid,
+            LocalUserId = EosCommonData.myPuid,
             SocketId = _socketId
         };
 
@@ -412,7 +412,7 @@ public sealed class P2PReadyCoordinator : IDisposable
             {
                 var close = new CloseConnectionOptions
                 {
-                    LocalUserId = IEosService.myPuid,
+                    LocalUserId = EosCommonData.myPuid,
                     RemoteUserId = _remotePuid,
                     SocketId = _socketId
                 };
@@ -497,7 +497,7 @@ public sealed class P2PReadyCoordinator : IDisposable
 
                 var receiveOptions = new ReceivePacketOptions
                 {
-                    LocalUserId = IEosService.myPuid,
+                    LocalUserId = EosCommonData.myPuid,
                     MaxDataSizeBytes = (uint)buf.Length,
                     RequestedChannel = null,
                 };
@@ -541,7 +541,7 @@ public sealed class P2PReadyCoordinator : IDisposable
 
         var opt = new SendPacketOptions
         {
-            LocalUserId = IEosService.myPuid,
+            LocalUserId = EosCommonData.myPuid,
             RemoteUserId = remotePuid,
             SocketId = _socketId,
             Channel = 0,
@@ -584,7 +584,7 @@ public sealed class P2PReadyCoordinator : IDisposable
 
             var opt = new SendPacketOptions
             {
-                LocalUserId = IEosService.myPuid,
+                LocalUserId = EosCommonData.myPuid,
                 RemoteUserId = remote,
                 SocketId = _socketId,
                 Channel = 0,

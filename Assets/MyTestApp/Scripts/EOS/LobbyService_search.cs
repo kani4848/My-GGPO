@@ -27,7 +27,7 @@ public sealed class LobbyService_search
         var lobbySettings = new Lobby
         {
             MaxNumLobbyMembers = maxMembers,
-            BucketId = IEosService.LobbyCommonId,
+            BucketId = EosCommonData.LobbyCommonId,
             LobbyPermissionLevel = LobbyPermissionLevel.Publicadvertised, // テスト向け
             PresenceEnabled = false,
             AllowInvites = false,
@@ -37,15 +37,15 @@ public sealed class LobbyService_search
         //全検索用にバケットを付与
         lobbySettings.Attributes.Add(new LobbyAttribute
         {
-            Key = IEosService.LobbyCommonKey,
+            Key = EosCommonData .LobbyCommonKey,
             ValueType = AttributeType.String,
-            AsString = IEosService.LobbyCommonId,
+            AsString = EosCommonData.LobbyCommonId,
             Visibility = LobbyAttributeVisibility.Public,
         });
 
         lobbySettings.Attributes.Add(new LobbyAttribute
         {
-            Key = IEosService.LOBBY_KEY_OWNER_NAME,
+            Key = EosCommonData.LOBBY_KEY_OWNER_NAME,
             ValueType = AttributeType.String,
             AsString = playerData_local.name,
             Visibility = LobbyAttributeVisibility.Public,
@@ -53,7 +53,7 @@ public sealed class LobbyService_search
 
         lobbySettings.Attributes.Add(new LobbyAttribute
         {
-            Key = IEosService.LOBBY_KEY_CHARA,
+            Key = EosCommonData.LOBBY_KEY_CHARA,
             ValueType = AttributeType.Int64,
             AsInt64 = playerData_local.charaId,
             Visibility = LobbyAttributeVisibility.Public,
@@ -63,7 +63,7 @@ public sealed class LobbyService_search
 
         lobbySettings.Attributes.Add(new LobbyAttribute
         {
-            Key = IEosService.LOBBY_KEY_HAT,
+            Key = EosCommonData.LOBBY_KEY_HAT,
             ValueType = AttributeType.Int64,
             AsInt64 = hatColData,
             Visibility = LobbyAttributeVisibility.Public,
@@ -73,7 +73,7 @@ public sealed class LobbyService_search
         {
             lobbySettings.Attributes.Add(new LobbyAttribute
             {
-                Key = IEosService.LOBBY_KEY_PATH,
+                Key = EosCommonData.LOBBY_KEY_PATH,
                 ValueType = AttributeType.String,
                 AsString = lobbyPath,
                 Visibility = LobbyAttributeVisibility.Public,
@@ -154,12 +154,12 @@ public sealed class LobbyService_search
 
         if (lobbyPath == "")
         {
-            key = IEosService.LobbyCommonKey;
-            path = IEosService.LobbyCommonId;
+            key = EosCommonData.LobbyCommonKey;
+            path = EosCommonData.LobbyCommonId;
         }
         else
         {
-            key = IEosService.LOBBY_KEY_PATH;
+            key = EosCommonData.LOBBY_KEY_PATH;
             path = lobbyPath;
         }
 
@@ -206,8 +206,8 @@ public sealed class LobbyService_search
 
     public UniTask<List<SearchedLobbyData>> SearchLobbyAuto()
     {
-        string key = IEosService.LobbyCommonKey;
-        string path = IEosService.LobbyCommonId;
+        string key = EosCommonData.LobbyCommonKey;
+        string path = EosCommonData.LobbyCommonId;
 
         var tcs = new UniTaskCompletionSource<List<SearchedLobbyData>>();
         Dictionary<Lobby, LobbyDetails> findLobbies = new();
@@ -253,7 +253,7 @@ public sealed class LobbyService_search
     LobbyData CreateLobbyData(Lobby lobby)
     {
         string path = "undefined";
-        var p = lobby.Attributes.FirstOrDefault(a => a.Key == IEosService.LOBBY_KEY_PATH);
+        var p = lobby.Attributes.FirstOrDefault(a => a.Key == EosCommonData.LOBBY_KEY_PATH);
         if (p != null) path = p.AsString;
 
         List<PlayerData> playerDatas = new();
@@ -266,25 +266,25 @@ public sealed class LobbyService_search
                 string name = member.DisplayName == null ? "no name": member.DisplayName;
                 
                 int charaId = -1;
-                if (member.MemberAttributes.TryGetValue(IEosService.MEMBER_KEY_CHARA, out var cid)) 
+                if (member.MemberAttributes.TryGetValue(EosCommonData.MEMBER_KEY_CHARA, out var cid)) 
                     charaId = (int)cid.AsInt64.GetValueOrDefault();
 
                 Color hatCol = default;
-                if (member.MemberAttributes.TryGetValue(IEosService.MEMBER_KEY_HAT, out var hc))
+                if (member.MemberAttributes.TryGetValue(EosCommonData.MEMBER_KEY_HAT, out var hc))
                 {
                     var packed = hc.AsInt64.GetValueOrDefault();
                     hatCol = EOS_Service.UnpackRgb(packed);
                 }
 
                 Color umaCol = default;
-                if (member.MemberAttributes.TryGetValue(IEosService.MEMBER_KEY_UMA, out var uc))
+                if (member.MemberAttributes.TryGetValue(EosCommonData.MEMBER_KEY_UMA, out var uc))
                 {
                     var packed = uc.AsInt64.GetValueOrDefault();
                     umaCol = EOS_Service.UnpackRgb(packed);
                 }
 
                 bool ready = false;
-                if (member.MemberAttributes.TryGetValue(IEosService.MEMBER_KEY_READY, out var r))
+                if (member.MemberAttributes.TryGetValue(EosCommonData.MEMBER_KEY_READY, out var r))
                     ready = (bool)r.AsBool;
 
                 var pd = new PlayerData(puid, name, charaId, hatCol, umaCol, ready);
@@ -313,7 +313,7 @@ public sealed class LobbyService_search
         //ロビーアトリビュートに追加したオーナーネームを取得
         var opt_owner = new LobbyDetailsCopyAttributeByKeyOptions
         {
-            AttrKey = IEosService.LOBBY_KEY_OWNER_NAME,
+            AttrKey = EosCommonData.LOBBY_KEY_OWNER_NAME,
         };
 
         r = details.CopyAttributeByKey(ref opt_owner, out var ownerInfo);
@@ -330,7 +330,7 @@ public sealed class LobbyService_search
         //同様にキャラを取得
         var opt_chara = new LobbyDetailsCopyAttributeByKeyOptions
         {
-            AttrKey = IEosService.LOBBY_KEY_CHARA
+            AttrKey = EosCommonData.LOBBY_KEY_CHARA
         };
         r = details.CopyAttributeByKey(ref opt_chara, out var charaInfo);
         if (r == Result.Success && charaInfo.HasValue && charaInfo.Value.Data.HasValue)
@@ -342,7 +342,7 @@ public sealed class LobbyService_search
         //同様に帽子カラーを取得
         var opt_hat = new LobbyDetailsCopyAttributeByKeyOptions
         {
-            AttrKey = IEosService.LOBBY_KEY_HAT
+            AttrKey = EosCommonData.LOBBY_KEY_HAT
         };
         r = details.CopyAttributeByKey(ref opt_hat, out var hatInfo);
         if (r == Result.Success && hatInfo.HasValue && hatInfo.Value.Data.HasValue)

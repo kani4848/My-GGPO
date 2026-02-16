@@ -10,7 +10,6 @@ using Epic.OnlineServices.Lobby;
 
 public class EOS_Service : MonoBehaviour, IEosService
 {
-    public ProductUserId myPuid { get; set; }
     public EOSManager eosManager { get; set; }
     public static EOSLobbyManager lobbyManager { get; set; }
     
@@ -52,9 +51,9 @@ public class EOS_Service : MonoBehaviour, IEosService
             // 前提：EOSManagerがInitialize済み + Login済み（ProductUserIdが有効）
             await UniTask.WaitUntil(() => lobbyManager != null, cancellationToken: token);
             lobbyManager.OnLoggedIn();
-            myPuid = EOSManager.Instance.GetProductUserId();
-            playerData_Local.puid = myPuid.ToString();
-            playerPeer = new(myPuid);
+            EosCommonData.myPuid = EOSManager.Instance.GetProductUserId();
+            playerData_Local.puid = EosCommonData.myPuid.ToString();
+            playerPeer = new(EosCommonData.myPuid);
 
             loggedin = true;
         }
@@ -117,19 +116,19 @@ public class EOS_Service : MonoBehaviour, IEosService
         string memberName = lobbyMember.DisplayName;
 
         LobbyAttribute hatAtt; 
-        bool a = lobbyMember.MemberAttributes.TryGetValue(IEosService.MEMBER_KEY_HAT, out hatAtt);
+        bool a = lobbyMember.MemberAttributes.TryGetValue(EosCommonData.MEMBER_KEY_HAT, out hatAtt);
         Color hatCol = a ? UnpackRgb((long)hatAtt.AsInt64) : Color.black;
 
         LobbyAttribute umaAtt;
-        bool b = lobbyMember.MemberAttributes.TryGetValue(IEosService.MEMBER_KEY_UMA, out umaAtt);
+        bool b = lobbyMember.MemberAttributes.TryGetValue(EosCommonData.MEMBER_KEY_UMA, out umaAtt);
         Color umaCol = b ? UnpackRgb((long)umaAtt.AsInt64) : Color.black;
 
         LobbyAttribute charaAtt;
-        bool c = lobbyMember.MemberAttributes.TryGetValue(IEosService.MEMBER_KEY_CHARA, out charaAtt);
+        bool c = lobbyMember.MemberAttributes.TryGetValue(EosCommonData.MEMBER_KEY_CHARA, out charaAtt);
         int charaId = c ? (int)charaAtt.AsInt64 : -1;
 
         LobbyAttribute readyAtt;
-        bool d = lobbyMember.MemberAttributes.TryGetValue(IEosService.MEMBER_KEY_READY, out readyAtt);
+        bool d = lobbyMember.MemberAttributes.TryGetValue(EosCommonData.MEMBER_KEY_READY, out readyAtt);
         bool ready = d ? (bool)readyAtt.AsBool : false;
 
         Debug.Log(ready);
@@ -170,7 +169,7 @@ public class EOS_Service : MonoBehaviour, IEosService
         var hatCol = PackRgb(playerData.hatCol);
         var hat_att = new LobbyAttribute()
         {
-            Key = IEosService.MEMBER_KEY_HAT,
+            Key = EosCommonData.MEMBER_KEY_HAT,
             AsInt64 = hatCol,
             ValueType = AttributeType.Int64,
             Visibility = LobbyAttributeVisibility.Public
@@ -180,7 +179,7 @@ public class EOS_Service : MonoBehaviour, IEosService
         var umaCol = PackRgb(playerData.umaCol);
         var uma_att = new LobbyAttribute()
         {
-            Key = IEosService.MEMBER_KEY_UMA,
+            Key = EosCommonData.MEMBER_KEY_UMA,
             AsInt64 = umaCol,
             ValueType = AttributeType.Int64,
             Visibility = LobbyAttributeVisibility.Public
@@ -189,7 +188,7 @@ public class EOS_Service : MonoBehaviour, IEosService
         //キャラスプライトID
         var chara_att = new LobbyAttribute()
         {
-            Key = IEosService.MEMBER_KEY_CHARA,
+            Key = EosCommonData.MEMBER_KEY_CHARA,
             AsInt64 = playerData.charaId,
             ValueType = AttributeType.Int64,
             Visibility = LobbyAttributeVisibility.Public

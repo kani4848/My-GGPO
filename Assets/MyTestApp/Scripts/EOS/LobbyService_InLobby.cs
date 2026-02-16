@@ -70,7 +70,7 @@ public class LobbyService_InLobby
     {
         Lobby currentLobby = _lobbyManager.GetCurrentLobby();
         if (currentLobby == null) return;
-        if (IEosService.myPuid == null) return;
+        if (EosCommonData.myPuid == null) return;
 
         var currentMembers = currentLobby.Members;
         if (currentMembers.Count <= 0) return;
@@ -186,7 +186,7 @@ public class LobbyService_InLobby
 
             var attr = new LobbyAttribute
             {
-                Key = IEosService.HB_KEY,
+                Key = EosCommonData.HB_KEY,
                 ValueType = AttributeType.String,
                 AsString = value,
                 Visibility = LobbyAttributeVisibility.Public
@@ -201,7 +201,7 @@ public class LobbyService_InLobby
     {
         var readyAtt = new LobbyAttribute()
         {
-            Key = IEosService.MEMBER_KEY_READY,
+            Key = EosCommonData.MEMBER_KEY_READY,
             AsBool = true,
             ValueType = AttributeType.Boolean,
             Visibility = LobbyAttributeVisibility.Public
@@ -235,7 +235,7 @@ public class LobbyService_InLobby
 
             foreach (var member in lobby.Members)
             {
-                if (!member.MemberAttributes.TryGetValue(IEosService.MEMBER_KEY_READY, out var memberReady)) return;
+                if (!member.MemberAttributes.TryGetValue(EosCommonData.MEMBER_KEY_READY, out var memberReady)) return;
                 if (!(bool)memberReady.AsBool) return;
             }
 
@@ -247,7 +247,7 @@ public class LobbyService_InLobby
     {
         var readyAtt = new LobbyAttribute()
         {
-            Key = IEosService.MEMBER_KEY_READY,
+            Key = EosCommonData.MEMBER_KEY_READY,
             AsBool = false,
             ValueType = AttributeType.Boolean,
             Visibility = LobbyAttributeVisibility.Public
@@ -279,7 +279,7 @@ public class LobbyService_InLobby
     {
         var lobby = _lobbyManager.GetCurrentLobby();
 
-        var opponent = lobby.Members.FirstOrDefault(m=>m.ProductId != IEosService.myPuid);
+        var opponent = lobby.Members.FirstOrDefault(m=>m.ProductId != EosCommonData.myPuid);
 
         return opponent;
     }

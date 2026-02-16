@@ -136,40 +136,82 @@ public class PlayerPeer: IDisposable
         //メンバー人数確認省略
         //メンバー情報取得省略
 
-        float timeOutClock = Time.time;
-        float nextSendTime = Time.time;
-        uint sendSeed = _seed;
-
-        //シード値の共有
-        while (!token.IsCancellationRequested)
+        if (isLobbyHost)
         {
-            //時間切れ
-            if (Time.time - timeOutClock >= HandshakeTimeoutMs)
-            {
-                state = PeerState.HANDSHAKE_TIME_OUT;
-                return false;
-            }
-
-            //仮インプットデータ送信
-            if (isLobbyHost &&　Time.time >= nextSendTime)
-            {
-                SendSeed(sendSeed);
-                nextSendTime = Time.time + 3f;
-            }
-
-            ReceivePump();
-
-            if (recievedSeedAck)
-            {
-                state = PeerState.SEED_SHARED;
-                break;
-            }
-
-            //これがないと1フレーム中にループしまくってフリーズ
-            await UniTask.Yield();
+            return await OwnerLoop();
+        }
+        else
+        {
+            return await GuestLoop();
         }
 
-        return true;
+        async UniTask<bool> OwnerLoop()
+        {
+            float timeOutClock = Time.time;
+            float nextSendTime = Time.time;
+            uint sendSeed = _seed;
+
+            //シード値の共有
+            while (!token.IsCancellationRequested)
+            {
+                //時間切れ
+                if (Time.time - timeOutClock >= HandshakeTimeoutMs)
+                {
+                    state = PeerState.HANDSHAKE_TIME_OUT;
+                    return false;
+                }
+
+                //仮インプットデータ送信
+                if (Time.time >= nextSendTime)
+                {
+                    Debug.Log("seed送信");
+                    SendSeed(sendSeed);
+                    nextSendTime = Time.time + 3f;
+                }
+
+                ReceivePump();
+
+                if (recievedSeedAck)
+                {
+                    state = PeerState.SEED_SHARED;
+                    break;
+                }
+
+                //これがないと1フレーム中にループしまくってフリーズ
+                await UniTask.Yield();
+            }
+
+            return true;
+        }
+
+        async UniTask<bool> GuestLoop()
+        {
+            float timeOutClock = Time.time;
+
+            //シード値の共有
+            while (!token.IsCancellationRequested)
+            {
+                //時間切れ
+                if (Time.time - timeOutClock >= HandshakeTimeoutMs)
+                {
+                    state = PeerState.HANDSHAKE_TIME_OUT;
+                    return false;
+                }
+
+                ReceivePump();
+
+                if (recievedSeedAck)
+                {
+                    state = PeerState.SEED_SHARED;
+                    break;
+                }
+
+                //これがないと1フレーム中にループしまくってフリーズ
+                await UniTask.Yield();
+            }
+
+            return true;
+        }
     }
 
 
