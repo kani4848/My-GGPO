@@ -270,6 +270,7 @@ public class PlayerPeer: IDisposable
     public double HbTick()
     {
         heartBeat.Tick();
+        ReceivePump();
         return heartBeat.PingMs;
     }
 
@@ -348,6 +349,8 @@ public class PlayerPeer: IDisposable
             switch (packetType)
             {
                 case PKT_Hb:
+
+                    UnityEngine.Debug.Log("ピンを受けた");
                     heartBeat.TryConsume(_recvBuffer);
                     break;
 
@@ -545,7 +548,7 @@ public sealed class HeartbeatSession
         CleanupPending(nowTs);
 
         if (nowTs < _nextSendAtTs) return;
-
+        UnityEngine.Debug.Log("ピンを送った");
         SendPing(nowTs);
         _nextSendAtTs = nowTs + MsToTs(_intervalMs);
     }
