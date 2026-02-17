@@ -42,15 +42,22 @@ public class PlayerPeer: IDisposable
 
     // ===== Settings =====
     const string SOCKET_NAME = "game";
-    const int PollIntervalMs = 200;
     const int HandshakeTimeoutMs = 6;
 
     // Packet types
+    public enum PacketType : byte
+    {
+        HbPing = 1,
+        HbPong = 2,
 
-    private const byte PKT_Seed = 3;
-    private const byte PKT_SeedAck = 4;
-    private const byte PKT_Input = 5;
-    
+        Seed = 3,
+        Seed_Ack = 4,
+
+        Input= 5,
+        Input_Ack = 6,
+
+    }
+
     P2PInterface p2pInterface;
 
     private SocketId _socketId;
@@ -76,6 +83,7 @@ public class PlayerPeer: IDisposable
     //送るときは長さを形式に合わせて固定。
     private readonly byte[] _sendBuffer_hb = new byte[5];
     private readonly byte[] _sendBuffer_input = new byte[10];
+    private readonly byte[] _sendBuffer_inputAck = new byte[10];
     private readonly byte[] _sendBuffer_seed = new byte[5];
 
     SendPacketOptions sendPacketOptions;
@@ -88,6 +96,7 @@ public class PlayerPeer: IDisposable
     uint _seed;
     ulong notifyPeerRequestId;
     bool recievedSeedAck = false;
+    bool getInputAck = false;
 
     ProductUserId remotePuid;
 
@@ -113,8 +122,8 @@ public class PlayerPeer: IDisposable
         receivePacketOptions = new ReceivePacketOptions
         {
             LocalUserId = EosCommonData.myPuid,//送信側が設定した受信可能なPUIDと照合するID（基本的には自分）
-            //MaxDataSizeBytes = (uint)_recvBuffer.Length,//今回の受信で許容するサイズ。これを超えるパケットは受け取れない
-            //RequestedChannel = null,//受信するメッセージの種類をフィルタリング。GGPOは送信情報を種類分けしないので設定しない。
+            MaxDataSizeBytes = (uint)_recvBuffer.Length,//今回の受信で許容するサイズ。これを超えるパケットは受け取れない
+            RequestedChannel = null,//受信するメッセージの種類をフィルタリング。GGPOは送信情報を種類分けしないので設定しない。
         };
 
         for(int i = 0; i < inputDatasMaxSize; i++)
@@ -133,6 +142,7 @@ public class PlayerPeer: IDisposable
 
     HashSet<ProductUserId> acceptConnection = new(); 
 
+    //接続確率===================================================
     public void RegisterConnectionRequestAccept(ProductUserId _remotePuid)
     {
         remotePuid = _remotePuid;
@@ -182,7 +192,6 @@ public class PlayerPeer: IDisposable
             return r == Result.Success || r == Result.AlreadyPending;
         }
     }
-
     public async UniTask<bool> SendSeedAnsWaitAck(CancellationToken token)
     {
         state = PeerState.SHARING_SEED;
@@ -225,9 +234,6 @@ public class PlayerPeer: IDisposable
 
         return false;
     }
-
-
-
     public async UniTask<bool> WaitReceivingSeed(CancellationToken token)
     {
         state = PeerState.SHARING_SEED;
@@ -258,6 +264,20 @@ public class PlayerPeer: IDisposable
 
         return false;
     }
+    public void SendSeed(uint seed, bool ack = false)
+    {
+        if (p2pInterface == null) return;
+        if (remotePuid == null) return;
+
+        _sendBuffer_seed[0] = ack ? (byte)PacketType.Seed_Ack : (byte)PacketType.Seed;
+        BitConverter.GetBytes(seed).CopyTo(_sendBuffer_seed, 1);
+
+        sendPacketOptions.RemoteUserId = remotePuid;
+        sendPacketOptions.Data = _sendBuffer_seed;
+
+        var r = p2pInterface.SendPacket(ref sendPacketOptions);
+        UnityEngine.Debug.Log($"シードの送信結果：{r}, データの長さ: {sendPacketOptions.Data.Count}");
+    }
 
     int lastAckFrame = -1;
 
@@ -267,7 +287,6 @@ public class PlayerPeer: IDisposable
         ReceivePump();
         return heartBeat.PingMs;
     }
-
     void SendHB(byte[] payload)
     {
         if (p2pInterface == null) return;
@@ -283,6 +302,24 @@ public class PlayerPeer: IDisposable
         UnityEngine.Debug.Log($"送信結果{r}");
     }
 
+    public async UniTask InputCommunicationTest(CancellationToken token)
+    {
+        while (!token.IsCancellationRequested)
+        {
+            SendInput(4649, true);
+            ReceivePump();
+
+            if (getInputAck)
+            {
+                UnityEngine.Debug.Log("インプット通信成功");
+                return;
+            }
+
+            await UniTask.Yield();
+        }
+    }
+
+    //メインゲーム通信===================================================
     public void SendInput(int frame, bool _input)
     {
         if (p2pInterface == null) return;
@@ -290,7 +327,7 @@ public class PlayerPeer: IDisposable
 
         if (pressedFrame_local == -1 && _input) pressedFrame_local = frame;
 
-        _sendBuffer_input[0] = PKT_Input;
+        _sendBuffer_input[0] = (byte)PacketType.Input;
         BitConverter.GetBytes(frame).CopyTo(_sendBuffer_input, 1);//入力フレーム
         BitConverter.GetBytes(lastAckFrame).CopyTo(_sendBuffer_input, 5);//最後に受信した相手のフレーム
         _sendBuffer_input[9] = Convert.ToByte(_input);//入力内容
@@ -301,21 +338,6 @@ public class PlayerPeer: IDisposable
         StoreLocalInput(frame, lastAckFrame, _input);
 
         p2pInterface.SendPacket(ref sendPacketOptions);
-    }
-
-    public void SendSeed(uint seed, bool ack = false)
-    {
-        if (p2pInterface == null) return;
-        if (remotePuid == null) return;
-
-        _sendBuffer_seed[0] = ack?PKT_SeedAck : PKT_Seed;
-        BitConverter.GetBytes(seed).CopyTo(_sendBuffer_seed, 1);
-
-        sendPacketOptions.RemoteUserId = remotePuid;
-        sendPacketOptions.Data = _sendBuffer_seed;
-
-        var r = p2pInterface.SendPacket(ref sendPacketOptions);
-        UnityEngine.Debug.Log($"シードの送信結果：{r}");
     }
 
     public void ReceivePump()
@@ -334,49 +356,36 @@ public class PlayerPeer: IDisposable
                 out outBytesWritten//受信データのサイズ
                 );
 
-            //successではないなら、キュー内に条件に合うパケットがないので終了
-            if (result != Result.Success)
-            {
-                UnityEngine.Debug.Log($"受信失敗{result}");
-                break;
-            }
+            if (result != Result.Success) break;//successではないなら、キュー内に条件に合うパケットがないので終了
+            if (outPeerId == null) continue;
+            if (outPeerId != remotePuid) continue;
 
-            UnityEngine.Debug.Log($"何か来てる");
-
-            //通信相手以外からのパケットをはじく
-            if (outPeerId == null || outBytesWritten == 0)
-            {
-                UnityEngine.Debug.Log($"送信元ブロック:{outPeerId},{outBytesWritten}");
-                continue;
-            }
-            if (outPeerId != remotePuid)
-            {
-                UnityEngine.Debug.Log("PUIDブロック");
-                continue;
-            }
-
-            heartBeat.TryConsume(_recvBuffer);
-
+            UnityEngine.Debug.Log($"メッセージ受信：{_recvBuffer.Length},{outBytesWritten}");
+            
             //受信データタイプを識別、タイプごとに処理を分岐
-            byte packetType = _recvBuffer[0];
+            PacketType pt = (PacketType)_recvBuffer[0];
 
-            switch (packetType)
+            switch (pt)
             {
-                case 1:
-
+                case PacketType.HbPing:
+                    heartBeat.TryPing(_recvBuffer);
                     break;
 
-                case PKT_Seed:
+                case PacketType.HbPong:
+                    heartBeat.TryPong(_recvBuffer);
+                    break;
+
+                case PacketType.Seed:
                     if (outBytesWritten < 5) continue;
                     UnPackSeedData(_recvBuffer);
                     break;
 
-                case PKT_SeedAck:
+                case PacketType.Seed_Ack:
                     if (outBytesWritten < 5) continue;
                     UnPackSeedAckData(_recvBuffer);
                     break;
 
-                case PKT_Input:
+                case PacketType.Input:
                     if (outBytesWritten < 10) continue;
                     UnPackInputData(_recvBuffer);
                     break;
@@ -402,22 +411,36 @@ public class PlayerPeer: IDisposable
         if (isLobbyHost) recievedSeedAck = true;
     }
 
-    PeerInputData UnPackInputData(byte[] bytes)
+    
+    PeerInputData UnPackInputData(byte[] payload)
     {
-        int remoteCurrentFrame = BitConverter.ToInt32(bytes, 1);
-        int remoteAckFrame = BitConverter.ToInt32(bytes, 5);
-        bool remoteInput = Convert.ToBoolean(bytes[9]);
+        int remoteCurrentFrame = BitConverter.ToInt32(payload, 1);
+        int remoteAckFrame = BitConverter.ToInt32(payload, 5);
+        bool remoteInput = Convert.ToBoolean(payload[9]);
 
         PeerInputData inputData = new PeerInputData(remoteCurrentFrame, remoteAckFrame, remoteInput);
 
-        StoreRemoteInput(remoteCurrentFrame, remoteAckFrame, remoteInput);
+        //データを保存
+        int index = remoteCurrentFrame & inputDatasMaxSize;
+        inputDatas_remote[index] = inputData;
+        inputFrames_remote[index] = remoteCurrentFrame;
 
         if (pressedFrame_remote == -1 && remoteInput)
         {
             pressedFrame_remote = remoteCurrentFrame;
         }
 
-        lastAckFrame = remoteCurrentFrame;
+        getInputAck = true;
+
+        //ack情報送信
+        _sendBuffer_inputAck[0] = (byte)PacketType.Input_Ack;
+        Buffer.BlockCopy(payload, 1, _sendBuffer_inputAck, 1, 4);
+        Buffer.BlockCopy(payload, 5, _sendBuffer_inputAck, 5, 8);
+
+        sendPacketOptions.RemoteUserId = remotePuid;
+        sendPacketOptions.Data = _sendBuffer_inputAck;
+
+        p2pInterface.SendPacket(ref sendPacketOptions);
 
         return inputData;
     }
@@ -429,12 +452,6 @@ public class PlayerPeer: IDisposable
         inputFrames_local[index] = frame;
     }
 
-    private void StoreRemoteInput(int frame, int lastAckFrame, bool input)
-    {
-        int index = frame & inputDatasMaxSize;
-        inputDatas_remote[index] = new PeerInputData(frame, lastAckFrame, input);
-        inputFrames_remote[index] = frame;
-    }
 
     public bool TryGetLocalInput(int frame, out PeerInputData data)
     {
@@ -503,6 +520,7 @@ public class PlayerPeer: IDisposable
         remotePuid = null;
 
         recievedSeedAck = false;
+        getInputAck = false;
 
         state = PeerState.SLEEP;
 
@@ -570,36 +588,25 @@ public sealed class HeartbeatSession
     /// <summary>
     /// 受信パケットがHBなら消費してtrueを返す（PlayerPeer側で以降の処理を止められる）
     /// </summary>
-    public bool TryConsume(byte[] payload)
+    public bool TryPing(byte[] payload)
     {
-        var type = NetMsg.PeekType(payload);
+        var seq = NetMsg.UnpackHbPing(payload);
 
-        switch (type)
-        {
-            case NetMsg.MsgType.HbPing:
-                {
-                    var seq = NetMsg.UnpackHbPing(payload);
+        // 受け取ったseqをそのまま返す（相手の時刻は不要）
+        var pong = NetMsg.PackHbPong(seq);
+        _send(pong);
 
-                    // 受け取ったseqをそのまま返す（相手の時刻は不要）
-                    var pong = NetMsg.PackHbPong(seq);
-                    _send(pong);
+        _lastRecvAtTs = _nowTs();
+        return true;
+    }
 
-                    _lastRecvAtTs = _nowTs();
-                    return true;
-                }
+    public bool TryPong(byte[] payload)
+    {
+        var seq = NetMsg.UnpackHbPong(payload);
+        OnPong(seq);
 
-            case NetMsg.MsgType.HbPong:
-                {
-                    var seq = NetMsg.UnpackHbPong(payload);
-                    OnPong(seq);
-
-                    _lastRecvAtTs = _nowTs();
-                    return true;
-                }
-
-            default:
-                return false;
-        }
+        _lastRecvAtTs = _nowTs();
+        return true;
     }
 
     public bool IsAlive()

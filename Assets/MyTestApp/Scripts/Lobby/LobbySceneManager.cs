@@ -19,7 +19,6 @@ public class LobbySceneManager : MonoBehaviour, ILobbySceneManager
         set
         {
             _state = value;
-            Debug.Log($"ロビーステート変更:{_state}");
             LobbyEvent.RaiseLobbyStateChanged(_state);
         }
     }
@@ -326,6 +325,10 @@ public class LobbySceneManager : MonoBehaviour, ILobbySceneManager
 
     public void LeaveLobby()
     {
+        inLobbyCts?.Cancel();
+        inLobbyCts?.Dispose();
+        inLobbyCts = null;
+
         SoundManager.Instance.PlaySE(SE_Handler.SoundType.BUTTON);
         LeaveLobbyAsync().Forget();
 

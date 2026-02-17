@@ -145,54 +145,62 @@ public class EOS_Service : MonoBehaviour, IEosService
 
     public async UniTask AutoHandShake(CancellationToken token)
     {
-        while (!token.IsCancellationRequested)
+        try
         {
-            if (lobbyManager.GetCurrentLobby().Members.Count != 2)
+            while (!token.IsCancellationRequested)
             {
-                Debug.Log("人数が合いません");
+                if (lobbyManager.GetCurrentLobby().Members.Count != 2)
+                {
+                    Debug.Log("人数が合いません");
 
-                await UniTask.Delay(TimeSpan.FromSeconds(handShakePollTime), cancellationToken: token);
-                continue;
-            }
+                    await UniTask.Delay(TimeSpan.FromSeconds(handShakePollTime), cancellationToken: token);
+                    continue;
+                }
 
-            var opponent = inLobbyService.GetOpponentMemberData();
+                var opponent = inLobbyService.GetOpponentMemberData();
 
-            if (opponent == null)
-            {
-                Debug.Log("リモートPUIDが取得できません");
-                await UniTask.Delay(TimeSpan.FromSeconds(handShakePollTime), cancellationToken: token);
-                continue;
-            }
+                if (opponent == null)
+                {
+                    Debug.Log("リモートPUIDが取得できません");
+                    await UniTask.Delay(TimeSpan.FromSeconds(handShakePollTime), cancellationToken: token);
+                    continue;
+                }
 
-            Debug.Log("リクエスト許可開始");
-            //データ受け入れ設定を登録&待ち受け
-            playerPeer.RegisterConnectionRequestAccept(opponent.ProductId);
+                Debug.Log("リクエスト許可開始");
+                //データ受け入れ設定を登録&待ち受け
+                playerPeer.RegisterConnectionRequestAccept(opponent.ProductId);
 
-            bool handShakeDon;
+                bool handShakeDone;
 
-            //相手にデータを送信or受信待ち
-            if(playerData_Local.isOwner)
-            {
-                handShakeDon = await playerPeer.SendSeedAnsWaitAck(token);
-            }
-            else
-            {
-                handShakeDon = await playerPeer.WaitReceivingSeed(token);
-            }
+                //相手にデータを送信or受信待ち
+                if (playerData_Local.isOwner)
+                {
+                    handShakeDone = await playerPeer.SendSeedAnsWaitAck(token);
+                }
+                else
+                {
+                    handShakeDone = await playerPeer.WaitReceivingSeed(token);
+                }
 
-            if (handShakeDon)
-            {
-                Debug.Log("握手成功");
-                return;
-            }
-            else
-            {
-                Debug.Log("握手タイムアウト");
-                await UniTask.Delay(TimeSpan.FromSeconds(handShakePollTime), cancellationToken: token);
+                if (!handShakeDone)
+                {
+                    Debug.Log("シード通信タイムアウト");
+                    await UniTask.Delay(TimeSpan.FromSeconds(handShakePollTime), cancellationToken: token);
+                }
+
+                Debug.Log("シード通信成功");
+
+                //インプット通信のテスト
+                await playerPeer.InputCommunicationTest(token);
+
+                Debug.Log("インプット通信成功、ハンドシェイク完了");
             }
         }
-
-        Debug.Log("握手キャンセル");
+        finally
+        {
+            playerPeer.CloseConnection();
+            Debug.Log("握手キャンセル");
+        }
     }
 
     //メインシーン===============================================
