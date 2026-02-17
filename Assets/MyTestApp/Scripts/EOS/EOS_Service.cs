@@ -162,28 +162,22 @@ public class EOS_Service : MonoBehaviour, IEosService
                 continue;
             }
 
-            var acceptComplete = new UniTaskCompletionSource<bool>();
-
             Debug.Log("リクエスト許可開始");
             //データ受け入れ設定を登録&待ち受け
-            playerPeer.RegisterConnectionRequestAccept(opponent.ProductId, acceptComplete, token);
-            //相手にデータを送信
-
-            Debug.Log("データ送信開始");
-            bool isOwner = lobbyManager.GetCurrentLobby().IsOwner(EosCommonData.myPuid);
-            var r = await playerPeer.StartConnectToPeer(isOwner, token);
-
-            if(!r)
+            playerPeer.RegisterConnectionRequestAccept(opponent.ProductId);
+            
+            //相手にデータを送信or受信待ち
+            if(playerData_Local.isOwner)
             {
-                Debug.Log("握手失敗");
-                await UniTask.Delay(TimeSpan.FromSeconds(handShakePollTime), cancellationToken: token);
-                continue;
+                await playerPeer.SendSeed(token);
             }
             else
             {
-                Debug.Log("握手成功");
-                return;
+                await playerPeer.WaitReceivingSeed(token);
             }
+
+            Debug.Log("握手成功");
+            return;
         }
 
         Debug.Log("握手キャンセル");

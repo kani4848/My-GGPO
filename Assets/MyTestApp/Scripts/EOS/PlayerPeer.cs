@@ -133,15 +133,8 @@ public class PlayerPeer: IDisposable
 
     HashSet<ProductUserId> acceptConnection = new(); 
 
-    public UniTaskVoid RegisterConnectionRequestAccept(ProductUserId _remotePuid, UniTaskCompletionSource<bool> acceptComplete, CancellationToken token)
+    public void RegisterConnectionRequestAccept(ProductUserId _remotePuid)
     {
-        token.Register(() =>
-        {
-            acceptComplete.TrySetCanceled();
-        });
-
-        if (acceptConnection.Contains(_remotePuid)) acceptComplete.TrySetResult(true);
-
         remotePuid = _remotePuid;
 
         //監視する接続要求を指定。ここでは自分あてに来るリクエストを指定
@@ -162,17 +155,13 @@ public class PlayerPeer: IDisposable
                 if (data.RemoteUserId == null)
                 {
                     UnityEngine.Debug.Log("アクセプトできませんでした");
-                    acceptComplete.TrySetResult(false);
                 }
 
                 UnityEngine.Debug.Log("アクセプト成功");
                 var a = Accept();
                 acceptConnection.Add(remotePuid);
-                acceptComplete.TrySetResult(a);
             }
         );
-
-        return acceptComplete.Task;
 
         //リクエスト受け入れを許可
         bool Accept()
@@ -193,95 +182,76 @@ public class PlayerPeer: IDisposable
         }
     }
 
-    
-
-    public async UniTask<bool> StartConnectToPeer(bool _isLobbyHost, CancellationToken token)
+    public async UniTask SendSeed(CancellationToken token)
     {
-        isLobbyHost = _isLobbyHost;
-        if (isLobbyHost) _seed = (uint)UnityEngine.Random.Range(1, int.MaxValue);
-        
         state = PeerState.SHARING_SEED;
-        
-        //ロビーデータ確認省略
-        //メンバー人数確認省略
-        //メンバー情報取得省略
 
-        if (isLobbyHost)
-        {
-            return await OwnerLoop();
-        }
-        else
-        {
-            return await GuestLoop();
-        }
+        _seed = (uint)UnityEngine.Random.Range(1, int.MaxValue);
 
-        async UniTask<bool> OwnerLoop()
-        {
-            float timeOutClock = Time.time;
-            float nextSendTime = Time.time;
-            uint sendSeed = _seed;
+        float timeOutClock = Time.time;
+        float nextSendTime = Time.time;
+        uint sendSeed = _seed;
 
-            //シード値の共有
-            while (!token.IsCancellationRequested)
+        //シード値の共有
+        while (!token.IsCancellationRequested)
+        {
+            //時間切れ
+            if (Time.time - timeOutClock >= HandshakeTimeoutMs)
             {
-                //時間切れ
-                if (Time.time - timeOutClock >= HandshakeTimeoutMs)
-                {
-                    UnityEngine.Debug.Log("握手タイムアウト");
-                    state = PeerState.HANDSHAKE_TIME_OUT;
-                    return false;
-                }
-
-                //仮インプットデータ送信
-                if (Time.time >= nextSendTime)
-                {
-                    UnityEngine.Debug.Log("シード送信");
-                    SendSeed(sendSeed);
-                    nextSendTime = Time.time + 3f;
-                }
-
-                ReceivePump();
-
-                if (recievedSeedAck)
-                {
-                    state = PeerState.SEED_SHARED;
-                    break;
-                }
-
-                //これがないと1フレーム中にループしまくってフリーズ
-                await UniTask.Yield();
+                UnityEngine.Debug.Log("握手タイムアウト");
+                state = PeerState.HANDSHAKE_TIME_OUT;
+                return;
             }
 
-            return true;
-        }
-
-        async UniTask<bool> GuestLoop()
-        {
-            float timeOutClock = Time.time;
-
-            //シード値の共有
-            while (!token.IsCancellationRequested)
+            //仮インプットデータ送信
+            if (Time.time >= nextSendTime)
             {
-                //時間切れ
-                if (Time.time - timeOutClock >= HandshakeTimeoutMs)
-                {
-                    state = PeerState.HANDSHAKE_TIME_OUT;
-                    return false;
-                }
-
-                ReceivePump();
-
-                if (recievedSeedAck)
-                {
-                    state = PeerState.SEED_SHARED;
-                    break;
-                }
-
-                //これがないと1フレーム中にループしまくってフリーズ
-                await UniTask.Yield();
+                UnityEngine.Debug.Log("シード送信");
+                SendSeed(sendSeed);
+                nextSendTime = Time.time + 3f;
             }
 
-            return true;
+            ReceivePump();
+
+            if (recievedSeedAck)
+            {
+                state = PeerState.SEED_SHARED;
+                return;
+            }
+
+            //これがないと1フレーム中にループしまくってフリーズ
+            await UniTask.Yield();
+        }
+    }
+
+
+
+    public async UniTask WaitReceivingSeed(CancellationToken token)
+    {
+        state = PeerState.SHARING_SEED;
+
+        float timeOutClock = Time.time;
+
+        //シード値の共有
+        while (!token.IsCancellationRequested)
+        {
+            //時間切れ
+            if (Time.time - timeOutClock >= HandshakeTimeoutMs)
+            {
+                state = PeerState.HANDSHAKE_TIME_OUT;
+                return;
+            }
+
+            ReceivePump();
+
+            if (recievedSeedAck)
+            {
+                state = PeerState.SEED_SHARED;
+                return;
+            }
+
+            //これがないと1フレーム中にループしまくってフリーズ
+            await UniTask.Yield();
         }
     }
 
