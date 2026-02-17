@@ -87,19 +87,6 @@ public class EOS_Service : MonoBehaviour, IEosService
         return data;
     }
 
-    //ロビーのメンバー全員がレディ状態になったらシーンマネジャから呼ぶ
-    public async UniTask Ready(CancellationToken token)
-    {
-        inLobbyService.OnReady();
-        await inLobbyService.WaitAllReady(token);
-        allReady = true;
-    }
-
-    public void CancelReady()
-    {
-        inLobbyService.CancelReady();
-    }
-
     public  async UniTask<LobbyData> CreateLobby(string path, CancellationToken token)
     {
         playerData_Local.isOwner = true;
@@ -152,10 +139,6 @@ public class EOS_Service : MonoBehaviour, IEosService
 
     public async UniTask AutoHandShake(CancellationToken token)
     {
-
-
-        bool handShakeDone;
-
         try
         {
             while (!token.IsCancellationRequested)
@@ -181,18 +164,19 @@ public class EOS_Service : MonoBehaviour, IEosService
                 //データ受け入れ設定を登録&待ち受け
                 playerPeer.RegisterConnectionRequestAccept(opponent.ProductId);
 
+                bool seedShared;
 
                 //相手にデータを送信or受信待ち
                 if (playerData_Local.isOwner)
                 {
-                    handShakeDone = await playerPeer.SendSeedAnsWaitSeedAck(token);
+                    seedShared = await playerPeer.SendSeedAnsWaitSeedAck(token);
                 }
                 else
                 {
-                    handShakeDone = await playerPeer.WaitReceivingSeed(token);
+                    seedShared = await playerPeer.WaitReceivingSeed(token);
                 }
 
-                if (!handShakeDone)
+                if (!seedShared)
                 {
                     Debug.Log("シード通信タイムアウト");
                     await UniTask.Delay(TimeSpan.FromSeconds(handShakePollTime), cancellationToken: token);
@@ -220,6 +204,20 @@ public class EOS_Service : MonoBehaviour, IEosService
             playerPeer.CloseConnection();
             Debug.Log("握手キャンセル");
         }
+    }
+
+    //ロビーのメンバー全員がレディ状態になったらシーンマネジャから呼ぶ
+    public async UniTask Ready(CancellationToken token)
+    {
+        inLobbyService.OnReady();
+        var r = await inLobbyService.WaitAllReady(token);
+        allReady = r;
+    }
+
+    public void CancelReady()
+    {
+        allReady = false;
+        inLobbyService.CancelReady();
     }
 
     //メインシーン===============================================

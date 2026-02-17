@@ -210,7 +210,7 @@ public class LobbyService_InLobby
         _lobbyManager.SetMemberAttribute(readyAtt);
     }
 
-    public async UniTask WaitAllReady(CancellationToken token)
+    public async UniTask<bool> WaitAllReady(CancellationToken token)
     {
         bool allReady = false;
 
@@ -220,11 +220,14 @@ public class LobbyService_InLobby
         {
             CheckAllReady();
             await UniTask.WaitUntil(() => allReady, cancellationToken: token);
+            return allReady;
         }
         finally
         {
             _lobbyManager.RemoveNotifyLobbyUpdate(CheckAllReady);
         }
+
+        return false;
 
         void CheckAllReady()
         {
