@@ -193,6 +193,7 @@ public class EOS_Service : MonoBehaviour, IEosService
                 {
                     Debug.Log("シード通信タイムアウト");
                     await UniTask.Delay(TimeSpan.FromSeconds(handShakePollTime), cancellationToken: token);
+                    continue;
                 }
 
                 Debug.Log("シード通信成功");
