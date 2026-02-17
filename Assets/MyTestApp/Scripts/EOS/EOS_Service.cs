@@ -72,6 +72,8 @@ public class EOS_Service : MonoBehaviour, IEosService
 
     public async UniTask<LobbyData> JoinLobby(string id, CancellationToken token)
     {
+        playerData_Local.isOwner = false;
+
         var data = await lobbySearchService.Join(id, playerData_Local);
         if (data == null) return null;
 
@@ -96,6 +98,7 @@ public class EOS_Service : MonoBehaviour, IEosService
 
     public  async UniTask<LobbyData> CreateLobby(string path, CancellationToken token)
     {
+        playerData_Local.isOwner = true;
         var data = await lobbySearchService.CreateAndJoinAsync(path, playerData_Local);
 
         AutoHandShake(token).Forget();

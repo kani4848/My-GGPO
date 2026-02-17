@@ -346,7 +346,7 @@ public class PlayerPeer: IDisposable
             //通信相手以外からのパケットをはじく
             if (outPeerId == null || outBytesWritten == 0)
             {
-                UnityEngine.Debug.Log("送信元ブロック");
+                UnityEngine.Debug.Log($"送信元ブロック:{outPeerId},{outBytesWritten}");
                 continue;
             }
             if (outPeerId != remotePuid)
