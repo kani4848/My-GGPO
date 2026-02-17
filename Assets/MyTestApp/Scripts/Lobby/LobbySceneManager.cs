@@ -65,8 +65,13 @@ public class LobbySceneManager : MonoBehaviour, ILobbySceneManager
 
     bool readyWait = false;
 
+    Action UpdateAction = null;
+    
+
     private void Update()
     {
+        UpdateAction?.Invoke();
+
         if (UiInputGuard.IsTypingInTextField()) return;
 
         if (Input.GetKeyDown(KeyCode.Z))
@@ -124,6 +129,11 @@ public class LobbySceneManager : MonoBehaviour, ILobbySceneManager
                     break;
             }
         }
+
+        if(eosSirvice.handShake && eosSirvice.allReady)
+        {
+            state = LobbyState.GoMain;
+        }
     }
      
     void ExitAction()
@@ -139,11 +149,33 @@ public class LobbySceneManager : MonoBehaviour, ILobbySceneManager
         inLobbyCts = null;
     }
 
+    async UniTask LobbyFlow()
+    {
+        await SearchFlow();
+        await InLobbyFlow();
+        ExitAction();
+    }
+
     //ロビー検索画面===========================
 
-    void SearchFlow()
+    async UniTask SearchFlow()
     {
+        //ろびー検索
 
+        //メニュー選択
+        await UniTask.WaitUntil(() => state != LobbyState.InLobbySearchRoom, cancellationToken: cts.Token);
+
+        switch (state)
+        {
+            case LobbyState.SearchingLobby:
+                break;
+            case LobbyState.Joining:
+                break;
+        }
+
+        //ロビー検索
+        //クイックマッチ＞クイックマッチ処理＞シーン終了
+        //
     }
 
     private async UniTask AutoRefleshLoop(CancellationToken token)
@@ -242,13 +274,12 @@ public class LobbySceneManager : MonoBehaviour, ILobbySceneManager
 
     //ロビー画面===========================
 
-    void InLobbyFlow()
+    async UniTask InLobbyFlow()
     {
-        //相手がいればアクセプト
-        //HB通信
-        //レディ
-        //オールレディ
-        //メインへ
+        if (eosSirvice.handShake)
+        {
+            //HB送信
+        }
     }
 
     public void Ready()
@@ -270,12 +301,7 @@ public class LobbySceneManager : MonoBehaviour, ILobbySceneManager
 
             try
             {
-                await eosSirvice.Ready(cts.Token);
-
-                //全員ready完了
-                state = LobbyState.ConnectingOpponent;
-
-                state = LobbyState.GoMain;
+                eosSirvice.Ready(cts.Token).Forget();
             }
             catch (OperationCanceledException)
             {

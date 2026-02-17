@@ -74,6 +74,10 @@ public class PlayerData
 
 public interface IEosService
 {
+    public bool handShake { get; set; }
+    public bool allReady { get; set; }
+
+
     public UniTask<List<SearchedLobbyData>> SearchLobby(string path = "");
 
     public UniTask<LobbyData> JoinLobby(string id, CancellationToken token);

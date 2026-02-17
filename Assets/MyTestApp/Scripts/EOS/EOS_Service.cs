@@ -12,8 +12,8 @@ public class EOS_Service : MonoBehaviour, IEosService
 {
     public EOSManager eosManager { get; set; }
     public static EOSLobbyManager lobbyManager { get; set; }
-    
-    [SerializeField]PlayerData playerData_Local;
+
+    [SerializeField] PlayerData playerData_Local;
 
     LobbyService_search lobbySearchService;
     LobbyService_InLobby inLobbyService;
@@ -21,6 +21,9 @@ public class EOS_Service : MonoBehaviour, IEosService
     PlayerPeer playerPeer;
 
     [SerializeField] double ping;
+
+    public bool handShake { get; set; } = false;
+    public bool allReady { get; set; } = false;
 
     private void Start()
     {
@@ -89,6 +92,7 @@ public class EOS_Service : MonoBehaviour, IEosService
     {
         inLobbyService.OnReady();
         await inLobbyService.WaitAllReady(token);
+        allReady = true;
     }
 
     public void CancelReady()
@@ -108,6 +112,9 @@ public class EOS_Service : MonoBehaviour, IEosService
 
     public async UniTask LeaveLobby()
     {
+        handShake = false;
+        allReady = false;
+
         playerPeer.CloseConnection();
         await inLobbyService.LeaveLobby();
         inLobbyService.ExitAction();
@@ -194,10 +201,12 @@ public class EOS_Service : MonoBehaviour, IEosService
                 await playerPeer.InputCommunicationTest(token);
 
                 Debug.Log("インプット通信成功、ハンドシェイク完了");
+                handShake = true;
             }
         }
         finally
         {
+            handShake = false;
             playerPeer.CloseConnection();
             Debug.Log("握手キャンセル");
         }

@@ -55,7 +55,6 @@ public class PlayerPeer: IDisposable
 
         Input= 5,
         Input_Ack = 6,
-
     }
 
     P2PInterface p2pInterface;
@@ -344,52 +343,59 @@ public class PlayerPeer: IDisposable
     {
         if (p2pInterface == null) return;
 
-        for (int i = 0; i < 8; i++)
+        try
         {
-            //パケットの受信と開封
-            var result = p2pInterface.ReceivePacket(
-                ref receivePacketOptions,//上記を参照
-                ref outPeerId, //送信元のPUID
-                ref _socketId, //EOSにおけるポート番号的なもの
-                out outChannel, //ポートのサブカテゴリ的なもので受信データをもう一段階細分化したいときに使う。soketで十分なのであんまり使わない
-                _recvBuffer, //受信データの保存先変数
-                out outBytesWritten//受信データのサイズ
-                );
-
-            if (result != Result.Success) break;//successではないなら、キュー内に条件に合うパケットがないので終了
-            if (outPeerId == null) continue;
-            if (outPeerId != remotePuid) continue;
-
-            UnityEngine.Debug.Log($"メッセージ受信：{_recvBuffer.Length},{outBytesWritten}");
-            
-            //受信データタイプを識別、タイプごとに処理を分岐
-            PacketType pt = (PacketType)_recvBuffer[0];
-
-            switch (pt)
+            for (int i = 0; i < 8; i++)
             {
-                case PacketType.HbPing:
-                    heartBeat.TryPing(_recvBuffer);
-                    break;
+                //パケットの受信と開封
+                var result = p2pInterface.ReceivePacket(
+                    ref receivePacketOptions,//上記を参照
+                    ref outPeerId, //送信元のPUID
+                    ref _socketId, //EOSにおけるポート番号的なもの
+                    out outChannel, //ポートのサブカテゴリ的なもので受信データをもう一段階細分化したいときに使う。soketで十分なのであんまり使わない
+                    _recvBuffer, //受信データの保存先変数
+                    out outBytesWritten//受信データのサイズ
+                    );
 
-                case PacketType.HbPong:
-                    heartBeat.TryPong(_recvBuffer);
-                    break;
+                if (result != Result.Success) break;//successではないなら、キュー内に条件に合うパケットがないので終了
+                if (outPeerId == null) continue;
+                if (outPeerId != remotePuid) continue;
 
-                case PacketType.Seed:
-                    if (outBytesWritten < 5) continue;
-                    UnPackSeedData(_recvBuffer);
-                    break;
+                UnityEngine.Debug.Log($"メッセージ受信：{_recvBuffer.Length},{outBytesWritten}");
 
-                case PacketType.Seed_Ack:
-                    if (outBytesWritten < 5) continue;
-                    UnPackSeedAckData(_recvBuffer);
-                    break;
+                //受信データタイプを識別、タイプごとに処理を分岐
+                PacketType pt = (PacketType)_recvBuffer[0];
 
-                case PacketType.Input:
-                    if (outBytesWritten < 10) continue;
-                    UnPackInputData(_recvBuffer);
-                    break;
+                switch (pt)
+                {
+                    case PacketType.HbPing:
+                        heartBeat.TryPing(_recvBuffer);
+                        break;
+
+                    case PacketType.HbPong:
+                        heartBeat.TryPong(_recvBuffer);
+                        break;
+
+                    case PacketType.Seed:
+                        if (outBytesWritten < 5) continue;
+                        UnPackSeedData(_recvBuffer);
+                        break;
+
+                    case PacketType.Seed_Ack:
+                        if (outBytesWritten < 5) continue;
+                        UnPackSeedAckData(_recvBuffer);
+                        break;
+
+                    case PacketType.Input:
+                        if (outBytesWritten < 10) continue;
+                        UnPackInputData(_recvBuffer);
+                        break;
+                }
             }
+        }
+        finally
+        {
+            UnityEngine.Debug.Log("レシポん終了");
         }
     }
     void UnPackSeedData(byte[] bytes)
@@ -498,34 +504,34 @@ public class PlayerPeer: IDisposable
     {
         ClearInputData();
 
-        if (p2pInterface != null)
-        {
-            if (notifyPeerRequestId != 0)
-            {
-                p2pInterface.RemoveNotifyPeerConnectionRequest(notifyPeerRequestId);
-            }
-
-            if (remotePuid != null)
-            {
-                var close = new CloseConnectionOptions
-                {
-                    LocalUserId = EosCommonData.myPuid,
-                    RemoteUserId = remotePuid,
-                    SocketId = _socketId
-                };
-                p2pInterface.CloseConnection(ref close);
-            }
-        }
-
-        notifyPeerRequestId = 0;
-        remotePuid = null;
-
+        
         recievedSeedAck = false;
         getInputAck = false;
 
         state = PeerState.SLEEP;
 
         acceptConnection.Clear();
+
+        if (p2pInterface == null) return;
+
+        if (notifyPeerRequestId != 0)
+        {
+            p2pInterface.RemoveNotifyPeerConnectionRequest(notifyPeerRequestId);
+            notifyPeerRequestId = 0;
+        }
+
+        if (remotePuid != null)
+        {
+            var close = new CloseConnectionOptions
+            {
+                LocalUserId = EosCommonData.myPuid,
+                RemoteUserId = remotePuid,
+                SocketId = _socketId
+            };
+            p2pInterface.CloseConnection(ref close);
+
+            remotePuid = null;
+        }
     }
 
 }
