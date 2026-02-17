@@ -131,8 +131,19 @@ public class PlayerPeer: IDisposable
         CloseConnection();
     }
 
-    public UniTask<bool> AcceptConnectionRequest(ProductUserId _remotePuid)
+    HashSet<ProductUserId> acceptConnection = new(); 
+
+    public UniTask<bool> AcceptConnectionRequest(ProductUserId _remotePuid, CancellationToken token)
     {
+        var tcs = new UniTaskCompletionSource<bool>();
+
+        token.Register(() =>
+        {
+            tcs.TrySetCanceled();
+        });
+
+        if (acceptConnection.Contains(_remotePuid)) tcs.TrySetResult(true);
+
         remotePuid = _remotePuid;
 
         //監視する接続要求を指定。ここでは自分あてに来るリクエストを指定
@@ -142,17 +153,22 @@ public class PlayerPeer: IDisposable
             SocketId = _socketId,
         };
 
-        var tcs = new UniTaskCompletionSource<bool>();
-
+    
         //上記条件に合うリクエストが来た時のコールバックを購読。戻り値は購読解除するときに必要
         //AddNotifyPeerConnectionRequestは一度アクセプトするとクリーンアップするまで飛んでこない
         notifyPeerRequestId = p2pInterface.AddNotifyPeerConnectionRequest(ref opt, null,
             //受信したリクエストの詳細を専用の構造体を用意して取得
             (ref OnIncomingConnectionRequestInfo data) =>
             {
-                if (data.RemoteUserId == null)tcs.TrySetResult(false);
+                if (data.RemoteUserId == null)
+                {
+                    UnityEngine.Debug.Log("アクセプトできませんでした");
+                    tcs.TrySetResult(false);
+                }
 
+                UnityEngine.Debug.Log("アクセプト成功");
                 var a = Accept(data.RemoteUserId);
+                acceptConnection.Add(_remotePuid);
                 tcs.TrySetResult(a);
             }
         );
@@ -171,6 +187,14 @@ public class PlayerPeer: IDisposable
             };
 
             var r = p2pInterface.AcceptConnection(ref _opt);
+
+            if(r == Result.Success)
+            {
+
+                UnityEngine.Debug.Log("アクセプト成功2");
+
+            }
+
             return r == Result.Success || r == Result.AlreadyPending;
         }
     }
@@ -508,6 +532,8 @@ public class PlayerPeer: IDisposable
         recievedSeedAck = false;
 
         state = PeerState.SLEEP;
+
+        acceptConnection.Clear();
     }
 
 }

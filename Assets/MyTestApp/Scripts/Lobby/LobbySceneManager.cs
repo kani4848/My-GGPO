@@ -29,6 +29,8 @@ public class LobbySceneManager : MonoBehaviour, ILobbySceneManager
 
     IEosService eosSirvice;    
     CancellationTokenSource cts;
+    CancellationTokenSource inLobbyCts;
+
 
     public void Awake()
     {
@@ -66,8 +68,6 @@ public class LobbySceneManager : MonoBehaviour, ILobbySceneManager
 
     private void Update()
     {
-        eosSirvice?.HeartBeatTic();
-
         if (UiInputGuard.IsTypingInTextField()) return;
 
         if (Input.GetKeyDown(KeyCode.Z))
@@ -134,9 +134,18 @@ public class LobbySceneManager : MonoBehaviour, ILobbySceneManager
         cts?.Cancel();
         cts?.Dispose();
         cts = null;
+
+        inLobbyCts?.Cancel();
+        inLobbyCts?.Dispose();
+        inLobbyCts = null;
     }
 
     //ロビー検索画面===========================
+
+    void SearchFlow()
+    {
+
+    }
 
     private async UniTask AutoRefleshLoop(CancellationToken token)
     {
@@ -171,9 +180,13 @@ public class LobbySceneManager : MonoBehaviour, ILobbySceneManager
 
         async UniTask CreateAndJoinLobbyAsync()
         {
-
             state = LobbyState.CreateLobbyAndJoin;
-            var lobbyData = await eosSirvice.CreateLobby(uiManager.GetLobbyPath_Create());
+
+            inLobbyCts?.Cancel();
+            inLobbyCts?.Dispose();
+            inLobbyCts = new();
+
+            var lobbyData = await eosSirvice.CreateLobby(uiManager.GetLobbyPath_Create(), inLobbyCts.Token);
 
             state = LobbyState.InLobby;
             uiManager.ActivatedInLobbyUI(lobbyData);
@@ -207,7 +220,11 @@ public class LobbySceneManager : MonoBehaviour, ILobbySceneManager
     {
         state = LobbyState.Joining;
 
-        var lobbyData = await eosSirvice.JoinLobby(id);
+        inLobbyCts?.Cancel();
+        inLobbyCts?.Dispose();
+        inLobbyCts = new();
+
+        var lobbyData = await eosSirvice.JoinLobby(id, inLobbyCts.Token);
 
         if (lobbyData == null)
         {
@@ -225,6 +242,15 @@ public class LobbySceneManager : MonoBehaviour, ILobbySceneManager
     }
 
     //ロビー画面===========================
+
+    void InLobbyFlow()
+    {
+        //相手がいればアクセプト
+        //HB通信
+        //レディ
+        //オールレディ
+        //メインへ
+    }
 
     public void Ready()
     {
@@ -249,9 +275,6 @@ public class LobbySceneManager : MonoBehaviour, ILobbySceneManager
 
                 //全員ready完了
                 state = LobbyState.ConnectingOpponent;
-
-                bool connectSuccess = await eosSirvice.StartConnectPeer(cts.Token);
-                if (!connectSuccess) return;
 
                 state = LobbyState.GoMain;
             }

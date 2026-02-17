@@ -278,9 +278,10 @@ public class LobbyService_InLobby
     public LobbyMember GetOpponentMemberData()
     {
         var lobby = _lobbyManager.GetCurrentLobby();
+        if (lobby == null || !lobby.IsValid())
+            return null;
 
-        var opponent = lobby.Members.FirstOrDefault(m=>m.ProductId != EosCommonData.myPuid);
-
-        return opponent;
+        return lobby.Members
+            .FirstOrDefault(m => m.ProductId != EosCommonData.myPuid);
     }
 }

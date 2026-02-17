@@ -76,16 +76,15 @@ public interface IEosService
 {
     public UniTask<List<SearchedLobbyData>> SearchLobby(string path = "");
 
-    public UniTask<LobbyData> JoinLobby(string id);
+    public UniTask<LobbyData> JoinLobby(string id, CancellationToken token);
 
     public UniTask Ready(CancellationToken token);
 
     public void CancelReady();
 
-    public UniTask<bool> StartConnectPeer(CancellationToken token);
     public UniTask LeaveLobby();
 
-    public UniTask<LobbyData> CreateLobby(string path);
+    public UniTask<LobbyData> CreateLobby(string path, CancellationToken token);
 
     public PlayerData GetLocalPlayerData();
 
@@ -95,5 +94,5 @@ public interface IEosService
 
     public UniTask<bool> StartQuickMatch();
 
-    public void HeartBeatTic();
+    public UniTask AutoHandShake(CancellationToken token);
 }

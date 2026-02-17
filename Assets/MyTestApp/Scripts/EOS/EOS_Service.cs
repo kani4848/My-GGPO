@@ -70,12 +70,15 @@ public class EOS_Service : MonoBehaviour, IEosService
         return data;
     }
 
-    public async UniTask<LobbyData> JoinLobby(string id)
+    public async UniTask<LobbyData> JoinLobby(string id, CancellationToken token)
     {
         var data = await lobbySearchService.Join(id, playerData_Local);
         if (data == null) return null;
 
         inLobbyService.EnterLobbyAction();
+
+        AutoHandShake(token).Forget();
+
         return data;
     }
 
@@ -91,25 +94,13 @@ public class EOS_Service : MonoBehaviour, IEosService
         inLobbyService.CancelReady();
     }
 
-    public async UniTask<bool> StartConnectPeer(CancellationToken token)
+    public  async UniTask<LobbyData> CreateLobby(string path, CancellationToken token)
     {
-        var m = inLobbyService.GetOpponentMemberData();
-        bool isOwner = lobbyManager.GetCurrentLobby().IsOwner(m.ProductId);
+        var data = await lobbySearchService.CreateAndJoinAsync(path, playerData_Local);
 
-        bool accept = await playerPeer.AcceptConnectionRequest(m.ProductId);
+        AutoHandShake(token).Forget();
 
-        if (!accept)
-        {
-            Debug.Log("通信許可失敗");
-            return false;
-        }
-
-        return await playerPeer.StartConnectToPeer(isOwner, token);
-    }
-
-    public  async UniTask<LobbyData> CreateLobby(string path)
-    {
-        return await lobbySearchService.CreateAndJoinAsync(path, playerData_Local);
+        return data;
     }
 
     public async UniTask LeaveLobby()
@@ -149,20 +140,56 @@ public class EOS_Service : MonoBehaviour, IEosService
         return new PlayerData(puid, memberName, charaId, hatCol, umaCol, ready, isOwner);
     }
 
-    public async UniTask HeartBeatTic()
+    float handShakePollTime = 6;
+
+    public async UniTask AutoHandShake(CancellationToken token)
     {
-        var m = inLobbyService.GetOpponentMemberData();
-
-        bool accept = await playerPeer.AcceptConnectionRequest(m.ProductId);
-
-        if (!accept)
+        while (!token.IsCancellationRequested)
         {
-            Debug.Log("通信許可失敗");
-            return;
+            if (lobbyManager.GetCurrentLobby().Members.Count != 2)
+            {
+                Debug.Log("人数が合いません");
+
+                await UniTask.Delay(TimeSpan.FromSeconds(handShakePollTime), cancellationToken: token);
+                continue;
+            }
+
+            var opponent = inLobbyService.GetOpponentMemberData();
+
+            if (opponent == null)
+            {
+                Debug.Log("リモートPUIDが取得できません");
+                await UniTask.Delay(TimeSpan.FromSeconds(handShakePollTime), cancellationToken: token);
+                continue;
+            }
+
+            bool accept = await playerPeer.AcceptConnectionRequest(opponent.ProductId, token);
+
+            if (!accept)
+            {
+                Debug.Log("通信許可失敗");
+                await UniTask.Delay(TimeSpan.FromSeconds(handShakePollTime), cancellationToken: token);
+                continue;
+            }
+
+            bool isOwner = lobbyManager.GetCurrentLobby().IsOwner(EosCommonData.myPuid);
+
+            var r = await playerPeer.StartConnectToPeer(isOwner, token);
+
+            if(!r)
+            {
+                Debug.Log("握手失敗");
+                await UniTask.Delay(TimeSpan.FromSeconds(handShakePollTime), cancellationToken: token);
+                continue;
+            }
+            else
+            {
+                Debug.Log("握手成功");
+                return;
+            }
         }
 
-        if (lobbyManager.GetCurrentLobby().Members.Count != 2) return;
-        ping = playerPeer.HbTick();
+        Debug.Log("握手キャンセル");
     }
 
     //メインシーン===============================================
