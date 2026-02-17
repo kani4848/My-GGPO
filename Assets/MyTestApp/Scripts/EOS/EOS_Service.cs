@@ -200,9 +200,6 @@ public class EOS_Service : MonoBehaviour, IEosService
         }
         finally
         {
-            handShake = false;
-            playerPeer.CloseConnection();
-            Debug.Log("握手キャンセル");
         }
     }
 

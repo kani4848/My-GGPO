@@ -205,7 +205,6 @@ public class LobbyService_InLobby
             ValueType = AttributeType.Boolean,
             Visibility = LobbyAttributeVisibility.Public
         };
-        Debug.Log("レディをセットしようとする");
 
         _lobbyManager.SetMemberAttribute(readyAtt);
     }
@@ -214,31 +213,39 @@ public class LobbyService_InLobby
     {
         bool allReady = false;
 
-        _lobbyManager.AddNotifyLobbyUpdate(CheckAllReady);
+        _lobbyManager.AddNotifyMemberUpdateReceived(CheckAllReady);
 
         try
         {
-            CheckAllReady();
+            CheckAllReady("",new ProductUserId());
             await UniTask.WaitUntil(() => allReady, cancellationToken: token);
             return allReady;
         }
         finally
         {
-            _lobbyManager.RemoveNotifyLobbyUpdate(CheckAllReady);
+            _lobbyManager.RemoveNotifyMemberUpdate(CheckAllReady);
         }
 
-        return false;
-
-        void CheckAllReady()
+        void CheckAllReady(string LobbyId, ProductUserId MemberId)
         {
+            Debug.Log("レディチェック");
             Lobby lobby = _lobbyManager.GetCurrentLobby();
             if (lobby == null) return;
             if (lobby.Members.Count != 2) return;
 
             foreach (var member in lobby.Members)
             {
-                if (!member.MemberAttributes.TryGetValue(EosCommonData.MEMBER_KEY_READY, out var memberReady)) return;
-                if (!(bool)memberReady.AsBool) return;
+                if (!member.MemberAttributes.TryGetValue(EosCommonData.MEMBER_KEY_READY, out var memberReady))
+                {
+                    Debug.Log("Attがない");
+                    return;
+                }
+                if (!(bool)memberReady.AsBool)
+                {
+                    Debug.Log("falseだよ");
+
+                    return;
+                }
             }
 
             allReady = true;
