@@ -301,21 +301,37 @@ public class PlayerPeer: IDisposable
         UnityEngine.Debug.Log($"送信結果{r}");
     }
 
-    public async UniTask InputCommunicationTest(CancellationToken token)
+    public async UniTask<bool> InputCommunicationTest(CancellationToken token)
     {
-        while (!token.IsCancellationRequested)
+        float timeout = Time.time + HandshakeTimeoutMs;
+
+        try
         {
-            SendInput(4649, true);
-            ReceivePump();
-
-            if (getInputAck)
+            while (!token.IsCancellationRequested)
             {
-                UnityEngine.Debug.Log("インプット通信成功");
-                return;
-            }
+                SendInput(4649, true);
+                ReceivePump();
 
-            await UniTask.Yield();
+                if (getInputAck)
+                {
+                    UnityEngine.Debug.Log("インプット通信成功");
+                    return true;
+                }
+
+                if (Time.time > timeout)
+                {
+                    UnityEngine.Debug.Log("インプット通信タイムアウト");
+                    return false;
+                }
+
+                await UniTask.Yield();
+            }
         }
+        finally
+        {
+        }
+
+        return false;
     }
 
     //メインゲーム通信===================================================

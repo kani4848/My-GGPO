@@ -199,7 +199,12 @@ public class EOS_Service : MonoBehaviour, IEosService
                 Debug.Log("シード通信成功");
 
                 //インプット通信のテスト
-                await playerPeer.InputCommunicationTest(token);
+                bool r = await playerPeer.InputCommunicationTest(token);
+
+                if (!r)
+                {
+                    continue;
+                }
 
                 Debug.Log("インプット通信成功、ハンドシェイク完了");
                 handShake = true;
