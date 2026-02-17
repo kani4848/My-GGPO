@@ -152,6 +152,10 @@ public class EOS_Service : MonoBehaviour, IEosService
 
     public async UniTask AutoHandShake(CancellationToken token)
     {
+
+
+        bool handShakeDone;
+
         try
         {
             while (!token.IsCancellationRequested)
@@ -177,7 +181,6 @@ public class EOS_Service : MonoBehaviour, IEosService
                 //データ受け入れ設定を登録&待ち受け
                 playerPeer.RegisterConnectionRequestAccept(opponent.ProductId);
 
-                bool handShakeDone;
 
                 //相手にデータを送信or受信待ち
                 if (playerData_Local.isOwner)

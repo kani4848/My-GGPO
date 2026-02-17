@@ -61,8 +61,6 @@ public class PlayerPeer: IDisposable
 
     private SocketId _socketId;
 
-    bool isLobbyHost = false;
-
     const int inputDatasMaxSize = 128;
 
     const int inputDatasMaxSize_musk = inputDatasMaxSize - 1;
@@ -94,7 +92,7 @@ public class PlayerPeer: IDisposable
 
     uint _seed;
     ulong notifyPeerRequestId;
-    bool recievedSeedAck = false;
+    bool seedShared = false;
     bool getInputAck = false;
 
     ProductUserId remotePuid;
@@ -221,7 +219,7 @@ public class PlayerPeer: IDisposable
 
             ReceivePump();
 
-            if (recievedSeedAck)
+            if (seedShared)
             {
                 state = PeerState.SEED_SHARED;
                 return true;
@@ -233,6 +231,7 @@ public class PlayerPeer: IDisposable
 
         return false;
     }
+
     public async UniTask<bool> WaitReceivingSeed(CancellationToken token)
     {
         state = PeerState.SHARING_SEED;
@@ -251,7 +250,7 @@ public class PlayerPeer: IDisposable
 
             ReceivePump();
 
-            if (recievedSeedAck)
+            if (seedShared)
             {
                 state = PeerState.SEED_SHARED;
                 return true;
@@ -263,20 +262,36 @@ public class PlayerPeer: IDisposable
 
         return false;
     }
-    public void SendSeed(uint seed, bool ack = false)
+    public void SendSeed(uint seed)
     {
         if (p2pInterface == null) return;
         if (remotePuid == null) return;
 
-        _sendBuffer_seed[0] = ack ? (byte)PacketType.Seed_Ack : (byte)PacketType.Seed;
+        _sendBuffer_seed[0] = (byte)PacketType.Seed;
         BitConverter.GetBytes(seed).CopyTo(_sendBuffer_seed, 1);
 
         sendPacketOptions.RemoteUserId = remotePuid;
         sendPacketOptions.Data = _sendBuffer_seed;
 
         var r = p2pInterface.SendPacket(ref sendPacketOptions);
-        UnityEngine.Debug.Log($"シードの送信結果：{r}, データの長さ: {sendPacketOptions.Data.Count}");
+        UnityEngine.Debug.Log($"シードの送信結果：Seed,{r}, データの長さ: {sendPacketOptions.Data.Count}");
     }
+
+    public void SendSeedAck(uint seed)
+    {
+        if (p2pInterface == null) return;
+        if (remotePuid == null) return;
+
+        _sendBuffer_seed[0] = (byte)PacketType.Seed_Ack;
+        BitConverter.GetBytes(seed).CopyTo(_sendBuffer_seed, 1);
+
+        sendPacketOptions.RemoteUserId = remotePuid;
+        sendPacketOptions.Data = _sendBuffer_seed;
+
+        var r = p2pInterface.SendPacket(ref sendPacketOptions);
+        UnityEngine.Debug.Log($"シードの送信結果：SeedAck,{r}, データの長さ: {sendPacketOptions.Data.Count}");
+    }
+
 
     int lastAckFrame = -1;
 
@@ -421,21 +436,19 @@ public class PlayerPeer: IDisposable
     }
     void UnPackSeedData(byte[] bytes)
     {
-        if (recievedSeedAck) return;
-        var tempSeed = BitConverter.ToUInt32(bytes, 1);
+        _seed = BitConverter.ToUInt32(bytes, 1);
+        SendSeedAck(_seed);
 
-        if (!isLobbyHost)
-        {
-            recievedSeedAck = true;
-            _seed = tempSeed;
-            SendSeed(tempSeed, true);
-        }
+        seedShared = true;
     }
 
     void UnPackSeedAckData(byte[] bytes)
     {
-        if (recievedSeedAck) return;
-        if (isLobbyHost) recievedSeedAck = true;
+        var seedAck = BitConverter.ToUInt32(bytes, 1);
+        if (_seed == seedAck)
+        {
+            seedShared = true;
+        }
     }
 
     
@@ -536,7 +549,7 @@ public class PlayerPeer: IDisposable
         ClearInputData();
 
         
-        recievedSeedAck = false;
+        seedShared = false;
         getInputAck = false;
 
         state = PeerState.SLEEP;
