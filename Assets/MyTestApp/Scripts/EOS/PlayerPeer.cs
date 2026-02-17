@@ -309,7 +309,7 @@ public class PlayerPeer: IDisposable
         {
             while (!token.IsCancellationRequested)
             {
-                SendInput(4649, true);
+                SendInput(4649, true, true);
                 ReceivePump();
 
                 if (getInputAck)
@@ -335,14 +335,14 @@ public class PlayerPeer: IDisposable
     }
 
     //メインゲーム通信===================================================
-    public void SendInput(int frame, bool _input)
+    public void SendInput(int frame, bool _input, bool ack = false)
     {
         if (p2pInterface == null) return;
         if (remotePuid == null) return;
 
         if (pressedFrame_local == -1 && _input) pressedFrame_local = frame;
 
-        _sendBuffer_input[0] = (byte)PacketType.Input;
+        _sendBuffer_input[0] = ack ? (byte)PacketType.Input_Ack : (byte)PacketType.Input;
         BitConverter.GetBytes(frame).CopyTo(_sendBuffer_input, 1);//入力フレーム
         BitConverter.GetBytes(lastAckFrame).CopyTo(_sendBuffer_input, 5);//最後に受信した相手のフレーム
         _sendBuffer_input[9] = Convert.ToByte(_input);//入力内容
@@ -377,10 +377,10 @@ public class PlayerPeer: IDisposable
                 if (outPeerId == null) continue;
                 if (outPeerId != remotePuid) continue;
 
-                UnityEngine.Debug.Log($"メッセージ受信：{_recvBuffer.Length},{outBytesWritten}");
-
                 //受信データタイプを識別、タイプごとに処理を分岐
                 PacketType pt = (PacketType)_recvBuffer[0];
+
+                UnityEngine.Debug.Log($"メッセージ受信：{pt},{_recvBuffer.Length},{outBytesWritten}");
 
                 switch (pt)
                 {
