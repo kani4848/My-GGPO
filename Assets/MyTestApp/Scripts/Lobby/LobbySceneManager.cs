@@ -130,7 +130,7 @@ public class LobbySceneManager : MonoBehaviour, ILobbySceneManager
             }
         }
 
-        if(eosSirvice.handShake && eosSirvice.allReady)
+        if(eosSirvice != null && eosSirvice.handShake && eosSirvice.allReady)
         {
             state = LobbyState.GoMain;
         }
