@@ -175,7 +175,7 @@ public class EOS_Service : MonoBehaviour, IEosService
                 //相手にデータを送信or受信待ち
                 if (playerData_Local.isOwner)
                 {
-                    handShakeDone = await playerPeer.SendSeedAnsWaitAck(token);
+                    handShakeDone = await playerPeer.SendSeedAnsWaitSeedAck(token);
                 }
                 else
                 {

@@ -192,7 +192,7 @@ public class PlayerPeer: IDisposable
             return r == Result.Success || r == Result.AlreadyPending;
         }
     }
-    public async UniTask<bool> SendSeedAnsWaitAck(CancellationToken token)
+    public async UniTask<bool> SendSeedAnsWaitSeedAck(CancellationToken token)
     {
         state = PeerState.SHARING_SEED;
 
@@ -435,7 +435,8 @@ public class PlayerPeer: IDisposable
         //ack情報送信
         _sendBuffer_inputAck[0] = (byte)PacketType.Input_Ack;
         Buffer.BlockCopy(payload, 1, _sendBuffer_inputAck, 1, 4);
-        Buffer.BlockCopy(payload, 5, _sendBuffer_inputAck, 5, 8);
+        Buffer.BlockCopy(payload, 5, _sendBuffer_inputAck, 5, 4);
+        Buffer.BlockCopy(payload, 9, _sendBuffer_inputAck, 9, 1);
 
         sendPacketOptions.RemoteUserId = remotePuid;
         sendPacketOptions.Data = _sendBuffer_inputAck;
