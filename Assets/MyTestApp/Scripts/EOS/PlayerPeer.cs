@@ -10,6 +10,7 @@ using System.Threading;
 using static TMPro.SpriteAssetUtilities.TexturePacker_JsonArray;
 using UnityEngine.Windows;
 using System.Diagnostics;
+using PlasticGui.WorkspaceWindow.Replication;
 
 public class PeerInputData
 {
@@ -103,7 +104,6 @@ public class PlayerPeer: IDisposable
         sendPacketOptions = new SendPacketOptions
         {
             LocalUserId = EosCommonData.myPuid,
-            RemoteUserId = remotePuid,//送信直前にも入れる
             SocketId = _socketId,
             Channel = 0,
             Reliability = PacketReliability.UnreliableUnordered,
@@ -113,8 +113,8 @@ public class PlayerPeer: IDisposable
         receivePacketOptions = new ReceivePacketOptions
         {
             LocalUserId = EosCommonData.myPuid,//送信側が設定した受信可能なPUIDと照合するID（基本的には自分）
-            MaxDataSizeBytes = (uint)_recvBuffer.Length,//今回の受信で許容するサイズ。これを超えるパケットは受け取れない
-            RequestedChannel = null,//受信するメッセージの種類をフィルタリング。GGPOは送信情報を種類分けしないので設定しない。
+            //MaxDataSizeBytes = (uint)_recvBuffer.Length,//今回の受信で許容するサイズ。これを超えるパケットは受け取れない
+            //RequestedChannel = null,//受信するメッセージの種類をフィルタリング。GGPOは送信情報を種類分けしないので設定しない。
         };
 
         for(int i = 0; i < inputDatasMaxSize; i++)
@@ -182,7 +182,7 @@ public class PlayerPeer: IDisposable
         }
     }
 
-    public async UniTask SendSeed(CancellationToken token)
+    public async UniTask<bool> SendSeedAnsWaitAck(CancellationToken token)
     {
         state = PeerState.SHARING_SEED;
 
@@ -200,7 +200,7 @@ public class PlayerPeer: IDisposable
             {
                 UnityEngine.Debug.Log("握手タイムアウト");
                 state = PeerState.HANDSHAKE_TIME_OUT;
-                return;
+                return false;
             }
 
             //仮インプットデータ送信
@@ -216,17 +216,19 @@ public class PlayerPeer: IDisposable
             if (recievedSeedAck)
             {
                 state = PeerState.SEED_SHARED;
-                return;
+                return true;
             }
 
             //これがないと1フレーム中にループしまくってフリーズ
             await UniTask.Yield();
         }
+
+        return false;
     }
 
 
 
-    public async UniTask WaitReceivingSeed(CancellationToken token)
+    public async UniTask<bool> WaitReceivingSeed(CancellationToken token)
     {
         state = PeerState.SHARING_SEED;
 
@@ -239,7 +241,7 @@ public class PlayerPeer: IDisposable
             if (Time.time - timeOutClock >= HandshakeTimeoutMs)
             {
                 state = PeerState.HANDSHAKE_TIME_OUT;
-                return;
+                return false;
             }
 
             ReceivePump();
@@ -247,12 +249,14 @@ public class PlayerPeer: IDisposable
             if (recievedSeedAck)
             {
                 state = PeerState.SEED_SHARED;
-                return;
+                return true;
             }
 
             //これがないと1フレーム中にループしまくってフリーズ
             await UniTask.Yield();
         }
+
+        return false;
     }
 
     int lastAckFrame = -1;
@@ -310,7 +314,8 @@ public class PlayerPeer: IDisposable
         sendPacketOptions.RemoteUserId = remotePuid;
         sendPacketOptions.Data = _sendBuffer_seed;
 
-        p2pInterface.SendPacket(ref sendPacketOptions);
+        var r = p2pInterface.SendPacket(ref sendPacketOptions);
+        UnityEngine.Debug.Log($"シードの送信結果：{r}");
     }
 
     public void ReceivePump()

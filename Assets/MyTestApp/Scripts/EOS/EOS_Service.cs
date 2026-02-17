@@ -151,7 +151,6 @@ public class EOS_Service : MonoBehaviour, IEosService
                 await UniTask.Delay(TimeSpan.FromSeconds(handShakePollTime), cancellationToken: token);
                 continue;
             }
-            Debug.Log("ロビーメンバー取得");
 
             var opponent = inLobbyService.GetOpponentMemberData();
 
@@ -165,19 +164,29 @@ public class EOS_Service : MonoBehaviour, IEosService
             Debug.Log("リクエスト許可開始");
             //データ受け入れ設定を登録&待ち受け
             playerPeer.RegisterConnectionRequestAccept(opponent.ProductId);
-            
+
+            bool handShakeDon;
+
             //相手にデータを送信or受信待ち
             if(playerData_Local.isOwner)
             {
-                await playerPeer.SendSeed(token);
+                handShakeDon = await playerPeer.SendSeedAnsWaitAck(token);
             }
             else
             {
-                await playerPeer.WaitReceivingSeed(token);
+                handShakeDon = await playerPeer.WaitReceivingSeed(token);
             }
 
-            Debug.Log("握手成功");
-            return;
+            if (handShakeDon)
+            {
+                Debug.Log("握手成功");
+                return;
+            }
+            else
+            {
+                Debug.Log("握手タイムアウト");
+                await UniTask.Delay(TimeSpan.FromSeconds(handShakePollTime), cancellationToken: token);
+            }
         }
 
         Debug.Log("握手キャンセル");
