@@ -95,7 +95,6 @@ public class LobbyService_InLobby
     //メンバー情報アップデート時のコールバック処理===============================
     private void OnMemberUpdated(string LobbyId, ProductUserId MemberId)
     {
-        Debug.Log("メンバー通知");
         var currentLobby = _lobbyManager.GetCurrentLobby();
         if (currentLobby == null || !currentLobby.IsValid()) return;
 

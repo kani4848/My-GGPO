@@ -133,16 +133,14 @@ public class PlayerPeer: IDisposable
 
     HashSet<ProductUserId> acceptConnection = new(); 
 
-    public UniTask<bool> AcceptConnectionRequest(ProductUserId _remotePuid, CancellationToken token)
+    public UniTaskVoid RegisterConnectionRequestAccept(ProductUserId _remotePuid, UniTaskCompletionSource<bool> acceptComplete, CancellationToken token)
     {
-        var tcs = new UniTaskCompletionSource<bool>();
-
         token.Register(() =>
         {
-            tcs.TrySetCanceled();
+            acceptComplete.TrySetCanceled();
         });
 
-        if (acceptConnection.Contains(_remotePuid)) tcs.TrySetResult(true);
+        if (acceptConnection.Contains(_remotePuid)) acceptComplete.TrySetResult(true);
 
         remotePuid = _remotePuid;
 
@@ -153,6 +151,7 @@ public class PlayerPeer: IDisposable
             SocketId = _socketId,
         };
 
+        UnityEngine.Debug.Log("リクエスト待ち受け開始");
     
         //上記条件に合うリクエストが来た時のコールバックを購読。戻り値は購読解除するときに必要
         //AddNotifyPeerConnectionRequestは一度アクセプトするとクリーンアップするまで飛んでこない
@@ -163,37 +162,32 @@ public class PlayerPeer: IDisposable
                 if (data.RemoteUserId == null)
                 {
                     UnityEngine.Debug.Log("アクセプトできませんでした");
-                    tcs.TrySetResult(false);
+                    acceptComplete.TrySetResult(false);
                 }
 
                 UnityEngine.Debug.Log("アクセプト成功");
-                var a = Accept(data.RemoteUserId);
-                acceptConnection.Add(_remotePuid);
-                tcs.TrySetResult(a);
+                var a = Accept();
+                acceptConnection.Add(remotePuid);
+                acceptComplete.TrySetResult(a);
             }
         );
 
-        return tcs.Task;
+        return acceptComplete.Task;
 
         //リクエスト受け入れを許可
-        bool Accept(ProductUserId puid)
+        bool Accept()
         {
             //ここで指定したremotePuidとソケットIDがAddNotifyPeerConnectionRequestで接続済みと判定される
             var _opt = new AcceptConnectionOptions
             {
                 LocalUserId = EosCommonData.myPuid,
-                RemoteUserId = puid,
+                RemoteUserId = remotePuid,
                 SocketId = _socketId
             };
 
             var r = p2pInterface.AcceptConnection(ref _opt);
 
-            if(r == Result.Success)
-            {
-
-                UnityEngine.Debug.Log("アクセプト成功2");
-
-            }
+            if(r == Result.Success) UnityEngine.Debug.Log("アクセプト成功2");
 
             return r == Result.Success || r == Result.AlreadyPending;
         }
@@ -233,6 +227,7 @@ public class PlayerPeer: IDisposable
                 //時間切れ
                 if (Time.time - timeOutClock >= HandshakeTimeoutMs)
                 {
+                    UnityEngine.Debug.Log("握手タイムアウト");
                     state = PeerState.HANDSHAKE_TIME_OUT;
                     return false;
                 }
@@ -240,6 +235,7 @@ public class PlayerPeer: IDisposable
                 //仮インプットデータ送信
                 if (Time.time >= nextSendTime)
                 {
+                    UnityEngine.Debug.Log("シード送信");
                     SendSeed(sendSeed);
                     nextSendTime = Time.time + 3f;
                 }
@@ -369,6 +365,8 @@ public class PlayerPeer: IDisposable
                 UnityEngine.Debug.Log($"受信失敗{result}");
                 break;
             }
+
+            UnityEngine.Debug.Log($"何か来てる");
 
             //通信相手以外からのパケットをはじく
             if (outPeerId == null || outBytesWritten == 0)

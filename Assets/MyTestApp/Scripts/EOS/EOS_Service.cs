@@ -133,8 +133,6 @@ public class EOS_Service : MonoBehaviour, IEosService
         bool d = lobbyMember.MemberAttributes.TryGetValue(EosCommonData.MEMBER_KEY_READY, out readyAtt);
         bool ready = d ? (bool)readyAtt.AsBool : false;
 
-        Debug.Log(ready);
-
         bool isOwner = lobbyManager.GetCurrentLobby().IsOwner(_puid);
 
         return new PlayerData(puid, memberName, charaId, hatCol, umaCol, ready, isOwner);
@@ -153,6 +151,7 @@ public class EOS_Service : MonoBehaviour, IEosService
                 await UniTask.Delay(TimeSpan.FromSeconds(handShakePollTime), cancellationToken: token);
                 continue;
             }
+            Debug.Log("ロビーメンバー取得");
 
             var opponent = inLobbyService.GetOpponentMemberData();
 
@@ -163,17 +162,15 @@ public class EOS_Service : MonoBehaviour, IEosService
                 continue;
             }
 
-            bool accept = await playerPeer.AcceptConnectionRequest(opponent.ProductId, token);
+            var acceptComplete = new UniTaskCompletionSource<bool>();
 
-            if (!accept)
-            {
-                Debug.Log("通信許可失敗");
-                await UniTask.Delay(TimeSpan.FromSeconds(handShakePollTime), cancellationToken: token);
-                continue;
-            }
+            Debug.Log("リクエスト許可開始");
+            //データ受け入れ設定を登録&待ち受け
+            playerPeer.RegisterConnectionRequestAccept(opponent.ProductId, acceptComplete, token);
+            //相手にデータを送信
 
+            Debug.Log("データ送信開始");
             bool isOwner = lobbyManager.GetCurrentLobby().IsOwner(EosCommonData.myPuid);
-
             var r = await playerPeer.StartConnectToPeer(isOwner, token);
 
             if(!r)
