@@ -202,6 +202,7 @@ public class EOS_Service : MonoBehaviour, IEosService
 
                 Debug.Log("インプット通信成功、ハンドシェイク完了");
                 handShake = true;
+                break;
             }
         }
         finally
