@@ -406,12 +406,17 @@ public class PlayerPeer: IDisposable
                         if (outBytesWritten < 10) continue;
                         UnPackInputData(_recvBuffer);
                         break;
+
+
+                    case PacketType.Input_Ack:
+                        if (outBytesWritten < 10) continue;
+                        UnPackInputAckData(_recvBuffer);
+                        break;
                 }
             }
         }
         finally
         {
-            UnityEngine.Debug.Log("レシポん終了");
         }
     }
     void UnPackSeedData(byte[] bytes)
@@ -452,8 +457,7 @@ public class PlayerPeer: IDisposable
             pressedFrame_remote = remoteCurrentFrame;
         }
 
-        getInputAck = true;
-
+        
         //ack情報送信
         _sendBuffer_inputAck[0] = (byte)PacketType.Input_Ack;
         Buffer.BlockCopy(payload, 1, _sendBuffer_inputAck, 1, 4);
@@ -466,6 +470,17 @@ public class PlayerPeer: IDisposable
         p2pInterface.SendPacket(ref sendPacketOptions);
 
         return inputData;
+    }
+
+    void UnPackInputAckData(byte[] payload)
+    {
+        int myCurrentFrame = BitConverter.ToInt32(payload, 1);
+        int remoteAckFrame = BitConverter.ToInt32(payload, 5);
+        bool remoteInput = Convert.ToBoolean(payload[9]);
+
+        PeerInputData inputData = new PeerInputData(myCurrentFrame, remoteAckFrame, remoteInput);
+
+        getInputAck = true;
     }
 
     private void StoreLocalInput(int frame, int lastAckFrame, bool input)
