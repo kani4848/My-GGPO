@@ -41,7 +41,7 @@ public class PlayerPeer: IDisposable
     public PeerState state { get; private set; } = PeerState.SLEEP;
 
     // ===== Settings =====
-    const string SOCKET_NAME = "GAME";
+    const string SOCKET_NAME = "game";
     const int PollIntervalMs = 200;
     const int HandshakeTimeoutMs = 6;
 
@@ -155,11 +155,12 @@ public class PlayerPeer: IDisposable
                 if (data.RemoteUserId == null)
                 {
                     UnityEngine.Debug.Log("アクセプトできませんでした");
+                    return;
                 }
 
                 UnityEngine.Debug.Log("アクセプト成功");
                 var a = Accept();
-                acceptConnection.Add(remotePuid);
+                acceptConnection.Add(data.RemoteUserId);
             }
         );
 
@@ -190,7 +191,6 @@ public class PlayerPeer: IDisposable
 
         float timeOutClock = Time.time;
         float nextSendTime = Time.time;
-        uint sendSeed = _seed;
 
         //シード値の共有
         while (!token.IsCancellationRequested)
@@ -207,7 +207,7 @@ public class PlayerPeer: IDisposable
             if (Time.time >= nextSendTime)
             {
                 UnityEngine.Debug.Log("シード送信");
-                SendSeed(sendSeed);
+                SendSeed(_seed);
                 nextSendTime = Time.time + 3f;
             }
 
