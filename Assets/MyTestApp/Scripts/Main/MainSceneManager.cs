@@ -55,27 +55,21 @@ public class MainSceneManager : MonoBehaviour, IMainSceneManager
             rand = new System.Random();
         }
 
-        var playerData_local = eosService.GetLocalPlayerData();
-
-        var localImageData = new PlayerImageData(playerData_local.imageData.charaId, playerData_local.imageData.hatCol, playerData_local.imageData.umaCol);
-
-        PlayerImageData OpponentData = new();
+        PlayerImageData opponentImageData = new();
 
         switch (mode)
         {
             case GameMode.Online:
                 var remotePlayerData = eosService.GetRemotePlayerData();
-                OpponentData.charaId = remotePlayerData.imageData.charaId;
-                OpponentData.hatCol = remotePlayerData.imageData.hatCol;
-                OpponentData.umaCol = remotePlayerData.imageData.umaCol;
+                opponentImageData= remotePlayerData.imageData;
                 break;
 
             case GameMode.Solo:
-                OpponentData.charaId = 0;
+                opponentImageData.charaId = 0;
                 break;
         }
         
-        uiManager.Init(mode, true, localImageData, OpponentData);
+        uiManager.Init(mode, true, eosService.GetLocalPlayerData().imageData, opponentImageData);
 
         switch (mode)
         {
@@ -134,7 +128,6 @@ public class MainSceneManager : MonoBehaviour, IMainSceneManager
 
     async UniTask WaitRoundReady()
     {
-
         p2p.SendRoundReadyMsg();//切り替え部分
         await p2p.WaitAndRecieveReady();//切り替え部分4
     }
@@ -228,7 +221,6 @@ public class MainSceneManager : MonoBehaviour, IMainSceneManager
             {
                 RoundSetUp();
                 await RoundStart();
-                
                 bool flying = await MainLoop(cts.Token);
 
                 //白飛びステート
@@ -267,10 +259,12 @@ public class MainSceneManager : MonoBehaviour, IMainSceneManager
     {
         triggerAction_1p = () =>
         {
-            bool pressedButton = UnityEngine.Input.GetKeyDown(KeyCode.Z);
-            return pressedButton;
+            bool p1Input = UnityEngine.Input.GetKeyDown(KeyCode.Z);
+            eosService.SendInput(mainGameFrameCount, p1Input);
+            return p1Input;
         };
-        triggerAction_2p = () => false;
+
+        triggerAction_2p = () => eosService.GetRemoteInputImmediately().input;
 
         while (true)
         {
@@ -281,10 +275,14 @@ public class MainSceneManager : MonoBehaviour, IMainSceneManager
             {
                 RoundSetUp();
 
-                await WaitRoundReady();
+                var r = await eosService.SendRoundReadyAndWait(cts.Token);//リモートと足並みをそろえる
+
+                if (!r)
+                {
+                    Debug.Log("インプット通信失敗");
+                }
 
                 await RoundStart();
-
                 bool flying = await MainLoop(cts.Token);
 
                 //白飛びステート
@@ -297,6 +295,8 @@ public class MainSceneManager : MonoBehaviour, IMainSceneManager
 
                 matchResult = gameSystem.CheckMatchResult(result.roundResult);
                 if (matchResult != MatchResult.NONE) break;
+
+                eosService.OnRoundReset();//ピアに保存しているインプットデータをリセット
 
                 await uiManager.OnRoundReset(false, false);
             }
@@ -386,6 +386,21 @@ public class MainSceneManager : MonoBehaviour, IMainSceneManager
         return result;
     }
 
+
+    async UniTask<MainGameResultData> Result_Online()
+    {
+        state = MainGameState.RESULT;
+        fixedUpdateAction = null;
+
+        shotFrame_p2 = eosService.GetRemoteShotFrame();
+
+        MainGameResultData result = gameSystem.CheckResult(mainGameFrameCount, shotFrame_p1, shotFrame_p2);
+        await uiManager.OnPreResult(result.roundResult);
+        await uiManager.OnResult(result);
+        return result;
+    }
+
+
     async UniTask WhiteOut(bool flying)
     {
         fixedUpdateAction = (frame) =>
@@ -407,80 +422,9 @@ public class MainSceneManager : MonoBehaviour, IMainSceneManager
         await uiManager.OnWhiteOut();
     }
 
-    
-    /*
-    async UniTask RoundReset()
-    {
-        await UniTask.Delay(TimeSpan.FromSeconds(2));
-
-        //モードユニーク部分＝＝＝＝＝
-        p2p?.OnRoundReset();
-        //モードユニーク部分＝＝＝＝＝
-
-
-        await uiManager.OnRoundReset();
-    }
-    */
-
     void FixedUpdate()
     {
         fixedUpdateAction?.Invoke(mainGameFrameCount);
-
-        /*
-        switch (state)
-        {
-            case MainGameState.MAIN_GAME:
-                bool timeUp = gameSystem.MainLoop(mainGameFrameCount);
-
-                if (timeUp)
-                {
-                    state = MainGameState.RESULT;
-                    return;
-                }
-
-                //ユニーク
-                bool pressed_local = p2p.SendAndSaveLocalInput(mainGameFrameCount);
-                bool pressed_remote = p2p.RecieveAndSaveRemoteInput();
-                //ユニーク
-
-                if (pressed_local || pressed_remote)
-                {
-                    state = MainGameState.SHOT_WHITE_OUT;
-                    return;
-                }
-
-                mainGameFrameCount++;
-                break;
-
-            //ショット後のホワイトアウト中にも入力を記録、誤差修正
-            case MainGameState.SHOT_WHITE_OUT:
-
-                //ユニーク
-                p2p.SendAndSaveLocalInput(mainGameFrameCount);
-                p2p.RecieveAndSaveRemoteInput();
-                //ユニーク
-
-                mainGameFrameCount++;
-                break;
-        }
-         */
-    }
-
-    async UniTask<MainGameResultData> Result_Online()
-    {
-        //リザルトステート
-        state = MainGameState.RESULT;
-
-        //モードユニーク部分＝＝＝＝＝
-        var pressedFrameData = p2p.GetBothInput();
-        //モードユニーク部分＝＝＝＝＝
-
-        MainGameResultData result = gameSystem.CheckResult(mainGameFrameCount, pressedFrameData.local, pressedFrameData.remote);
-
-        await uiManager.OnPreResult(result.roundResult);
-        await uiManager.OnResult(result);
-
-        return result;
     }
 
     public void GoLobby()

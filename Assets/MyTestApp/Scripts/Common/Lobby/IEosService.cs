@@ -93,13 +93,17 @@ public interface IEosService
 
     public PlayerData GetRemotePlayerData();
 
-
-    public void SendInput(int frame, bool pressed);
-    public PeerInputData GetRemoteInput();
-
-    public UniTask<bool> StartQuickMatch();
+    public void OnRoundReset();
 
     public UniTask AutoP2pConnect(CancellationToken token);
 
     public double GetPing();
+
+    //メインゲーム==================================================
+    public void SendInput(int frame, bool pressed);
+    public PeerInputData GetRemoteInputByFrame(int frame);
+    public PeerInputData GetRemoteInputImmediately();
+    public int GetRemoteShotFrame();
+    public UniTask<bool> SendRoundReadyAndWait(CancellationToken token);
+    public UniTask<bool> StartQuickMatch();
 }

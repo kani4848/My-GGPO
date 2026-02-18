@@ -15,9 +15,11 @@ public class EOS_Service : MonoBehaviour, IEosService
     public static EOSLobbyManager lobbyManager { get; set; }
 
     [SerializeField] PlayerData playerData_Local;
+    [SerializeField] PlayerData playerData_Remote;
+
     [SerializeField] PlayerPeer.PeerState peerState;
 
-    LobbyService_search lobbySearchService;
+    LobbyService_search searchService;
     LobbyService_InLobby inLobbyService;
     EOS_LoginService loginService;
     PlayerPeer playerPeer;
@@ -30,7 +32,7 @@ public class EOS_Service : MonoBehaviour, IEosService
     public void Init()
     {
         lobbyManager = EOSManager.Instance.GetOrCreateManager<EOSLobbyManager>();
-        lobbySearchService = new LobbyService_search(lobbyManager);
+        searchService = new LobbyService_search(lobbyManager);
         inLobbyService = new LobbyService_InLobby(lobbyManager);
         loginService = new();
         playerData_Local = new PlayerData();
@@ -78,7 +80,7 @@ public class EOS_Service : MonoBehaviour, IEosService
     //ロビーシーン===============================================
     public async UniTask<List<SearchedLobbyData>> SearchLobby(string path = "")
     {
-        var data = await lobbySearchService.SearchLobbyAuto(path);
+        var data = await searchService.SearchLobbyAuto(path);
         inLobbyService.EnterLobbyAction();
         return data;
     }
@@ -87,7 +89,7 @@ public class EOS_Service : MonoBehaviour, IEosService
     {
         playerData_Local.isOwner = false;
 
-        var data = await lobbySearchService.Join(id, playerData_Local);
+        var data = await searchService.Join(id, playerData_Local);
         if (data == null) return null;
 
         inLobbyService.EnterLobbyAction();
@@ -100,7 +102,7 @@ public class EOS_Service : MonoBehaviour, IEosService
     public  async UniTask<LobbyData> CreateLobby(string path, CancellationToken token)
     {
         playerData_Local.isOwner = true;
-        var data = await lobbySearchService.CreateAndJoinAsync(path, playerData_Local);
+        var data = await searchService.CreateAndJoinAsync(path, playerData_Local);
 
         AutoP2pConnect(token).Forget();
 
@@ -173,6 +175,7 @@ public class EOS_Service : MonoBehaviour, IEosService
             if (r)
             {
                 Debug.Log("ｐ２ｐ接続完了");
+                playerData_Remote = searchService.CreatePlayerDataFromLobbyMemberData(opponent);
                 break;
             }
         }
@@ -242,16 +245,37 @@ public class EOS_Service : MonoBehaviour, IEosService
         playerPeer.SendInput(frame, pressed);
     }
 
-    public PeerInputData GetRemoteInput()
+    public PeerInputData GetRemoteInputByFrame(int frame)
     {
-        return new PeerInputData();
+        return playerPeer.TryGetRemoteInput_ByFrame(frame);
+    }
+
+    public PeerInputData GetRemoteInputImmediately()
+    {
+        return playerPeer.TryGetRemoteInput_Latest();
+    }
+
+    public int GetRemoteShotFrame()
+    {
+        return playerPeer.TryGetRemoteShotFrame();
+    }
+
+    public void OnRoundReset()
+    {
+        playerPeer.ClearInputData();
+    }
+
+    public async UniTask<bool> SendRoundReadyAndWait(CancellationToken token)
+    {
+        var r = await playerPeer.InputCommunicationTest(token);
+
+        return r;
     }
 
     public async UniTask<bool> StartQuickMatch()
     {
         return true;
     }
-
 
     //シーン共通===============================================
     public static void SetMyMemberLobbyAttribute(PlayerData playerData)
@@ -328,11 +352,12 @@ public class EOS_Service : MonoBehaviour, IEosService
 
     public PlayerData GetRemotePlayerData()
     {
-        return new PlayerData();
+        return playerData_Remote;
     }
 
     public void SetLocalPlayerName(string playerName)
     {
         playerData_Local.name = playerName;
     }
+
 }

@@ -265,38 +265,43 @@ public sealed class LobbyService_search
             {
                 if (member.ProductId == EosCommonData.myPuid) continue; 
 
-                string puid = member.ProductId == null ? "" : member.ProductId.ToString();
-                string name = member.DisplayName == null ? "no name": member.DisplayName;
-                
-                int charaId = -1;
-                if (member.MemberAttributes.TryGetValue(EosCommonData.MEMBER_KEY_CHARA, out var cid)) 
-                    charaId = (int)cid.AsInt64.GetValueOrDefault();
-
-                Color hatCol = default;
-                if (member.MemberAttributes.TryGetValue(EosCommonData.MEMBER_KEY_HAT, out var hc))
-                {
-                    var packed = hc.AsInt64.GetValueOrDefault();
-                    hatCol = EOS_Service.UnpackRgb(packed);
-                }
-
-                Color umaCol = default;
-                if (member.MemberAttributes.TryGetValue(EosCommonData.MEMBER_KEY_UMA, out var uc))
-                {
-                    var packed = uc.AsInt64.GetValueOrDefault();
-                    umaCol = EOS_Service.UnpackRgb(packed);
-                }
-
-                bool ready = false;
-                if (member.MemberAttributes.TryGetValue(EosCommonData.MEMBER_KEY_READY, out var r))
-                    ready = (bool)r.AsBool;
-
-                var pd = new PlayerData(puid, name, new PlayerImageData(charaId, hatCol, umaCol), ready);
+                var pd = CreatePlayerDataFromLobbyMemberData(member);
 
                 playerDatas.Add(pd);
             }
         }
 
         return new LobbyData(lobby.Id, path, playerDatas);
+    }
+
+    public PlayerData CreatePlayerDataFromLobbyMemberData(LobbyMember member)
+    {
+        string puid = member.ProductId == null ? "" : member.ProductId.ToString();
+        string name = member.DisplayName == null ? "no name" : member.DisplayName;
+
+        int charaId = -1;
+        if (member.MemberAttributes.TryGetValue(EosCommonData.MEMBER_KEY_CHARA, out var cid))
+            charaId = (int)cid.AsInt64.GetValueOrDefault();
+
+        Color hatCol = default;
+        if (member.MemberAttributes.TryGetValue(EosCommonData.MEMBER_KEY_HAT, out var hc))
+        {
+            var packed = hc.AsInt64.GetValueOrDefault();
+            hatCol = EOS_Service.UnpackRgb(packed);
+        }
+
+        Color umaCol = default;
+        if (member.MemberAttributes.TryGetValue(EosCommonData.MEMBER_KEY_UMA, out var uc))
+        {
+            var packed = uc.AsInt64.GetValueOrDefault();
+            umaCol = EOS_Service.UnpackRgb(packed);
+        }
+
+        bool ready = false;
+        if (member.MemberAttributes.TryGetValue(EosCommonData.MEMBER_KEY_READY, out var r))
+            ready = (bool)r.AsBool;
+
+        return new PlayerData(puid, name, new PlayerImageData(charaId, hatCol, umaCol), ready);
     }
 
     SearchedLobbyData CreateSearchedLobbyData(LobbyDetails details)

@@ -24,7 +24,9 @@ public class PlayerPeer: IDisposable
 
         INPUT_TEST,
         HANDSHAKED,
-        GAME_LOOP,
+
+        MAIN_GAME,
+        MAIN_WAIT,
     }
 
     public enum PacketType : byte
@@ -54,7 +56,7 @@ public class PlayerPeer: IDisposable
     private readonly byte[] _recvBuffer = new byte[4096];//一時的な受け取りに使う。どんな形式でも共通で使うので長めに設定。
     const int inputDatasMaxSize = 32;
     const int inputDatasMaxSize_musk = inputDatasMaxSize - 1;
-    PeerInputData[] inputFrames_local = new PeerInputData[inputDatasMaxSize];
+    PeerInputData[] inputDatas_local = new PeerInputData[inputDatasMaxSize];
     PeerInputData[] inputDatas_remote = new PeerInputData[inputDatasMaxSize];
 
     //パケット設定回り
@@ -76,6 +78,13 @@ public class PlayerPeer: IDisposable
 
     ProductUserId remotePuid;
     HeartbeatSession heartBeat;
+
+    //ラウンド単位の保存情報
+    int latestRemoteInputFrame = -1;
+    int remoteShotFrame = -1;
+
+
+
 
     public PlayerPeer()
     {
@@ -102,7 +111,7 @@ public class PlayerPeer: IDisposable
 
         for(int i = 0; i < inputDatasMaxSize; i++)
         {
-            inputFrames_local[i] = new PeerInputData();
+            inputDatas_local[i] = new PeerInputData();
             inputDatas_remote[i] = new PeerInputData();
         }
 
@@ -374,7 +383,7 @@ public class PlayerPeer: IDisposable
 
     public async UniTask<bool> InputCommunicationTest(CancellationToken token)
     {
-        state = PeerState.INPUT_TEST;
+        if(state == PeerState.SEED_SHARED) state = PeerState.INPUT_TEST;
 
         float timeout = Time.time + HandshakeTimeoutMs;
 
@@ -412,7 +421,7 @@ public class PlayerPeer: IDisposable
         int index = frame & inputDatasMaxSize_musk;//リングバッファ
         var data = new PeerInputData(frame, _input);
         replayStrage_local[index] = data;
-        inputFrames_local[index] = data;
+        inputDatas_local[index] = data;
 
         //送信データを作成
         sendPacketOptions.RemoteUserId = remotePuid;
@@ -425,7 +434,7 @@ public class PlayerPeer: IDisposable
         for(int i =0; i < inputHitorySize; i++)//過去分
         {
             int pastIndex = frame - 1 - i & inputDatasMaxSize_musk;
-            var pastInput = inputFrames_local[pastIndex];
+            var pastInput = inputDatas_local[pastIndex];
             _sendBuffer_input[1 + 4 + 1 + i] = Convert.ToByte(pastInput.input);
         }
 
@@ -445,6 +454,12 @@ public class PlayerPeer: IDisposable
 
         int frame = BitConverter.ToInt32(payload, 1);
         bool input = Convert.ToBoolean(payload[1 + 4]);
+
+        //最新フレームを更新
+        if(frame> latestRemoteInputFrame) latestRemoteInputFrame = frame;
+
+        //ショットフレームを更新
+        if (input) remoteShotFrame = frame;
 
         PeerInputData inputData = new(frame, input);
 
@@ -485,7 +500,7 @@ public class PlayerPeer: IDisposable
         p2pInterface.SendPacket(ref sendPacketOptions);
     }
 
-    public void ReceivePump()
+    void ReceivePump()
     {
         if (p2pInterface == null) return;
 
@@ -583,11 +598,11 @@ public class PlayerPeer: IDisposable
         }
     }
 
-    public PeerInputData TryGetRemoteInput(int frame)
+    public PeerInputData TryGetRemoteInput_ByFrame(int frame)
     {
-        int index = frame & inputDatasMaxSize_musk;
         try
         {
+            int index = frame & inputDatasMaxSize_musk;
             return replayStrage_remote[index];       
         }
         catch
@@ -596,13 +611,35 @@ public class PlayerPeer: IDisposable
         }
     }
 
+    public PeerInputData TryGetRemoteInput_Latest()
+    {
+        try
+        {
+            int index = latestRemoteInputFrame & inputDatasMaxSize_musk;
+            return inputDatas_remote[index];
+        }
+        catch
+        {
+            return replayStrage_remote.LastOrDefault();
+        }
+    }
+
+    public int TryGetRemoteShotFrame()
+    {
+        return remoteShotFrame;
+    }
+
+
     public void ClearInputData()
     {
+        latestRemoteInputFrame = -1;
+        remoteShotFrame = -1;
+
         PeerInputData inputData = new();
 
         for (int i = 0; i < inputDatasMaxSize; i++)
         {
-            inputFrames_local[i] = inputData;
+            inputDatas_local[i] = inputData;
             inputDatas_remote[i] = inputData;
         }
     }
