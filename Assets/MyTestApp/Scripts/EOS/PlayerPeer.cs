@@ -8,6 +8,7 @@ using System.Linq;
 using Cysharp.Threading.Tasks;
 using System.Threading;
 using System.Diagnostics;
+using System.Runtime.ConstrainedExecution;
 
 public class PlayerPeer: IDisposable
 {
@@ -125,68 +126,117 @@ public class PlayerPeer: IDisposable
     }
 
     //接続確率===================================================
-    public UniTask<bool> RegisterConnectionRequestAccept(ProductUserId _remotePuid , CancellationToken token)
+
+    bool gotPing = false;
+    bool gotPong = false;
+
+    public async UniTask<bool> RegisterConnectionRequestAccept(ProductUserId _remotePuid , CancellationToken token)
     {
+        //既に接続済みなら終了
+        if (acceptConnection.Contains(_remotePuid))
+        {
+            UnityEngine.Debug.Log("既に接続済みです");
+            return true;
+        }
+
+        // 入力チェック（ProductUserIdはnullよりIsValidが本命なことが多い）
+        if (_remotePuid == null || !_remotePuid.IsValid())
+        {
+            UnityEngine.Debug.Log("PUIDが無効です");
+            return false;
+        }
+
+        //通知を登録するが別ルートで自動アクセプトされることがあり、その場合はここの通知をすり抜けることがある。
+        //そのため別軸でピンポンできていれば成立とみなす処理も走らせる
+
         var connectTask = new UniTaskCompletionSource<bool>();
 
         token.Register(() => connectTask.TrySetResult(false));
 
-        if (_remotePuid == null)
+        // キャンセル登録（後でDisposeする）
+        var ctr = token.Register(() => connectTask.TrySetResult(false));
+
+        notifyPeerRequestId = 0;
+
+
+        try
         {
-            UnityEngine.Debug.Log("PUIDがヌルです");
-            connectTask.TrySetResult(false);
-        }
+            remotePuid = _remotePuid;
 
-        state = PeerState.P2P_CONNECTING;
+            UnityEngine.Debug.Log("p2p接続リクエスト許可");
 
-        remotePuid = _remotePuid;
-
-        UnityEngine.Debug.Log("p2p接続リクエスト許可");
-        //監視する接続要求を指定。ここでは自分あてに来るリクエストを指定
-        var opt = new AddNotifyPeerConnectionRequestOptions()
-        {
-            LocalUserId = EosCommonData.myPuid,
-            SocketId = _socketId,
-        };
-
-        //上記条件に合うリクエストが来た時のコールバックを購読。戻り値は購読解除するときに必要
-        //AddNotifyPeerConnectionRequestは一度アクセプトするとクリーンアップするまで飛んでこない
-        notifyPeerRequestId = p2pInterface.AddNotifyPeerConnectionRequest(ref opt, null,
-            //受信したリクエストの詳細を専用の構造体を用意して取得
-            (ref OnIncomingConnectionRequestInfo data) =>
+            var opt_request = new AddNotifyPeerConnectionRequestOptions()
             {
-                if (data.RemoteUserId == null)
+                LocalUserId = EosCommonData.myPuid,
+                SocketId = _socketId,
+            };
+
+            notifyPeerRequestId = p2pInterface.AddNotifyPeerConnectionRequest(
+                ref opt_request,
+                null,
+                (ref OnIncomingConnectionRequestInfo data) =>
                 {
-                    UnityEngine.Debug.Log("リモートユーザーIDが取得できません");
-                    connectTask.TrySetResult(false);
+                    // ここでは data.RemoteUserId を信用して使う（remotePuidは使わない）
+                    if (data.RemoteUserId == null)
+                    {
+                        UnityEngine.Debug.Log("リモートユーザーIDが取得できません");
+                        connectTask.TrySetResult(false);
+                        return;
+                    }
+
+                    var opt_accept = new AcceptConnectionOptions
+                    {
+                        LocalUserId = data.LocalUserId,
+                        RemoteUserId = data.RemoteUserId,
+                        SocketId = data.SocketId
+                    };
+
+                    var r = p2pInterface.AcceptConnection(ref opt_accept);
+                    if (r != Result.Success)
+                    {
+                        UnityEngine.Debug.Log($"リクエストの許可に失敗しました: {r}");
+                        connectTask.TrySetResult(false);
+                        return;
+                    }
+
+                    acceptConnection.Add(data.RemoteUserId);
+                    connectTask.TrySetResult(true);
                 }
+            );
 
-                UnityEngine.Debug.Log("アクセプト成功");
-
-                //ここで指定したremotePuidとソケットIDがAddNotifyPeerConnectionRequestで接続済みと判定される
-                var _opt = new AcceptConnectionOptions
-                {
-                    LocalUserId = EosCommonData.myPuid,
-                    RemoteUserId = remotePuid,
-                    SocketId = _socketId
-                };
-
-                var r = p2pInterface.AcceptConnection(ref _opt);
-
-                if (r != Result.Success)
-                {
-                    UnityEngine.Debug.Log("リクエストの許可に失敗しました");
-                    connectTask.TrySetResult(false);
-                }
-
-                state = PeerState.P2P_CONNECTED;
-                acceptConnection.Add(data.RemoteUserId);
-
-                connectTask.TrySetResult(true);
+            if (notifyPeerRequestId == 0)
+            {
+                UnityEngine.Debug.Log("AddNotifyPeerConnectionRequest 登録失敗");
+                return false;
             }
-        );
 
-        return connectTask.Task;
+            state = PeerState.P2P_CONNECTING; // このステートでパケットを飛ばす
+
+            var connectResult = await connectTask.Task;
+
+            if (!connectResult)
+            {
+                UnityEngine.Debug.Log("接続確立に失敗");
+                state = PeerState.SLEEP;
+                return false;
+            }
+
+            state = PeerState.P2P_CONNECTED;
+            UnityEngine.Debug.Log("接続確立");
+            return true;
+        }
+        finally
+        {
+            // notify解除（0なら何もしない）
+            if (notifyPeerRequestId != 0)
+            {
+                p2pInterface.RemoveNotifyPeerConnectionRequest(notifyPeerRequestId);
+                notifyPeerRequestId = 0;
+            }
+
+            // キャンセル登録解除
+            ctr.Dispose();
+        }
     }
 
     public async UniTask<bool> SendSeedAndWaitSeedAck(CancellationToken token)
@@ -271,7 +321,7 @@ public class PlayerPeer: IDisposable
         sendPacketOptions.Data = p;
         var r = p2pInterface.SendPacket(ref sendPacketOptions);
         
-        UnityEngine.Debug.Log($"HB送信：{r}, {sendPacketOptions.SocketId}");
+        UnityEngine.Debug.Log($"HB送信：{r}, {sendPacketOptions.SocketId.GetValueOrDefault()}");
     }
 
     public void SendSeed(uint seed)
@@ -445,10 +495,12 @@ public class PlayerPeer: IDisposable
                 switch (pt)
                 {
                     case PacketType.HbPing:
+                        gotPing = true;
                         heartBeat.TryPing(_recvBuffer);
                         break;
 
                     case PacketType.HbPong:
+                        gotPong = true;
                         heartBeat.TryPong(_recvBuffer);
                         break;
 
@@ -539,7 +591,8 @@ public class PlayerPeer: IDisposable
         ClearInputData();
 
         state = PeerState.SLEEP;
-
+        gotPing = false;
+        gotPong = false;
         acceptConnection.Clear();
 
         if (p2pInterface == null) return;

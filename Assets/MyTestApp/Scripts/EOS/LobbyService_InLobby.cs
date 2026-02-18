@@ -283,8 +283,7 @@ public class LobbyService_InLobby
     public LobbyMember GetOpponentMemberData()
     {
         var lobby = _lobbyManager.GetCurrentLobby();
-        if (lobby == null || !lobby.IsValid())
-            return null;
+        if (lobby == null || !lobby.IsValid()) return null;
 
         return lobby.Members
             .FirstOrDefault(m => m.ProductId != EosCommonData.myPuid);
