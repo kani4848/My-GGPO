@@ -123,13 +123,7 @@ public class MainSceneManager : MonoBehaviour, IMainSceneManager
         state = MainGameState.ROUND_SETUP;
 
         int nextSignal = rand.Next(0, 180);
-        gameSystem.SetUpRound(nextSignal);
-    }
-
-    async UniTask WaitRoundReady()
-    {
-        p2p.SendRoundReadyMsg();//切り替え部分
-        await p2p.WaitAndRecieveReady();//切り替え部分4
+        gameSystem.SetSignal(nextSignal);
     }
 
     async UniTask RoundStart()
@@ -274,14 +268,17 @@ public class MainSceneManager : MonoBehaviour, IMainSceneManager
             while (true)
             {
                 RoundSetUp();
+                var r = await eosService.ShareSignalFrame(cts.Token);//リモートと足並みをそろえる
 
-                var r = await eosService.SendRoundReadyAndWait(cts.Token);//リモートと足並みをそろえる
-
-                if (!r)
+                if (r == -1)
                 {
-                    Debug.Log("インプット通信失敗");
+                    Debug.Log("シグナル共有失敗");
                 }
-
+                else
+                {
+                    Debug.Log("シグナル共有成功");
+                    gameSystem.SetSignal(r);//シグナルを上書き
+                }
                 await RoundStart();
                 bool flying = await MainLoop(cts.Token);
 
@@ -298,7 +295,7 @@ public class MainSceneManager : MonoBehaviour, IMainSceneManager
 
                 eosService.OnRoundReset();//ピアに保存しているインプットデータをリセット
 
-                await uiManager.OnRoundReset(false, false);
+                await uiManager.OnRoundReset(false, true);
             }
 
             state = MainGameState.END_MENU;
@@ -431,5 +428,4 @@ public class MainSceneManager : MonoBehaviour, IMainSceneManager
     {
         state = MainGameState.GO_LOBBY;
     }
-
 }

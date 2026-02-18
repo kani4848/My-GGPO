@@ -53,9 +53,9 @@ public sealed class MainGameSystem
 
     public int roundCount { get; private set; } = 0;
 
-    public void SetUpRound(int signal)
+    public void SetSignal(int signal)
     {
-        // Œˆ’è˜_Fseed‚ÆŒvŽZŽ®‚ª“¯‚¶‚È‚çA‚Ç‚Ì’[––‚Å‚à“¯‚¶SignalFrame‚É‚È‚é
+        // æ±ºå®šè«–ï¼šseedã¨è¨ˆç®—å¼ãŒåŒã˜ãªã‚‰ã€ã©ã®ç«¯æœ«ã§ã‚‚åŒã˜SignalFrameã«ãªã‚‹
         //_rng = new XorShift32(seed);
         //int r = (int)(_rng.Next() % (uint)Math.Max(1, randomFrameRange));
 
@@ -77,12 +77,12 @@ public sealed class MainGameSystem
 
     public MainGameResultData CheckResult(int mainFrameCount, int pressedFrame_p1, int pressedFrame_p2)
     {
-        //ƒtƒ‰ƒCƒ“ƒO”»’è
+        //ãƒ•ãƒ©ã‚¤ãƒ³ã‚°åˆ¤å®š
         bool fying_p1 = CheckFlying(pressedFrame_p1);
         bool flying_p2 = CheckFlying(pressedFrame_p2);
 
 
-        // Œ‹‰Ê”»’èi—¼ŽÒ‚ª‰Ÿ‚µ‚½‚çŠm’èB‚à‚µ‚­‚Í”CˆÓ‚Ìƒ^ƒCƒ€ƒAƒEƒg‚Å‚à—Ç‚¢j
+        // çµæžœåˆ¤å®šï¼ˆä¸¡è€…ãŒæŠ¼ã—ãŸã‚‰ç¢ºå®šã€‚ã‚‚ã—ãã¯ä»»æ„ã®ã‚¿ã‚¤ãƒ ã‚¢ã‚¦ãƒˆã§ã‚‚è‰¯ã„ï¼‰
         var result = new MainGameResultData
         {
             finishFrame = mainFrameCount,
@@ -96,15 +96,15 @@ public sealed class MainGameSystem
 
         RoundResult CheckGameResult()
         {
-            //ŽžŠÔØ‚ê
+            //æ™‚é–“åˆ‡ã‚Œ
             if (pressedFrame_p1 == -1 && pressedFrame_p2 == -1) return RoundResult.TIME_UP;
 
-            // ‘‰Ÿ‚µ‚ª‚¢‚éê‡‚Í‘¦•‰‚¯iŠÈˆÕƒ‹[ƒ‹j
+            // æ—©æŠ¼ã—ãŒã„ã‚‹å ´åˆã¯å³è² ã‘ï¼ˆç°¡æ˜“ãƒ«ãƒ¼ãƒ«ï¼‰
             if (fying_p1 && !flying_p2) return RoundResult.FLYING_P1;
             if (!fying_p1 && flying_p2) return RoundResult.FLYING_P2;
             if (fying_p1 && flying_p2) return RoundResult.FLYING_BOTH;
 
-            // ’ÊíF‰Ÿ‚µ‚½ƒtƒŒ[ƒ€‚ª¬‚³‚¢•û‚ªŸ‚¿
+            // é€šå¸¸ï¼šæŠ¼ã—ãŸãƒ•ãƒ¬ãƒ¼ãƒ ãŒå°ã•ã„æ–¹ãŒå‹ã¡
             if (pressedFrame_p1 >= 0 && pressedFrame_p2 == -1) return RoundResult.WIN_P1;
             if (pressedFrame_p2 >= 0 && pressedFrame_p1 == -1) return RoundResult.WIN_P2;
 

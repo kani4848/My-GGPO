@@ -104,6 +104,6 @@ public interface IEosService
     public PeerInputData GetRemoteInputByFrame(int frame);
     public PeerInputData GetRemoteInputImmediately();
     public int GetRemoteShotFrame();
-    public UniTask<bool> SendRoundReadyAndWait(CancellationToken token);
+    public UniTask<int> ShareSignalFrame(CancellationToken token);
     public UniTask<bool> StartQuickMatch();
 }

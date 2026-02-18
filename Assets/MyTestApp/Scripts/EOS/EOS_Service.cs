@@ -265,11 +265,24 @@ public class EOS_Service : MonoBehaviour, IEosService
         playerPeer.ClearInputData();
     }
 
-    public async UniTask<bool> SendRoundReadyAndWait(CancellationToken token)
+    public async UniTask<int> ShareSignalFrame(CancellationToken token)
     {
-        var r = await playerPeer.InputCommunicationTest(token);
+        var lobby = lobbyManager.GetCurrentLobby();
+        if(lobby == null || !lobby.IsValid())
+        {
+            Debug.Log("かんべんしてよ");
+        }
 
-        return r;
+        bool isOwner = lobby.IsOwner(EosCommonData.myPuid);
+        
+        if (isOwner)
+        {
+            return  await playerPeer.SendSignalAndWait(token);
+        }
+        else
+        {
+            return await playerPeer.WaitReceivingSignal(token);
+        }
     }
 
     public async UniTask<bool> StartQuickMatch()
