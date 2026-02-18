@@ -46,9 +46,10 @@ public class PlayerPeer: IDisposable
     const int inputHitorySize = 6;
     const int inputBufferSize = 1 + 4 + 1 + 1 * inputHitorySize;
     const int inputAckBufferSize = 1 + 4 + 1;
+    const int seedBufferSize = 1 + 4;//ackと兼用
     private readonly byte[] _sendBuffer_input = new byte[inputBufferSize];//過去数フレーム分のインプット履歴も追加
     private readonly byte[] _sendBuffer_inputAck = new byte[inputAckBufferSize];
-    private readonly byte[] _sendBuffer_seed = new byte[1 + 4];
+    private readonly byte[] _sendBuffer_seed = new byte[seedBufferSize];
     private readonly byte[] _recvBuffer = new byte[4096];//一時的な受け取りに使う。どんな形式でも共通で使うので長めに設定。
     const int inputDatasMaxSize = 32;
     const int inputDatasMaxSize_musk = inputDatasMaxSize - 1;
@@ -122,6 +123,13 @@ public class PlayerPeer: IDisposable
             heartBeat.Tick();
             ReceivePump();
             pingMs = heartBeat.PingMs;
+        }
+
+        switch (state)
+        {
+            case PeerState.INPUT_TEST:
+                SendInput(4649, true);
+                break;
         }
     }
 
@@ -384,8 +392,6 @@ public class PlayerPeer: IDisposable
                     return false;
                 }
 
-                SendInput(4649, true);
-
                 await UniTask.Yield();
             }
         }
@@ -517,23 +523,23 @@ public class PlayerPeer: IDisposable
                         break;
 
                     case PacketType.Seed:
-                        if (outBytesWritten < 5) continue;
+                        if (outBytesWritten < seedBufferSize) continue;
                         UnPackSeedData(_recvBuffer);
                         break;
 
                     case PacketType.Seed_Ack:
-                        if (outBytesWritten < 5) continue;
+                        if (outBytesWritten < seedBufferSize) continue;
                         UnPackSeedAckData(_recvBuffer);
                         break;
 
                     case PacketType.Input:
-                        if (outBytesWritten < 10) continue;
+                        if (outBytesWritten < inputBufferSize) continue;
                         UnPackInputData(_recvBuffer);
                         break;
 
 
                     case PacketType.Input_Ack:
-                        if (outBytesWritten < 10) continue;
+                        if (outBytesWritten < inputAckBufferSize) continue;
                         UnPackInputAckData(_recvBuffer);
                         break;
                 }
