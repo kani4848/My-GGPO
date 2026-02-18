@@ -7,6 +7,7 @@ using Epic.OnlineServices;
 using System.Collections.Generic;
 using System;
 using Epic.OnlineServices.Lobby;
+using System.ComponentModel;
 
 public class EOS_Service : MonoBehaviour, IEosService
 {
@@ -150,12 +151,30 @@ public class EOS_Service : MonoBehaviour, IEosService
 
     public async UniTask AutoP2pConnect(CancellationToken token)
     {
-        await UniTask.WaitUntil(() => inLobbyService.p2pConnectReady, cancellationToken: token);
+        while (!token.IsCancellationRequested)
+        {
+            Func<bool> StartConnect = () =>
+            {
+                var lobby = lobbyManager.GetCurrentLobby();
+                if (lobby == null || !lobby.IsValid()) return false;
+                return lobbyManager.GetCurrentLobby().Members.Count == 2;
+            };
 
-        var opponent = inLobbyService.GetOpponentMemberData();
+            await UniTask.WaitUntil(() => StartConnect(), cancellationToken: token);
 
-        //データ受け入れ設定を登録&待ち受け
-        playerPeer.RegisterConnectionRequestAccept(opponent.ProductId);
+            var opponent = inLobbyService.GetOpponentMemberData();
+
+            if(opponent == null) continue;
+
+            //データ受け入れ設定を登録&待ち受け
+            var r = await playerPeer.RegisterConnectionRequestAccept(opponent.ProductId, token);
+
+            if (r)
+            {
+                Debug.Log("ｐ２ｐ接続完了");
+                break;
+            }
+        }
     }
 
     //ロビーのメンバー全員がレディ状態になったらシーンマネジャから呼ぶ

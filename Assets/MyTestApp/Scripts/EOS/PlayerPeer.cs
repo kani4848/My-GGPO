@@ -124,12 +124,16 @@ public class PlayerPeer: IDisposable
     }
 
     //接続確率===================================================
-    public void RegisterConnectionRequestAccept(ProductUserId _remotePuid)
+    public UniTask<bool> RegisterConnectionRequestAccept(ProductUserId _remotePuid , CancellationToken token)
     {
-        if(_remotePuid == null)
+        var connectTask = new UniTaskCompletionSource<bool>();
+
+        token.Register(() => connectTask.TrySetResult(false));
+
+        if (_remotePuid == null)
         {
             UnityEngine.Debug.Log("PUIDがヌルです");
-            return;
+            connectTask.TrySetResult(false);
         }
 
         state = PeerState.P2P_CONNECTING;
@@ -150,8 +154,8 @@ public class PlayerPeer: IDisposable
             {
                 if (data.RemoteUserId == null)
                 {
-                    UnityEngine.Debug.Log("アクセプトできませんでした");
-                    return;
+                    UnityEngine.Debug.Log("リモートユーザーIDが取得できません");
+                    connectTask.TrySetResult(false);
                 }
 
                 UnityEngine.Debug.Log("アクセプト成功");
@@ -165,11 +169,23 @@ public class PlayerPeer: IDisposable
                 };
 
                 var r = p2pInterface.AcceptConnection(ref _opt);
+
+                if (r != Result.Success)
+                {
+                    UnityEngine.Debug.Log("リクエストの許可に失敗しました");
+                    connectTask.TrySetResult(false);
+                }
+
                 state = PeerState.P2P_CONNECTED;
                 acceptConnection.Add(data.RemoteUserId);
+
+                connectTask.TrySetResult(true);
             }
         );
+
+        return connectTask.Task;
     }
+
     public async UniTask<bool> SendSeedAndWaitSeedAck(CancellationToken token)
     {
         state = PeerState.SEED_SHAERING;

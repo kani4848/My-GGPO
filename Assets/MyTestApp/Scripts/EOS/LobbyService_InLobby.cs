@@ -17,8 +17,6 @@ public class LobbyService_InLobby
     UniTaskCompletionSource tcs_HB;
     CancellationTokenSource _hbCts;
 
-    public bool p2pConnectReady = false;
-
     //退室時用リセット=============
     ProductUserId prevOwnerId = null;
     List<ProductUserId> preMemberPuids = new();
@@ -115,8 +113,6 @@ public class LobbyService_InLobby
 
         bool preExists = preMemberPuids.Contains(targetMemberData.ProductId);
         bool currentExists = currentMemberPuids.Contains(targetMemberData.ProductId);
-
-        p2pConnectReady = currentMemberDatas.Count == 2;
 
         //入室
         if (!preExists && currentExists)
