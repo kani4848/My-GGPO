@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -8,6 +9,7 @@ public interface ICharaImageHandler
     public Sprite GetCharaSpriteById(int id);
 }
 
+[Serializable]
 public class PlayerImageData
 {
     public int charaId;
@@ -16,15 +18,15 @@ public class PlayerImageData
 
     public PlayerImageData(int charaId = -1, Color hatCol = default, Color umaCol = default)
     {
-        this.charaId = charaId == -1 ? Random.Range(0, 13) : charaId;
+        this.charaId = charaId == -1 ? UnityEngine.Random.Range(0, 13) : charaId;
         this.hatCol = hatCol == default? new Color(
-               Random.value,
-               Random.value,
-               Random.value):hatCol;
+               UnityEngine.Random.value,
+               UnityEngine.Random.value,
+               UnityEngine.Random.value):hatCol;
         this.umaCol = umaCol == default ? new Color(
-               Random.value,
-               Random.value,
-               Random.value) : umaCol;
+               UnityEngine.Random.value,
+               UnityEngine.Random.value,
+               UnityEngine.Random.value) : umaCol;
     }
 }
 

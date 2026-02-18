@@ -26,13 +26,14 @@ public class EOS_Service : MonoBehaviour, IEosService
     public bool inLobby;
     public bool p2pConnected { get; set; } = false;
     
-    private void Start()
+    public void Init()
     {
         lobbyManager = EOSManager.Instance.GetOrCreateManager<EOSLobbyManager>();
         lobbySearchService = new LobbyService_search(lobbyManager);
         inLobbyService = new LobbyService_InLobby(lobbyManager);
         loginService = new();
         playerData_Local = new PlayerData();
+        playerData_Local.imageData = new PlayerImageData();
     }
 
     private void OnDisable()
@@ -140,31 +141,21 @@ public class EOS_Service : MonoBehaviour, IEosService
 
         bool isOwner = lobbyManager.GetCurrentLobby().IsOwner(_puid);
 
-        return new PlayerData(puid, memberName, charaId, hatCol, umaCol, ready, isOwner);
+        var imageData = new PlayerImageData(charaId, hatCol, umaCol);
+
+        return new PlayerData(puid, memberName, imageData, ready, isOwner);
     }
 
     float handShakePollTime = 6;
 
     public async UniTask AutoP2pConnect(CancellationToken token)
     {
-        try
-        {
-            while (!token.IsCancellationRequested)
-            {
-                await UniTask.WaitUntil(() => inLobbyService.p2pConnectReady, cancellationToken: token);
+        await UniTask.WaitUntil(() => inLobbyService.p2pConnectReady, cancellationToken: token);
 
-                var opponent = inLobbyService.GetOpponentMemberData();
+        var opponent = inLobbyService.GetOpponentMemberData();
 
-                Debug.Log("リクエスト許可開始");
-                //データ受け入れ設定を登録&待ち受け
-                playerPeer.RegisterConnectionRequestAccept(opponent.ProductId);
-
-                break;
-            }
-        }
-        finally
-        {
-        }
+        //データ受け入れ設定を登録&待ち受け
+        playerPeer.RegisterConnectionRequestAccept(opponent.ProductId);
     }
 
     //ロビーのメンバー全員がレディ状態になったらシーンマネジャから呼ぶ
@@ -257,7 +248,7 @@ public class EOS_Service : MonoBehaviour, IEosService
         };
 
         //帽子の色
-        var hatCol = PackRgb(playerData.hatCol);
+        var hatCol = PackRgb(playerData.imageData.hatCol);
         var hat_att = new LobbyAttribute()
         {
             Key = EosCommonData.MEMBER_KEY_HAT,
@@ -267,7 +258,7 @@ public class EOS_Service : MonoBehaviour, IEosService
         };
 
         //馬の色
-        var umaCol = PackRgb(playerData.umaCol);
+        var umaCol = PackRgb(playerData.imageData.umaCol);
         var uma_att = new LobbyAttribute()
         {
             Key = EosCommonData.MEMBER_KEY_UMA,
@@ -280,7 +271,7 @@ public class EOS_Service : MonoBehaviour, IEosService
         var chara_att = new LobbyAttribute()
         {
             Key = EosCommonData.MEMBER_KEY_CHARA,
-            AsInt64 = playerData.charaId,
+            AsInt64 = playerData.imageData.charaId,
             ValueType = AttributeType.Int64,
             Visibility = LobbyAttributeVisibility.Public
         };

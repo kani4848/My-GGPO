@@ -55,11 +55,11 @@ public sealed class LobbyService_search
         {
             Key = EosCommonData.LOBBY_KEY_CHARA,
             ValueType = AttributeType.Int64,
-            AsInt64 = playerData_local.charaId,
+            AsInt64 = playerData_local.imageData.charaId,
             Visibility = LobbyAttributeVisibility.Public,
         });
 
-        var hatColData = EOS_Service.PackRgb(playerData_local.hatCol);
+        var hatColData = EOS_Service.PackRgb(playerData_local.imageData.hatCol);
 
         lobbySettings.Attributes.Add(new LobbyAttribute
         {
@@ -263,6 +263,8 @@ public sealed class LobbyService_search
         {
             foreach (var member in lobby.Members)
             {
+                if (member.ProductId == EosCommonData.myPuid) continue; 
+
                 string puid = member.ProductId == null ? "" : member.ProductId.ToString();
                 string name = member.DisplayName == null ? "no name": member.DisplayName;
                 
@@ -288,7 +290,7 @@ public sealed class LobbyService_search
                 if (member.MemberAttributes.TryGetValue(EosCommonData.MEMBER_KEY_READY, out var r))
                     ready = (bool)r.AsBool;
 
-                var pd = new PlayerData(puid, name, charaId, hatCol, umaCol, ready);
+                var pd = new PlayerData(puid, name, new PlayerImageData(charaId, hatCol, umaCol), ready);
 
                 playerDatas.Add(pd);
             }

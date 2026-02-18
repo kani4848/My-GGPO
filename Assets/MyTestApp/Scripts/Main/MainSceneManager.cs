@@ -57,7 +57,7 @@ public class MainSceneManager : MonoBehaviour, IMainSceneManager
 
         var playerData_local = eosService.GetLocalPlayerData();
 
-        var localImageData = new PlayerImageData(playerData_local.charaId, playerData_local.hatCol, playerData_local.umaCol);
+        var localImageData = new PlayerImageData(playerData_local.imageData.charaId, playerData_local.imageData.hatCol, playerData_local.imageData.umaCol);
 
         PlayerImageData OpponentData = new();
 
@@ -65,9 +65,9 @@ public class MainSceneManager : MonoBehaviour, IMainSceneManager
         {
             case GameMode.Online:
                 var remotePlayerData = eosService.GetRemotePlayerData();
-                OpponentData.charaId = remotePlayerData.charaId;
-                OpponentData.hatCol = remotePlayerData.hatCol;
-                OpponentData.umaCol = remotePlayerData.umaCol;
+                OpponentData.charaId = remotePlayerData.imageData.charaId;
+                OpponentData.hatCol = remotePlayerData.imageData.hatCol;
+                OpponentData.umaCol = remotePlayerData.imageData.umaCol;
                 break;
 
             case GameMode.Solo:

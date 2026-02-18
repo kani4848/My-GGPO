@@ -29,24 +29,24 @@ public class LobbyMemberNamePlate : MonoBehaviour
     {
         userName.text = memberData.name;
         
-        if(memberData.hatCol == Color.black)
+        if(memberData.imageData.hatCol == Color.black)
         {
             hat.gameObject.SetActive(false);
         }
         else
         {
             hat.gameObject.SetActive(true);
-            hat.color = memberData.hatCol;
+            hat.color = memberData.imageData.hatCol;
         }
 
-        if(memberData.charaId == -1)
+        if(memberData.imageData.charaId == -1)
         {
             chara.gameObject.SetActive(false);
         }
         else
         {
             chara.gameObject.SetActive(true);
-            chara.sprite = CharaImageHandler.Instance.GetCharaSpriteById(memberData.charaId);
+            chara.sprite = CharaImageHandler.Instance.GetCharaSpriteById(memberData.imageData.charaId);
         }
 
         ownerRabel.SetActive(memberData.isOwner);

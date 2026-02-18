@@ -34,34 +34,26 @@ public class LobbySceneManager : MonoBehaviour, ILobbySceneManager
     {
         state = LobbyState.None;
         IGameManager.lobbySceneManager = this;
-        cts = new();
     }
 
     public void Init(IEosService _eosService)
     {
         state = LobbyState.InLobbySearchRoom;
 
+        cts?.Cancel();
+        cts?.Dispose();
+        cts = new();
+
         eosSirvice = _eosService;
         uiManager.Init();
         SearchLobby();
+
         AutoRefleshLoop(cts.Token).Forget();
-
-        UpdatePing().Forget();
-
-        async UniTask UpdatePing()
-        {
-            while (!cts.IsCancellationRequested)
-            {
-                var ping = eosSirvice.GetPing();
-                uiManager.UpdatePing(ping);
-                await UniTask.Delay(TimeSpan.FromSeconds(3));
-            }
-        }
     }
 
     private void OnEnable()
     {
-        LobbyEvent.RequestJoinlobbyEvent += OnJoin;
+        LobbyEvent.RequestJoinLobbyEvent += OnJoin;
     }
 
     private void OnApplicationQuit()
@@ -139,7 +131,7 @@ public class LobbySceneManager : MonoBehaviour, ILobbySceneManager
      
     void ExitAction()
     {
-        LobbyEvent.RequestJoinlobbyEvent -= OnJoin;
+        LobbyEvent.RequestJoinLobbyEvent -= OnJoin;
 
         cts?.Cancel();
         cts?.Dispose();
@@ -219,12 +211,21 @@ public class LobbySceneManager : MonoBehaviour, ILobbySceneManager
             inLobbyCts = new();
 
             var lobbyData = await eosSirvice.CreateLobby(uiManager.GetLobbyPath_Create(), inLobbyCts.Token);
-
+            UpdatePing(inLobbyCts.Token).Forget();
             state = LobbyState.InLobby;
             uiManager.ActivatedInLobbyUI(lobbyData);
         }
     }
 
+    async UniTask UpdatePing(CancellationToken token)
+    {
+        while (!token.IsCancellationRequested)
+        {
+            var ping = eosSirvice.GetPing();
+            uiManager.UpdatePing(ping);
+            await UniTask.Delay(TimeSpan.FromSeconds(3));
+        }
+    }
     public void SearchLobby()
     {
         SoundManager.Instance.PlaySE(SE_Handler.SoundType.BUTTON);
@@ -261,6 +262,10 @@ public class LobbySceneManager : MonoBehaviour, ILobbySceneManager
         if (lobbyData == null)
         {
             Debug.Log("ロビー参加失敗");
+            inLobbyCts?.Cancel();
+            inLobbyCts?.Dispose();
+            inLobbyCts = null;
+
             state = LobbyState.InLobbySearchRoom;
             return;
         }
@@ -270,6 +275,7 @@ public class LobbySceneManager : MonoBehaviour, ILobbySceneManager
         }
 
         state = LobbyState.InLobby;
+        UpdatePing(inLobbyCts.Token).Forget();
         uiManager.ActivatedInLobbyUI(lobbyData);
     }
 

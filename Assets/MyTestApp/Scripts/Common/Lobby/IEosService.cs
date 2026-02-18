@@ -39,36 +39,22 @@ public struct PlayerData
 {
     public string puid;
     public string name;
-    public int charaId;
-    public Color hatCol;
-    public Color umaCol;
+    public PlayerImageData imageData;
     public bool ready;
     public bool isOwner;
 
     public PlayerData(
-        string puid = "", 
-        string name = "no name", 
-        int charaId = -1, 
-        Color hatCol = default, 
-        Color umaCol = default, 
+        string puid = "",
+        string name = "no name",
+        PlayerImageData imageData = default,
         bool ready = false,
         bool isOwner = false)
     {
         this.puid = puid;
         this.name = name;
-        this.charaId = charaId == -1 ? UnityEngine.Random.Range(0, 13) : charaId;
-        this.hatCol = hatCol == default? GetRondmColor() : hatCol;
-        this.umaCol = umaCol == default ? GetRondmColor() : umaCol;
+        this.imageData = imageData == default ? new PlayerImageData() : imageData;
         this.ready = ready;
         this.isOwner = isOwner;
-
-        Color GetRondmColor()
-        {
-            return new Color(
-                UnityEngine.Random.value,
-                UnityEngine.Random.value,
-                UnityEngine.Random.value);
-        }
     }
 }
 
@@ -88,7 +74,9 @@ public class PeerInputData
 public interface IEosService
 {
     public bool p2pConnected { get; set; }
-    
+
+    public void Init();
+
     public UniTask<List<SearchedLobbyData>> SearchLobby(string path = "");
 
     public UniTask<LobbyData> JoinLobby(string id, CancellationToken token);

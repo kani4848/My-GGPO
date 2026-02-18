@@ -126,10 +126,15 @@ public class PlayerPeer: IDisposable
     //接続確率===================================================
     public void RegisterConnectionRequestAccept(ProductUserId _remotePuid)
     {
+        if(_remotePuid == null)
+        {
+            UnityEngine.Debug.Log("PUIDがヌルです");
+            return;
+        }
+
         state = PeerState.P2P_CONNECTING;
 
-        remotePuid = _remotePuid;
-
+        UnityEngine.Debug.Log("p2p接続リクエスト許可");
         //監視する接続要求を指定。ここでは自分あてに来るリクエストを指定
         var opt = new AddNotifyPeerConnectionRequestOptions()
         {
@@ -150,26 +155,20 @@ public class PlayerPeer: IDisposable
                 }
 
                 UnityEngine.Debug.Log("アクセプト成功");
-                var a = Accept();
+
+                //ここで指定したremotePuidとソケットIDがAddNotifyPeerConnectionRequestで接続済みと判定される
+                var _opt = new AcceptConnectionOptions
+                {
+                    LocalUserId = EosCommonData.myPuid,
+                    RemoteUserId = remotePuid,
+                    SocketId = _socketId
+                };
+
+                var r = p2pInterface.AcceptConnection(ref _opt);
+                state = PeerState.P2P_CONNECTED;
                 acceptConnection.Add(data.RemoteUserId);
             }
         );
-
-        //リクエスト受け入れを許可
-        bool Accept()
-        {
-            //ここで指定したremotePuidとソケットIDがAddNotifyPeerConnectionRequestで接続済みと判定される
-            var _opt = new AcceptConnectionOptions
-            {
-                LocalUserId = EosCommonData.myPuid,
-                RemoteUserId = remotePuid,
-                SocketId = _socketId
-            };
-
-            var r = p2pInterface.AcceptConnection(ref _opt);
-            state = PeerState.P2P_CONNECTED;
-            return r == Result.Success || r == Result.AlreadyPending;
-        }
     }
     public async UniTask<bool> SendSeedAndWaitSeedAck(CancellationToken token)
     {
@@ -243,8 +242,7 @@ public class PlayerPeer: IDisposable
 
         sendPacketOptions.RemoteUserId = remotePuid;
         sendPacketOptions.Data = p;
-
-        var r = p2pInterface.SendPacket(ref sendPacketOptions);
+        p2pInterface.SendPacket(ref sendPacketOptions);
     }
 
     public void SendSeed(uint seed)
@@ -519,6 +517,7 @@ public class PlayerPeer: IDisposable
 
         if (notifyPeerRequestId != 0)
         {
+            UnityEngine.Debug.Log("リクエスト受け入れ解除");
             p2pInterface.RemoveNotifyPeerConnectionRequest(notifyPeerRequestId);
             notifyPeerRequestId = 0;
         }
@@ -590,7 +589,6 @@ public sealed class HeartbeatSession
         CleanupPending(nowTs);
 
         if (nowTs < _nextSendAtTs) return;
-        UnityEngine.Debug.Log("ピンを送った");
         SendPing(nowTs);
         _nextSendAtTs = nowTs + MsToTs(_intervalMs);
     }

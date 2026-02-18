@@ -48,7 +48,9 @@ public class GameManager : Singleton<GameManager>
      void Start()
     {
         state = GameState.Initialize;
-       
+
+        eos_Service.Init();
+
         cts?.Cancel();
         cts?.Dispose();
         cts = new();
@@ -133,7 +135,7 @@ public class GameManager : Singleton<GameManager>
                 cancellationToken: cts.Token);
 
             cts?.Cancel();
-            cts.Dispose();
+            cts?.Dispose();
             cts = new();
         }
     }

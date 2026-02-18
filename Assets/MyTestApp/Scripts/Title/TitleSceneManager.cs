@@ -67,7 +67,7 @@ public class TitleSceneManager : MonoBehaviour, ITitleSceneManager
 
     public void Init(PlayerData playerData)
     {
-        var charaImageData = new PlayerImageData(playerData.charaId, playerData.hatCol, playerData.umaCol);
+        var charaImageData = playerData.imageData;
 
         hat.color = charaImageData.hatCol;
         chara.sprite = CharaImageHandler.Instance.GetCharaSpriteById(charaImageData.charaId);
