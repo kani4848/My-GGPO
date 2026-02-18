@@ -566,6 +566,8 @@ public class UIManager_Main : MonoBehaviour
     //オンラインモード===============================================================================
     public UniTask<MainGameState> ActivateEndMenuButtons_Online()
     {
+        searchingUI.SetActive(false);
+
         quickMatchButton_online.gameObject.SetActive(true);
         goLobbyButton_online.gameObject.SetActive(true);
         goTitleButton_online.gameObject.SetActive(true);
@@ -594,8 +596,8 @@ public class UIManager_Main : MonoBehaviour
         goTitleButton_online.onClick.AddListener(() =>
         {
             SoundManager.Instance.PlaySE(SE_Handler.SoundType.BUTTON);
-            endMenuTask.TrySetResult(MainGameState.GO_TITLE); 
-            DeacetivateEndMenuButtons_Online(); 
+            endMenuTask.TrySetResult(MainGameState.GO_TITLE);
+            DeacetivateEndMenuButtons_Online();
         });
 
         return endMenuTask.Task;
@@ -603,6 +605,8 @@ public class UIManager_Main : MonoBehaviour
 
     public void DeacetivateEndMenuButtons_Online()
     {
+        searchingUI.SetActive(false);
+
         quickMatchButton_online.gameObject.SetActive(false);
         goLobbyButton_online.gameObject.SetActive(false);
         goTitleButton_online.gameObject.SetActive(false);
@@ -615,4 +619,36 @@ public class UIManager_Main : MonoBehaviour
         goLobbyButton_online.onClick.RemoveAllListeners();
         goTitleButton_online.onClick.RemoveAllListeners();
     }
+
+    public async UniTask<MainGameState> OnGameEnd_Online(MatchResult matchResult)
+    {
+        keyGuides.SetActive(false);
+        roundResultUI.SetActive(true);
+
+        switch (matchResult)
+        {
+            case MatchResult.WIN_P1:
+                SoundManager.Instance.PlayBgm(BgmHandler.BgmType.Title);
+                mainCanvas.SetActive(false);
+                endCanvas.SetActive(true);
+
+                CharacterController_Main winnerController = matchResult == MatchResult.WIN_P1 ? chara_p1 : chara_p2;
+                roundResultMessageText.text = matchResult == MatchResult.WIN_P1 ? "P1 survived!" : "P2 survived!";
+                var imageData = winnerController.GetCharaImageData();
+                hat_winner.color = imageData.hatCol;
+                chara_winner.sprite = CharaImageHandler.Instance.GetCharaSpriteById(imageData.charaId);
+                break;
+
+            case MatchResult.WIN_P2:
+                roundResultMessageText.text = "You died";
+                break;
+
+            case MatchResult.DRAW:
+                roundResultMessageText.text = "draw";
+                break;
+        }
+
+        return await ActivateEndMenuButtons_Online();
+    }
+
 }

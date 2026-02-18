@@ -295,23 +295,19 @@ public class MainSceneManager : MonoBehaviour, IMainSceneManager
 
                 eosService.OnRoundReset();//ピアに保存しているインプットデータをリセット
 
-                await uiManager.OnRoundReset(false, true);
+                await uiManager.OnRoundReset(false, false);
             }
 
             state = MainGameState.END_MENU;
-            if (matchResult == MatchResult.WIN_P1)
-            {
-                //勝利画面表示
-            }
 
             //エンド画面ループ
             while (true)
             {
                 //エンドメニュー表示＆入力待ち
-                state = await uiManager.ActivateEndMenuButtons_Online();
+                state = await uiManager.OnGameEnd_Online(matchResult);
 
-                if (state == MainGameState.GO_LOBBY) break;
-                if (state == MainGameState.GO_TITLE) break;
+                //クイックマッチしないならループ終了
+                if (state != MainGameState.QUICK_MATCH) return;
 
                 bool findPlayer = await eosService.StartQuickMatch();
 
