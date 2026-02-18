@@ -119,7 +119,6 @@ public class PlayerPeer: IDisposable
     {
         if (state != PeerState.SLEEP)
         {
-            UnityEngine.Debug.Log("peer     tick");
             heartBeat.Tick();
             ReceivePump();
             pingMs = heartBeat.PingMs;
@@ -340,8 +339,6 @@ public class PlayerPeer: IDisposable
         sendPacketOptions.RemoteUserId = remotePuid;
         sendPacketOptions.Data = p;
         var r = p2pInterface.SendPacket(ref sendPacketOptions);
-        
-        UnityEngine.Debug.Log($"HB送信：{r}, {sendPacketOptions.SocketId.GetValueOrDefault()}");
     }
 
     public void SendSeed(uint seed)
@@ -376,6 +373,8 @@ public class PlayerPeer: IDisposable
 
     public async UniTask<bool> InputCommunicationTest(CancellationToken token)
     {
+        state = PeerState.INPUT_TEST;
+
         float timeout = Time.time + HandshakeTimeoutMs;
 
         try
@@ -429,7 +428,9 @@ public class PlayerPeer: IDisposable
             _sendBuffer_input[1 + 4 + 1 + i] = Convert.ToByte(pastInput.input);
         }
 
-        p2pInterface.SendPacket(ref sendPacketOptions);
+        var r = p2pInterface.SendPacket(ref sendPacketOptions);
+
+        UnityEngine.Debug.Log($"inputデータ送信:{r},{_sendBuffer_input.Length}");
     }
 
     void UnPackInputData(byte[] payload)
