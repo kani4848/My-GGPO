@@ -126,4 +126,9 @@ public sealed class LobbyUIManager : MonoBehaviour
     {
         searchUI.ClearUI();
     }
+
+    public void UpdatePing(double ping)
+    {
+        inLobbyUI.UpdatePing(ping);
+    }
 }

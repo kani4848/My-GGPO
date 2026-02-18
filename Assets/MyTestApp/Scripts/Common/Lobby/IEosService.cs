@@ -112,4 +112,6 @@ public interface IEosService
     public UniTask<bool> StartQuickMatch();
 
     public UniTask AutoP2pConnect(CancellationToken token);
+
+    public double GetPing();
 }

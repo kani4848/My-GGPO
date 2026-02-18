@@ -7,23 +7,20 @@ using PlayEveryWare.EpicOnlineServices;
 using System.Linq;
 using Cysharp.Threading.Tasks;
 using System.Threading;
-using static TMPro.SpriteAssetUtilities.TexturePacker_JsonArray;
-using UnityEngine.Windows;
 using System.Diagnostics;
-using PlasticGui.WorkspaceWindow.Replication;
 
 public class PlayerPeer: IDisposable
 {
     public enum PeerState
     {
         SLEEP,
-        WAIT_OPPONENT,
      
         P2P_CONNECTING,
         P2P_CONNECTED,
-        READY,
+
         SEED_SHAERING,
         SEED_SHARED,
+        INPUT_TEST,
         HANDSHAKED,
         GAME_LOOP,
     }
@@ -48,7 +45,6 @@ public class PlayerPeer: IDisposable
     const int inputHitorySize = 6;
     const int inputBufferSize = 1 + 4 + 1 + 1 * inputHitorySize;
     const int inputAckBufferSize = 1 + 4 + 1;
-    private readonly byte[] _sendBuffer_hb = new byte[1 + 4];
     private readonly byte[] _sendBuffer_input = new byte[inputBufferSize];//過去数フレーム分のインプット履歴も追加
     private readonly byte[] _sendBuffer_inputAck = new byte[inputAckBufferSize];
     private readonly byte[] _sendBuffer_seed = new byte[1 + 4];
@@ -73,8 +69,6 @@ public class PlayerPeer: IDisposable
     public PeerState state { get; private set; } = PeerState.SLEEP;
     uint _seed;
     ulong notifyPeerRequestId;
-    bool seedShared = false;
-    bool gotRemoteInput = false;
     public double pingMs { get; private set; } = -1;
 
     ProductUserId remotePuid;
@@ -125,22 +119,14 @@ public class PlayerPeer: IDisposable
         {
             heartBeat.Tick();
             ReceivePump();
-            pingMs = pingMs == -1 ? -1 : heartBeat.PingMs * 1000;
-        }
-
-        switch (state)
-        {
-            case PeerState.P2P_CONNECTING:
-            case PeerState.P2P_CONNECTED:
-                //ピンポン
-                break;
+            pingMs = heartBeat.PingMs;
         }
     }
 
     //接続確率===================================================
     public void RegisterConnectionRequestAccept(ProductUserId _remotePuid)
     {
-        state = PeerState.WAIT_OPPONENT;
+        state = PeerState.P2P_CONNECTING;
 
         remotePuid = _remotePuid;
 
@@ -181,9 +167,7 @@ public class PlayerPeer: IDisposable
             };
 
             var r = p2pInterface.AcceptConnection(ref _opt);
-
-            if(r == Result.Success) UnityEngine.Debug.Log("アクセプト成功2");
-
+            state = PeerState.P2P_CONNECTED;
             return r == Result.Success || r == Result.AlreadyPending;
         }
     }
@@ -199,9 +183,8 @@ public class PlayerPeer: IDisposable
         //シード値の共有
         while (!token.IsCancellationRequested)
         {
-            if (seedShared)
+            if (state == PeerState.SEED_SHARED)
             {
-                state = PeerState.SEED_SHARED;
                 return true;
             }
 
@@ -228,14 +211,15 @@ public class PlayerPeer: IDisposable
 
     public async UniTask<bool> WaitReceivingSeed(CancellationToken token)
     {
+        state = PeerState.SEED_SHAERING;
+
         float timeOutClock = Time.time;
 
         //シード値の共有
         while (!token.IsCancellationRequested)
         {
-            if (seedShared)
+            if (state == PeerState.SEED_SHARED)
             {
-                state = PeerState.SEED_SHARED;
                 return true;
             }
 
@@ -301,7 +285,7 @@ public class PlayerPeer: IDisposable
         {
             while (!token.IsCancellationRequested)
             {
-                if (gotRemoteInput)
+                if (state == PeerState.HANDSHAKED)
                 {
                     return true;
                 }
@@ -389,9 +373,9 @@ public class PlayerPeer: IDisposable
             inputDatas_remote[pastIndex] = new PeerInputData(pastFrame, pastInput);
         }
 
-        if (!gotRemoteInput)
+        if (state == PeerState.INPUT_TEST)
         {
-            gotRemoteInput = true;
+            state = PeerState.HANDSHAKED;
             UnityEngine.Debug.Log("インプットデータ受信を確認");
         }
 
@@ -473,7 +457,7 @@ public class PlayerPeer: IDisposable
         _seed = BitConverter.ToUInt32(bytes, 1);
         SendSeedAck(_seed);
 
-        seedShared = true;
+        state = PeerState.SEED_SHARED;
     }
 
     void UnPackSeedAckData(byte[] bytes)
@@ -481,7 +465,7 @@ public class PlayerPeer: IDisposable
         var seedAck = BitConverter.ToUInt32(bytes, 1);
         if (_seed == seedAck)
         {
-            seedShared = true;
+            state = PeerState.SEED_SHARED;
         }
     }
 
@@ -492,9 +476,9 @@ public class PlayerPeer: IDisposable
 
         PeerInputData inputData = new PeerInputData(myCurrentFrame, remoteInput);
 
-        if (!gotRemoteInput)
+        if (state == PeerState.INPUT_TEST)
         {
-            gotRemoteInput = true;
+            state = PeerState.HANDSHAKED;
             UnityEngine.Debug.Log("インプットデータ受信を確認");
         }
     }
@@ -526,10 +510,6 @@ public class PlayerPeer: IDisposable
     public void CloseConnection()
     {
         ClearInputData();
-
-        
-        seedShared = false;
-        gotRemoteInput = false;
 
         state = PeerState.SLEEP;
 

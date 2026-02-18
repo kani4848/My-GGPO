@@ -14,13 +14,14 @@ public class EOS_Service : MonoBehaviour, IEosService
     public static EOSLobbyManager lobbyManager { get; set; }
 
     [SerializeField] PlayerData playerData_Local;
+    [SerializeField] PlayerPeer.PeerState peerState;
 
     LobbyService_search lobbySearchService;
     LobbyService_InLobby inLobbyService;
     EOS_LoginService loginService;
     PlayerPeer playerPeer;
 
-    [SerializeField] double ping;
+    [SerializeField] double ping = -1;
 
     public bool inLobby;
     public bool p2pConnected { get; set; } = false;
@@ -43,11 +44,11 @@ public class EOS_Service : MonoBehaviour, IEosService
 
     private void Update()
     {
-        if (playerPeer != null)
-        {
-            playerPeer.Tick();
-            ping = playerPeer.pingMs;
-        }
+        if (playerPeer == null) return;
+
+        playerPeer.Tick();
+
+        peerState = playerPeer.state;
     }
 
     //タイトルシーン===============================================
@@ -209,13 +210,18 @@ public class EOS_Service : MonoBehaviour, IEosService
         finally
         {
         }
-
-        return false;
     }
 
     public void CancelReady()
     {
         inLobbyService.CancelReady();
+    }
+
+    public double GetPing()
+    {
+        if (playerPeer == null) return -1;
+
+        return playerPeer.pingMs;
     }
 
     //メインシーン===============================================

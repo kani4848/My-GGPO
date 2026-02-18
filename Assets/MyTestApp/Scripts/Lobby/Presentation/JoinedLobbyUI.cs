@@ -9,8 +9,9 @@ using System.Threading;
 
 public class JoinedLobbyUI : MonoBehaviour
 {
-    [SerializeField] TextMeshProUGUI path;
     [SerializeField] TextMeshProUGUI id;
+    [SerializeField] TextMeshProUGUI path;
+    [SerializeField] TextMeshProUGUI ping;
 
     [SerializeField] LobbyMemberNamePlate memberNamePlatePrefab;
 
@@ -202,5 +203,11 @@ public class JoinedLobbyUI : MonoBehaviour
         }
 
         logs.Clear();
+    }
+
+    public void UpdatePing(double val)
+    {
+        int v = Mathf.CeilToInt((float)val);
+        ping.text = $"{v}ms";
     }
 }

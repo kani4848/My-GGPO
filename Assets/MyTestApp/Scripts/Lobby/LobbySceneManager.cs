@@ -45,6 +45,18 @@ public class LobbySceneManager : MonoBehaviour, ILobbySceneManager
         uiManager.Init();
         SearchLobby();
         AutoRefleshLoop(cts.Token).Forget();
+
+        UpdatePing().Forget();
+
+        async UniTask UpdatePing()
+        {
+            while (!cts.IsCancellationRequested)
+            {
+                var ping = eosSirvice.GetPing();
+                uiManager.UpdatePing(ping);
+                await UniTask.Delay(TimeSpan.FromSeconds(3));
+            }
+        }
     }
 
     private void OnEnable()
