@@ -21,6 +21,7 @@ public class PlayerPeer: IDisposable
 
         SEED_SHAERING,
         SEED_SHARED,
+
         INPUT_TEST,
         HANDSHAKED,
         GAME_LOOP,
@@ -555,13 +556,14 @@ public class PlayerPeer: IDisposable
         _seed = BitConverter.ToUInt32(bytes, 1);
         SendSeedAck(_seed);
 
+        if(state == PeerState.SEED_SHAERING)
         state = PeerState.SEED_SHARED;
     }
 
     void UnPackSeedAckData(byte[] bytes)
     {
         var seedAck = BitConverter.ToUInt32(bytes, 1);
-        if (_seed == seedAck)
+        if (state == PeerState.SEED_SHAERING && _seed == seedAck)
         {
             state = PeerState.SEED_SHARED;
         }
