@@ -129,7 +129,7 @@ public class PlayerPeer: IDisposable
 
     bool gotPing = false;
     bool gotPong = false;
-
+    bool _canSend = false;
     public async UniTask<bool> RegisterConnectionRequestAccept(ProductUserId _remotePuid , CancellationToken token)
     {
         //既に接続済みなら終了
@@ -161,6 +161,7 @@ public class PlayerPeer: IDisposable
 
         try
         {
+            state = PeerState.P2P_CONNECTING; // このステートでパケットを飛ばす
             remotePuid = _remotePuid;
 
             UnityEngine.Debug.Log("p2p接続リクエスト許可");
@@ -210,19 +211,30 @@ public class PlayerPeer: IDisposable
                 return false;
             }
 
-            state = PeerState.P2P_CONNECTING; // このステートでパケットを飛ばす
+            // ping/pong成立待ち と Accept待ち を競争
+            var pingpongTask = UniTask.WaitUntil(() => gotPing && gotPong, cancellationToken: token);
+            var winner = await UniTask.WhenAny(pingpongTask, connectTask.Task);
 
-            var connectResult = await connectTask.Task;
-
-            if (!connectResult)
+            // どちらが勝っても、最終成功条件はここで決める
+            bool acceptOk = false;
+            if (winner == 1)
             {
-                UnityEngine.Debug.Log("接続確立に失敗");
+                // connectTcsが先に完了
+                acceptOk = await connectTask.Task; // true/falseを取得
+            }
+
+            bool pingpongOk = (gotPing && gotPong);
+
+            bool success = pingpongOk || acceptOk;
+            if (!success)
+            {
+                UnityEngine.Debug.Log("接続確立に失敗（pingpong/accept とも不成立）");
                 state = PeerState.SLEEP;
                 return false;
             }
 
             state = PeerState.P2P_CONNECTED;
-            UnityEngine.Debug.Log("接続確立");
+            UnityEngine.Debug.Log("接続確立（pingpong or accept）");
             return true;
         }
         finally
