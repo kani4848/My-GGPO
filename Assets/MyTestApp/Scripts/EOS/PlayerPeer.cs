@@ -30,7 +30,6 @@ public class PlayerPeer: IDisposable
         HANDSHAKED,
 
         MAIN_GAME,
-        MAIN_WAIT,
     }
 
     public enum PacketType : byte
@@ -635,6 +634,17 @@ public class PlayerPeer: IDisposable
                     case PacketType.Input_Ack:
                         if (outBytesWritten < inputAckBufferSize) continue;
                         UnPackInputAckData(_recvBuffer);
+                        break;
+
+
+                    case PacketType.Signal:
+                        if (outBytesWritten < signalBufferSize) continue;
+                        UnPackSignalData(_recvBuffer);
+                        break;
+
+                    case PacketType.Signal_Ack:
+                        if (outBytesWritten < signalBufferSize) continue;
+                        UnPackSignalAckData(_recvBuffer);
                         break;
                 }
             }
