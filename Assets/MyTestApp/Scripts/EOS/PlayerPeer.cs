@@ -17,17 +17,17 @@ public class PlayerPeer: IDisposable
     public enum PeerState
     {
         SLEEP,
-        SHARING_SEED,
+        WAIT_OPPONENT,
+     
+        P2P_CONNECTING,
+        P2P_CONNECTED,
+        READY,
+        SEED_SHAERING,
         SEED_SHARED,
+        HANDSHAKED,
         GAME_LOOP,
-
-        HANDSHAKE_TIME_OUT,
     }
 
-
-    // ===== Settings =====
-
-    // Packet types
     public enum PacketType : byte
     {
         HbPing = 1,
@@ -75,6 +75,7 @@ public class PlayerPeer: IDisposable
     ulong notifyPeerRequestId;
     bool seedShared = false;
     bool gotRemoteInput = false;
+    public double pingMs { get; private set; } = -1;
 
     ProductUserId remotePuid;
     HeartbeatSession heartBeat;
@@ -118,9 +119,29 @@ public class PlayerPeer: IDisposable
 
     HashSet<ProductUserId> acceptConnection = new(); 
 
+    public void Tick()
+    {
+        if (state != PeerState.SLEEP)
+        {
+            heartBeat.Tick();
+            ReceivePump();
+            pingMs = pingMs == -1 ? -1 : heartBeat.PingMs * 1000;
+        }
+
+        switch (state)
+        {
+            case PeerState.P2P_CONNECTING:
+            case PeerState.P2P_CONNECTED:
+                //ピンポン
+                break;
+        }
+    }
+
     //接続確率===================================================
     public void RegisterConnectionRequestAccept(ProductUserId _remotePuid)
     {
+        state = PeerState.WAIT_OPPONENT;
+
         remotePuid = _remotePuid;
 
         //監視する接続要求を指定。ここでは自分あてに来るリクエストを指定
@@ -130,8 +151,6 @@ public class PlayerPeer: IDisposable
             SocketId = _socketId,
         };
 
-        UnityEngine.Debug.Log("リクエスト待ち受け開始");
-    
         //上記条件に合うリクエストが来た時のコールバックを購読。戻り値は購読解除するときに必要
         //AddNotifyPeerConnectionRequestは一度アクセプトするとクリーンアップするまで飛んでこない
         notifyPeerRequestId = p2pInterface.AddNotifyPeerConnectionRequest(ref opt, null,
@@ -168,9 +187,9 @@ public class PlayerPeer: IDisposable
             return r == Result.Success || r == Result.AlreadyPending;
         }
     }
-    public async UniTask<bool> SendSeedAnsWaitSeedAck(CancellationToken token)
+    public async UniTask<bool> SendSeedAndWaitSeedAck(CancellationToken token)
     {
-        state = PeerState.SHARING_SEED;
+        state = PeerState.SEED_SHAERING;
 
         _seed = (uint)UnityEngine.Random.Range(1, int.MaxValue);
 
@@ -189,7 +208,6 @@ public class PlayerPeer: IDisposable
             //時間切れ
             if (Time.time - timeOutClock >= HandshakeTimeoutMs)
             {
-                state = PeerState.HANDSHAKE_TIME_OUT;
                 return false;
             }
 
@@ -210,8 +228,6 @@ public class PlayerPeer: IDisposable
 
     public async UniTask<bool> WaitReceivingSeed(CancellationToken token)
     {
-        state = PeerState.SHARING_SEED;
-
         float timeOutClock = Time.time;
 
         //シード値の共有
@@ -226,7 +242,6 @@ public class PlayerPeer: IDisposable
             //時間切れ
             if (Time.time - timeOutClock >= HandshakeTimeoutMs)
             {
-                state = PeerState.HANDSHAKE_TIME_OUT;
                 return false;
             }
 
@@ -236,6 +251,18 @@ public class PlayerPeer: IDisposable
 
         return false;
     }
+
+    void SendHB(byte[] p)
+    {
+        if (p2pInterface == null) return;
+        if (remotePuid == null) return;
+
+        sendPacketOptions.RemoteUserId = remotePuid;
+        sendPacketOptions.Data = p;
+
+        var r = p2pInterface.SendPacket(ref sendPacketOptions);
+    }
+
     public void SendSeed(uint seed)
     {
         if (p2pInterface == null) return;
@@ -264,26 +291,6 @@ public class PlayerPeer: IDisposable
 
         var r = p2pInterface.SendPacket(ref sendPacketOptions);
         UnityEngine.Debug.Log($"シードの送信結果：SeedAck,{r}, データの長さ: {sendPacketOptions.Data.Count}");
-    }
-
-    public double HbTick()
-    {
-        heartBeat.Tick();
-        return heartBeat.PingMs;
-    }
-    void SendHB(byte[] payload)
-    {
-        if (p2pInterface == null) return;
-        if (remotePuid == null)
-        {
-            UnityEngine.Debug.Log($"remotepuidがヌルだ");
-            return;
-        }
-
-        sendPacketOptions.RemoteUserId = remotePuid;
-        sendPacketOptions.Data = payload; // 渡されたpayloadをそのまま送る
-        var r = p2pInterface.SendPacket(ref sendPacketOptions);
-        UnityEngine.Debug.Log($"送信結果{r}");
     }
 
     public async UniTask<bool> InputCommunicationTest(CancellationToken token)
@@ -707,7 +714,6 @@ public static class NetMsg
     {
         HbPing = 1,
         HbPong = 2,
-        // ...その他
     }
 
     public static MsgType PeekType(byte[] p) => (MsgType)p[0];
@@ -719,7 +725,6 @@ public static class NetMsg
         WriteU32(b, 1, seq);
         return b;
     }
-
     public static byte[] PackHbPong(uint seq)
     {
         var b = new byte[1 + 4];

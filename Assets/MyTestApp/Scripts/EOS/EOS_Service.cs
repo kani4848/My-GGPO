@@ -43,8 +43,11 @@ public class EOS_Service : MonoBehaviour, IEosService
 
     private void Update()
     {
-        //ポンプ
-        if(inLobbyService.p2pConnectReady) playerPeer.ReceivePump();
+        if (playerPeer != null)
+        {
+            playerPeer.Tick();
+            ping = playerPeer.pingMs;
+        }
     }
 
     //タイトルシーン===============================================
@@ -176,7 +179,7 @@ public class EOS_Service : MonoBehaviour, IEosService
             //相手にデータを送信or受信待ち
             if (playerData_Local.isOwner)
             {
-                r = await playerPeer.SendSeedAnsWaitSeedAck(token);
+                r = await playerPeer.SendSeedAndWaitSeedAck(token);
             }
             else
             {
