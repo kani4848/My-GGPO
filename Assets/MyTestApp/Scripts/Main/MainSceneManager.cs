@@ -265,8 +265,12 @@ public class MainSceneManager : MonoBehaviour, IMainSceneManager
 
     async UniTask GameLoop_Online()
     {
-        triggerAction_1p = () => UnityEngine.Input.GetKeyDown(KeyCode.Z);
-        triggerAction_2p = () => eosService.GetRemoteInput();
+        triggerAction_1p = () =>
+        {
+            bool pressedButton = UnityEngine.Input.GetKeyDown(KeyCode.Z);
+            return pressedButton;
+        };
+        triggerAction_2p = () => false;
 
         while (true)
         {
@@ -462,15 +466,6 @@ public class MainSceneManager : MonoBehaviour, IMainSceneManager
          */
     }
 
-
-    async UniTask MainLoop_Online(CancellationToken token)
-    {
-        state = MainGameState.MAIN_GAME;
-        //Peer_Online peer = new Peer_Online(PeerType.Local, eosService);
-        //fixedUpdateAction = peer.MainLoop;
-
-        //await UniTask.WaitUntil(() => peer.shot, cancellationToken: token);
-    }
     async UniTask<MainGameResultData> Result_Online()
     {
         //リザルトステート

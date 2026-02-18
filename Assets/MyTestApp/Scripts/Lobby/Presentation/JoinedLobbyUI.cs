@@ -174,8 +174,6 @@ public class JoinedLobbyUI : MonoBehaviour
 
     public void HeartBeat(PlayerData member)
     {
-        if (member == null) return;
-        
         LobbyMemberNamePlate target;
         bool find = namePlateDic.TryGetValue(member.puid, out target);
         if (!find) return;

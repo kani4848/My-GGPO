@@ -22,9 +22,9 @@ public class EOS_Service : MonoBehaviour, IEosService
 
     [SerializeField] double ping;
 
-    public bool handShake { get; set; } = false;
-    public bool allReady { get; set; } = false;
-
+    public bool inLobby;
+    public bool p2pConnected { get; set; } = false;
+    
     private void Start()
     {
         lobbyManager = EOSManager.Instance.GetOrCreateManager<EOSLobbyManager>();
@@ -39,6 +39,12 @@ public class EOS_Service : MonoBehaviour, IEosService
         inLobbyService?.LeaveLobby().Forget();
         inLobbyService?.ExitAction();
         playerPeer?.Dispose();
+    }
+
+    private void Update()
+    {
+        //ポンプ
+        if(inLobbyService.p2pConnectReady) playerPeer.ReceivePump();
     }
 
     //タイトルシーン===============================================
@@ -64,7 +70,6 @@ public class EOS_Service : MonoBehaviour, IEosService
         }
     }
 
-
     //ロビーシーン===============================================
     public async UniTask<List<SearchedLobbyData>> SearchLobby(string path = "")
     {
@@ -82,7 +87,7 @@ public class EOS_Service : MonoBehaviour, IEosService
 
         inLobbyService.EnterLobbyAction();
 
-        AutoHandShake(token).Forget();
+        AutoP2pConnect(token).Forget();
 
         return data;
     }
@@ -92,16 +97,15 @@ public class EOS_Service : MonoBehaviour, IEosService
         playerData_Local.isOwner = true;
         var data = await lobbySearchService.CreateAndJoinAsync(path, playerData_Local);
 
-        AutoHandShake(token).Forget();
+        AutoP2pConnect(token).Forget();
 
         return data;
     }
 
     public async UniTask LeaveLobby()
     {
-        handShake = false;
-        allReady = false;
-
+        p2pConnected = false;
+        
         playerPeer.CloseConnection();
         await inLobbyService.LeaveLobby();
         inLobbyService.ExitAction();
@@ -137,64 +141,20 @@ public class EOS_Service : MonoBehaviour, IEosService
 
     float handShakePollTime = 6;
 
-    public async UniTask AutoHandShake(CancellationToken token)
+    public async UniTask AutoP2pConnect(CancellationToken token)
     {
         try
         {
             while (!token.IsCancellationRequested)
             {
-                if (lobbyManager.GetCurrentLobby().Members.Count != 2)
-                {
-                    Debug.Log("人数が合いません");
-
-                    await UniTask.Delay(TimeSpan.FromSeconds(handShakePollTime), cancellationToken: token);
-                    continue;
-                }
+                await UniTask.WaitUntil(() => inLobbyService.p2pConnectReady, cancellationToken: token);
 
                 var opponent = inLobbyService.GetOpponentMemberData();
-
-                if (opponent == null)
-                {
-                    Debug.Log("リモートPUIDが取得できません");
-                    await UniTask.Delay(TimeSpan.FromSeconds(handShakePollTime), cancellationToken: token);
-                    continue;
-                }
 
                 Debug.Log("リクエスト許可開始");
                 //データ受け入れ設定を登録&待ち受け
                 playerPeer.RegisterConnectionRequestAccept(opponent.ProductId);
 
-                bool seedShared;
-
-                //相手にデータを送信or受信待ち
-                if (playerData_Local.isOwner)
-                {
-                    seedShared = await playerPeer.SendSeedAnsWaitSeedAck(token);
-                }
-                else
-                {
-                    seedShared = await playerPeer.WaitReceivingSeed(token);
-                }
-
-                if (!seedShared)
-                {
-                    Debug.Log("シード通信タイムアウト");
-                    await UniTask.Delay(TimeSpan.FromSeconds(handShakePollTime), cancellationToken: token);
-                    continue;
-                }
-
-                Debug.Log("シード通信成功");
-
-                //インプット通信のテスト
-                bool r = await playerPeer.InputCommunicationTest(token);
-
-                if (!r)
-                {
-                    continue;
-                }
-
-                Debug.Log("インプット通信成功、ハンドシェイク完了");
-                handShake = true;
                 break;
             }
         }
@@ -204,23 +164,67 @@ public class EOS_Service : MonoBehaviour, IEosService
     }
 
     //ロビーのメンバー全員がレディ状態になったらシーンマネジャから呼ぶ
-    public async UniTask Ready(CancellationToken token)
+    public async UniTask<bool> Ready(CancellationToken token)
     {
-        inLobbyService.OnReady();
-        var r = await inLobbyService.WaitAllReady(token);
-        allReady = r;
+        try
+        {
+            inLobbyService.OnReady();
+            await inLobbyService.WaitAllReady(token);
+
+            bool r;
+
+            //相手にデータを送信or受信待ち
+            if (playerData_Local.isOwner)
+            {
+                r = await playerPeer.SendSeedAnsWaitSeedAck(token);
+            }
+            else
+            {
+                r = await playerPeer.WaitReceivingSeed(token);
+            }
+
+            if (!r)
+            {
+                Debug.Log("シード通信タイムアウト");
+                return false;
+            }
+
+            Debug.Log("シード通信成功");
+
+            //インプット通信のテスト
+            r = await playerPeer.InputCommunicationTest(token);
+
+            if (!r)
+            {
+                Debug.Log("インプット通信失敗");
+                return false;
+            }
+
+            Debug.Log("インプット通信成功、ハンドシェイク完了");
+            return true;
+        }
+        finally
+        {
+        }
+
+        return false;
     }
 
     public void CancelReady()
     {
-        allReady = false;
         inLobbyService.CancelReady();
     }
 
     //メインシーン===============================================
-    public bool GetRemoteInput()
+
+    public void SendInput(int frame, bool pressed)
     {
-        return false;
+        playerPeer.SendInput(frame, pressed);
+    }
+
+    public PeerInputData GetRemoteInput()
+    {
+        return new PeerInputData();
     }
 
     public async UniTask<bool> StartQuickMatch()

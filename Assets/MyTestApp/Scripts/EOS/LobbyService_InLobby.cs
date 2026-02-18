@@ -12,6 +12,7 @@ using Cysharp.Threading.Tasks;
 using System.Threading;
 using System.Runtime.ConstrainedExecution;
 using Unity.VisualScripting;
+using System.ComponentModel;
 
 public class LobbyService_InLobby
 {
@@ -21,6 +22,8 @@ public class LobbyService_InLobby
     private CancellationTokenSource _memberPollCts;
     UniTaskCompletionSource tcs_HB;
     CancellationTokenSource _hbCts;
+
+    public bool p2pConnectReady = false;
 
     //退室時用リセット=============
     ProductUserId prevOwnerId = null;
@@ -119,6 +122,8 @@ public class LobbyService_InLobby
         bool preExists = preMemberPuids.Contains(targetMemberData.ProductId);
         bool currentExists = currentMemberPuids.Contains(targetMemberData.ProductId);
 
+        p2pConnectReady = currentMemberDatas.Count == 2;
+
         //入室
         if (!preExists && currentExists)
         {
@@ -141,7 +146,10 @@ public class LobbyService_InLobby
         }
 
         preMemberPuids = currentMemberDatas.Select(m=>m.ProductId).ToList();
+
+
     }
+
 
     async UniTask HeartbeatLoopAsync()
     {
@@ -209,7 +217,7 @@ public class LobbyService_InLobby
         _lobbyManager.SetMemberAttribute(readyAtt);
     }
 
-    public async UniTask<bool> WaitAllReady(CancellationToken token)
+    public async UniTask WaitAllReady(CancellationToken token)
     {
         bool allReady = false;
 
@@ -219,10 +227,10 @@ public class LobbyService_InLobby
         {
             CheckAllReady("",new ProductUserId());
             await UniTask.WaitUntil(() => allReady, cancellationToken: token);
-            return allReady;
         }
         finally
         {
+            Debug.Log("レディ解除");
             _lobbyManager.RemoveNotifyMemberUpdate(CheckAllReady);
         }
 
@@ -237,17 +245,15 @@ public class LobbyService_InLobby
             {
                 if (!member.MemberAttributes.TryGetValue(EosCommonData.MEMBER_KEY_READY, out var memberReady))
                 {
-                    Debug.Log("Attがない");
                     return;
                 }
                 if (!(bool)memberReady.AsBool)
                 {
-                    Debug.Log("falseだよ");
-
                     return;
                 }
             }
 
+            Debug.Log("オールレディ");
             allReady = true;
         }
     }

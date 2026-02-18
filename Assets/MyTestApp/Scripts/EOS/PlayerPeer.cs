@@ -12,20 +12,6 @@ using UnityEngine.Windows;
 using System.Diagnostics;
 using PlasticGui.WorkspaceWindow.Replication;
 
-public class PeerInputData
-{
-    public int frame;
-    public int lastAckFrame;
-    public bool input;
-
-    public PeerInputData(int _frame, int _lastAckFrame, bool _input)
-    {
-        frame = _frame;
-        lastAckFrame = _lastAckFrame;
-        input = _input;
-    }
-}
-
 public class PlayerPeer: IDisposable
 {
     public enum PeerState
@@ -38,11 +24,8 @@ public class PlayerPeer: IDisposable
         HANDSHAKE_TIME_OUT,
     }
 
-    public PeerState state { get; private set; } = PeerState.SLEEP;
 
     // ===== Settings =====
-    const string SOCKET_NAME = "game";
-    const int HandshakeTimeoutMs = 6;
 
     // Packet types
     public enum PacketType : byte
@@ -57,48 +40,44 @@ public class PlayerPeer: IDisposable
         Input_Ack = 6,
     }
 
-    P2PInterface p2pInterface;
+    //リプレイ用インプットストレージ
+    PeerInputData[] replayStrage_local = new PeerInputData[inputDatasMaxSize];
+    PeerInputData[] replayStrage_remote = new PeerInputData[inputDatasMaxSize];
 
-    private SocketId _socketId;
-
-    const int inputDatasMaxSize = 128;
-
+    //パケット送受信用の入れ物。高回転なのでリストだと遅いため配列を使用する。
+    const int inputHitorySize = 6;
+    const int inputBufferSize = 1 + 4 + 1 + 1 * inputHitorySize;
+    const int inputAckBufferSize = 1 + 4 + 1;
+    private readonly byte[] _sendBuffer_hb = new byte[1 + 4];
+    private readonly byte[] _sendBuffer_input = new byte[inputBufferSize];//過去数フレーム分のインプット履歴も追加
+    private readonly byte[] _sendBuffer_inputAck = new byte[inputAckBufferSize];
+    private readonly byte[] _sendBuffer_seed = new byte[1 + 4];
+    private readonly byte[] _recvBuffer = new byte[4096];//一時的な受け取りに使う。どんな形式でも共通で使うので長めに設定。
+    const int inputDatasMaxSize = 32;
     const int inputDatasMaxSize_musk = inputDatasMaxSize - 1;
-    //ロールバック用なら長さを固定にする。リプレイ用に全履歴を残すなら別枠
-    PeerInputData[] inputDatas_local = new PeerInputData[inputDatasMaxSize];
+    PeerInputData[] inputFrames_local = new PeerInputData[inputDatasMaxSize];
     PeerInputData[] inputDatas_remote = new PeerInputData[inputDatasMaxSize];
 
-    int[] inputFrames_local = new int[inputDatasMaxSize];
-    int[] inputFrames_remote = new int[inputDatasMaxSize];
-
-    int pressedFrame_local = -1;
-    int pressedFrame_remote = -1;
-
-    //保存用ではなく、一時的な受け取りに使う。どんな形式でも共通で使うので長めに設定。
-    private readonly byte[] _recvBuffer = new byte[4096];
-
-    //送るときは長さを形式に合わせて固定。
-    private readonly byte[] _sendBuffer_hb = new byte[5];
-    private readonly byte[] _sendBuffer_input = new byte[10];
-    private readonly byte[] _sendBuffer_inputAck = new byte[10];
-    private readonly byte[] _sendBuffer_seed = new byte[5];
-
+    //パケット設定回り
+    P2PInterface p2pInterface;
+    private SocketId _socketId;
     SendPacketOptions sendPacketOptions;
     ReceivePacketOptions receivePacketOptions;
-
     ProductUserId outPeerId;
     byte outChannel;
     uint outBytesWritten;
+    const string SOCKET_NAME = "game";
+    const int HandshakeTimeoutMs = 6;
 
+    //保存情報
+    public PeerState state { get; private set; } = PeerState.SLEEP;
     uint _seed;
     ulong notifyPeerRequestId;
     bool seedShared = false;
-    bool getInputAck = false;
+    bool gotRemoteInput = false;
 
     ProductUserId remotePuid;
-
     HeartbeatSession heartBeat;
-
 
     public PlayerPeer()
     {
@@ -125,8 +104,8 @@ public class PlayerPeer: IDisposable
 
         for(int i = 0; i < inputDatasMaxSize; i++)
         {
-            inputFrames_local[i] = -1;
-            inputFrames_remote[i] = -1;
+            inputFrames_local[i] = new PeerInputData();
+            inputDatas_remote[i] = new PeerInputData();
         }
 
         heartBeat = new(SendHB);
@@ -201,10 +180,15 @@ public class PlayerPeer: IDisposable
         //シード値の共有
         while (!token.IsCancellationRequested)
         {
+            if (seedShared)
+            {
+                state = PeerState.SEED_SHARED;
+                return true;
+            }
+
             //時間切れ
             if (Time.time - timeOutClock >= HandshakeTimeoutMs)
             {
-                UnityEngine.Debug.Log("握手タイムアウト");
                 state = PeerState.HANDSHAKE_TIME_OUT;
                 return false;
             }
@@ -214,16 +198,8 @@ public class PlayerPeer: IDisposable
             {
                 UnityEngine.Debug.Log("シード送信");
                 SendSeed(_seed);
-                nextSendTime = Time.time + 3f;
             }
 
-            ReceivePump();
-
-            if (seedShared)
-            {
-                state = PeerState.SEED_SHARED;
-                return true;
-            }
 
             //これがないと1フレーム中にループしまくってフリーズ
             await UniTask.Yield();
@@ -241,19 +217,17 @@ public class PlayerPeer: IDisposable
         //シード値の共有
         while (!token.IsCancellationRequested)
         {
+            if (seedShared)
+            {
+                state = PeerState.SEED_SHARED;
+                return true;
+            }
+
             //時間切れ
             if (Time.time - timeOutClock >= HandshakeTimeoutMs)
             {
                 state = PeerState.HANDSHAKE_TIME_OUT;
                 return false;
-            }
-
-            ReceivePump();
-
-            if (seedShared)
-            {
-                state = PeerState.SEED_SHARED;
-                return true;
             }
 
             //これがないと1フレーム中にループしまくってフリーズ
@@ -292,13 +266,9 @@ public class PlayerPeer: IDisposable
         UnityEngine.Debug.Log($"シードの送信結果：SeedAck,{r}, データの長さ: {sendPacketOptions.Data.Count}");
     }
 
-
-    int lastAckFrame = -1;
-
     public double HbTick()
     {
         heartBeat.Tick();
-        ReceivePump();
         return heartBeat.PingMs;
     }
     void SendHB(byte[] payload)
@@ -324,20 +294,17 @@ public class PlayerPeer: IDisposable
         {
             while (!token.IsCancellationRequested)
             {
-                SendInput(4649, true, true);
-                ReceivePump();
-
-                if (getInputAck)
+                if (gotRemoteInput)
                 {
-                    UnityEngine.Debug.Log("インプット通信成功");
                     return true;
                 }
 
                 if (Time.time > timeout)
                 {
-                    UnityEngine.Debug.Log("インプット通信タイムアウト");
                     return false;
                 }
+
+                SendInput(4649, true);
 
                 await UniTask.Yield();
             }
@@ -350,23 +317,83 @@ public class PlayerPeer: IDisposable
     }
 
     //メインゲーム通信===================================================
-    public void SendInput(int frame, bool _input, bool ack = false)
+    public void SendInput(int frame, bool _input)
     {
         if (p2pInterface == null) return;
         if (remotePuid == null) return;
 
-        if (pressedFrame_local == -1 && _input) pressedFrame_local = frame;
+        //インプットデータをローカルストレージに保存
+        int index = frame & inputDatasMaxSize_musk;//リングバッファ
+        var data = new PeerInputData(frame, _input);
+        replayStrage_local[index] = data;
+        inputFrames_local[index] = data;
 
-        _sendBuffer_input[0] = ack ? (byte)PacketType.Input_Ack : (byte)PacketType.Input;
-        BitConverter.GetBytes(frame).CopyTo(_sendBuffer_input, 1);//入力フレーム
-        BitConverter.GetBytes(lastAckFrame).CopyTo(_sendBuffer_input, 5);//最後に受信した相手のフレーム
-        _sendBuffer_input[9] = Convert.ToByte(_input);//入力内容
-
+        //送信データを作成
         sendPacketOptions.RemoteUserId = remotePuid;
         sendPacketOptions.Data = _sendBuffer_input;
 
-        StoreLocalInput(frame, lastAckFrame, _input);
+        _sendBuffer_input[0] = (byte)PacketType.Input;
+        BitConverter.GetBytes(frame).CopyTo(_sendBuffer_input, 1);
+        _sendBuffer_input[1 + 4] = Convert.ToByte(_input);
 
+        for(int i =0; i < inputHitorySize; i++)//過去分
+        {
+            int pastIndex = frame - 1 - i & inputDatasMaxSize_musk;
+            var pastInput = inputFrames_local[pastIndex];
+            _sendBuffer_input[1 + 4 + 1 + i] = Convert.ToByte(pastInput.input);
+        }
+
+        p2pInterface.SendPacket(ref sendPacketOptions);
+    }
+
+    void UnPackInputData(byte[] payload)
+    {
+        // 最低限の長さチェック
+        if (payload == null || payload.Length < inputBufferSize)
+        {
+            UnityEngine.Debug.Log("インプットデータに適切なサイズではありません");
+            return;
+        }
+
+        int frame = BitConverter.ToInt32(payload, 1);
+        bool input = Convert.ToBoolean(payload[1 + 4]);
+
+        PeerInputData inputData = new(frame, input);
+
+        //データを保存
+        int index = frame & inputDatasMaxSize_musk;
+        replayStrage_remote[index] = inputData;
+        inputDatas_remote[index] = inputData;
+
+        for (int i = 0; i < inputHitorySize; i++)//ヒストリー分開封＆記録
+        {
+            int pastFrame = frame - 1 - i;
+            int pastIndex = pastFrame & inputDatasMaxSize_musk;
+            var pastInput = Convert.ToBoolean(payload[1 + 4 + 1 + i]);
+
+            var pastData = inputDatas_remote[pastIndex];
+
+            if (pastData.frame == pastFrame && pastData.input != pastInput)
+            {
+                UnityEngine.Debug.Log("ヒストリーと過去記録したインプットが合致しません");
+                continue;
+            }
+
+            inputDatas_remote[pastIndex] = new PeerInputData(pastFrame, pastInput);
+        }
+
+        if (!gotRemoteInput)
+        {
+            gotRemoteInput = true;
+            UnityEngine.Debug.Log("インプットデータ受信を確認");
+        }
+
+        //ack情報送信
+        _sendBuffer_inputAck[0] = (byte)PacketType.Input_Ack;
+        sendPacketOptions.RemoteUserId = remotePuid;
+        Buffer.BlockCopy(payload, 1, _sendBuffer_inputAck, 1, 4);
+        Buffer.BlockCopy(payload, 1 + 4, _sendBuffer_inputAck, 1 + 4, 1);
+        sendPacketOptions.Data = _sendBuffer_inputAck;
         p2pInterface.SendPacket(ref sendPacketOptions);
     }
 
@@ -451,97 +478,42 @@ public class PlayerPeer: IDisposable
         }
     }
 
-    
-    PeerInputData UnPackInputData(byte[] payload)
-    {
-        int remoteCurrentFrame = BitConverter.ToInt32(payload, 1);
-        int remoteAckFrame = BitConverter.ToInt32(payload, 5);
-        bool remoteInput = Convert.ToBoolean(payload[9]);
-
-        PeerInputData inputData = new PeerInputData(remoteCurrentFrame, remoteAckFrame, remoteInput);
-
-        //データを保存
-        int index = remoteCurrentFrame & inputDatasMaxSize;
-        inputDatas_remote[index] = inputData;
-        inputFrames_remote[index] = remoteCurrentFrame;
-
-        if (pressedFrame_remote == -1 && remoteInput)
-        {
-            pressedFrame_remote = remoteCurrentFrame;
-        }
-
-        
-        //ack情報送信
-        _sendBuffer_inputAck[0] = (byte)PacketType.Input_Ack;
-        Buffer.BlockCopy(payload, 1, _sendBuffer_inputAck, 1, 4);
-        Buffer.BlockCopy(payload, 5, _sendBuffer_inputAck, 5, 4);
-        Buffer.BlockCopy(payload, 9, _sendBuffer_inputAck, 9, 1);
-
-        sendPacketOptions.RemoteUserId = remotePuid;
-        sendPacketOptions.Data = _sendBuffer_inputAck;
-
-        p2pInterface.SendPacket(ref sendPacketOptions);
-
-        return inputData;
-    }
-
     void UnPackInputAckData(byte[] payload)
     {
         int myCurrentFrame = BitConverter.ToInt32(payload, 1);
-        int remoteAckFrame = BitConverter.ToInt32(payload, 5);
         bool remoteInput = Convert.ToBoolean(payload[9]);
 
-        PeerInputData inputData = new PeerInputData(myCurrentFrame, remoteAckFrame, remoteInput);
+        PeerInputData inputData = new PeerInputData(myCurrentFrame, remoteInput);
 
-        getInputAck = true;
-    }
-
-    private void StoreLocalInput(int frame, int lastAckFrame, bool input)
-    {
-        int index = frame & inputDatasMaxSize;
-        inputDatas_local[index] = new PeerInputData(frame, lastAckFrame, input);
-        inputFrames_local[index] = frame;
-    }
-
-
-    public bool TryGetLocalInput(int frame, out PeerInputData data)
-    {
-        int index = frame & inputDatasMaxSize;
-        if (inputFrames_local[index] == frame)
+        if (!gotRemoteInput)
         {
-            data = inputDatas_local[index];
-            return true;
+            gotRemoteInput = true;
+            UnityEngine.Debug.Log("インプットデータ受信を確認");
         }
-
-        data = null;
-        return false;
     }
 
-    public bool TryGetRemoteInput(int frame, out PeerInputData data)
+    public PeerInputData TryGetRemoteInput(int frame)
     {
-        int index = frame & inputDatasMaxSize;
-        if (inputFrames_remote[index] == frame)
+        int index = frame & inputDatasMaxSize_musk;
+        try
         {
-            data = inputDatas_remote[index];
-            return true;
+            return replayStrage_remote[index];       
         }
-
-        data = null;
-        return false;
+        catch
+        {
+            return replayStrage_remote.LastOrDefault();
+        }
     }
 
     public void ClearInputData()
     {
+        PeerInputData inputData = new();
+
         for (int i = 0; i < inputDatasMaxSize; i++)
         {
-            inputFrames_local[i] = -1;
-            inputFrames_remote[i] = -1;
-            inputDatas_local[i] = null;
-            inputDatas_remote[i] = null;
+            inputFrames_local[i] = inputData;
+            inputDatas_remote[i] = inputData;
         }
-
-        pressedFrame_local = -1;
-        pressedFrame_remote = -1;
     }
 
     public void CloseConnection()
@@ -550,7 +522,7 @@ public class PlayerPeer: IDisposable
 
         
         seedShared = false;
-        getInputAck = false;
+        gotRemoteInput = false;
 
         state = PeerState.SLEEP;
 

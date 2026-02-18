@@ -35,7 +35,7 @@ public class LobbyData
 }
 
 [Serializable]
-public class PlayerData
+public struct PlayerData
 {
     public string puid;
     public string name;
@@ -72,17 +72,28 @@ public class PlayerData
     }
 }
 
+public class PeerInputData
+{
+    public int frame;
+    public bool input;
+
+    public PeerInputData(int _frame = -1, bool _input = false)
+    {
+        frame = _frame;
+        input = _input;
+    }
+}
+
+
 public interface IEosService
 {
-    public bool handShake { get; set; }
-    public bool allReady { get; set; }
-
-
+    public bool p2pConnected { get; set; }
+    
     public UniTask<List<SearchedLobbyData>> SearchLobby(string path = "");
 
     public UniTask<LobbyData> JoinLobby(string id, CancellationToken token);
 
-    public UniTask Ready(CancellationToken token);
+    public UniTask<bool> Ready(CancellationToken token);
 
     public void CancelReady();
 
@@ -94,9 +105,11 @@ public interface IEosService
 
     public PlayerData GetRemotePlayerData();
 
-    public bool GetRemoteInput();
+
+    public void SendInput(int frame, bool pressed);
+    public PeerInputData GetRemoteInput();
 
     public UniTask<bool> StartQuickMatch();
 
-    public UniTask AutoHandShake(CancellationToken token);
+    public UniTask AutoP2pConnect(CancellationToken token);
 }

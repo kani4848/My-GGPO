@@ -30,7 +30,6 @@ public class LobbySceneManager : MonoBehaviour, ILobbySceneManager
     CancellationTokenSource cts;
     CancellationTokenSource inLobbyCts;
 
-
     public void Awake()
     {
         state = LobbyState.None;
@@ -63,10 +62,7 @@ public class LobbySceneManager : MonoBehaviour, ILobbySceneManager
         ExitAction();
     }
 
-    bool readyWait = false;
-
     Action UpdateAction = null;
-    
 
     private void Update()
     {
@@ -83,12 +79,10 @@ public class LobbySceneManager : MonoBehaviour, ILobbySceneManager
                     break;
 
                 case LobbyState.InLobby:
-                    UnlockReadyWait().Forget();
                     Ready();
                     break;
 
                 case LobbyState.Ready:
-                    UnlockReadyWait().Forget();
                     ReadyCancel();
                     break;
             }
@@ -128,11 +122,6 @@ public class LobbySceneManager : MonoBehaviour, ILobbySceneManager
                     state = LobbyState.GoTitle;
                     break;
             }
-        }
-
-        if(eosSirvice != null && eosSirvice.handShake && eosSirvice.allReady)
-        {
-            state = LobbyState.GoMain;
         }
     }
      
@@ -276,7 +265,7 @@ public class LobbySceneManager : MonoBehaviour, ILobbySceneManager
 
     async UniTask InLobbyFlow()
     {
-        if (eosSirvice.handShake)
+        if (eosSirvice.p2pConnected)
         {
             //HB送信
         }
@@ -288,9 +277,6 @@ public class LobbySceneManager : MonoBehaviour, ILobbySceneManager
 
         async UniTask ReadyAsync()
         {
-            if (readyWait) return;
-            readyWait = true;
-
             SoundManager.Instance.PlaySE(SE_Handler.SoundType.BUTTON);
          
             state = LobbyState.Ready;
@@ -301,7 +287,17 @@ public class LobbySceneManager : MonoBehaviour, ILobbySceneManager
 
             try
             {
-                eosSirvice.Ready(cts.Token).Forget();
+                var r = await eosSirvice.Ready(cts.Token);
+
+                if (r)
+                {
+                    state = LobbyState.GoMain;
+                }
+                else
+                {
+                    Debug.Log("握手失敗");
+                    await ReadyCancelAsync();
+                }
             }
             catch (OperationCanceledException)
             {
@@ -309,44 +305,26 @@ public class LobbySceneManager : MonoBehaviour, ILobbySceneManager
                 //ロビー退室
                 //マッチング失敗
             }
-            finally
-            {
-                cts?.Cancel();
-                cts?.Dispose();
-                cts = null;
-            }
         }
-    }
-
-    async UniTask UnlockReadyWait()
-    {
-        await UniTask.Delay(TimeSpan.FromSeconds(1));
-        readyWait = false;
     }
 
     public void ReadyCancel()
     {
         ReadyCancelAsync().Forget();    
+    }
 
-        async UniTask ReadyCancelAsync()
-        {
+    async UniTask ReadyCancelAsync()
+    {
+        SoundManager.Instance.PlaySE(SE_Handler.SoundType.BUTTON);
 
-            if (readyWait) return;
-            readyWait = true;
+        state = LobbyState.InLobby;
+        eosSirvice.CancelReady();
 
-            SoundManager.Instance.PlaySE(SE_Handler.SoundType.BUTTON);
+        cts?.Cancel();
+        cts?.Dispose();
+        cts = null;
 
-            state = LobbyState.InLobby;
-            eosSirvice.CancelReady();
-
-            cts?.Cancel();
-            cts?.Dispose();
-            cts = null;
-
-            await UniTask.Delay(TimeSpan.FromSeconds(1));
-
-            readyWait = false;
-        }
+        await UniTask.Delay(TimeSpan.FromSeconds(1));
     }
 
     public void LeaveLobby()
