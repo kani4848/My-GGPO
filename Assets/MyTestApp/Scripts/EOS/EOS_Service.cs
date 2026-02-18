@@ -49,7 +49,6 @@ public class EOS_Service : MonoBehaviour, IEosService
         if (playerPeer == null) return;
 
         playerPeer.Tick();
-
         peerState = playerPeer.state;
     }
 
@@ -165,6 +164,8 @@ public class EOS_Service : MonoBehaviour, IEosService
             var opponent = inLobbyService.GetOpponentMemberData();
 
             if(opponent == null) continue;
+
+            Debug.Log(opponent.ProductId);
 
             //データ受け入れ設定を登録&待ち受け
             var r = await playerPeer.RegisterConnectionRequestAccept(opponent.ProductId, token);

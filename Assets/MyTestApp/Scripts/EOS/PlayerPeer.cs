@@ -117,6 +117,7 @@ public class PlayerPeer: IDisposable
     {
         if (state != PeerState.SLEEP)
         {
+            UnityEngine.Debug.Log("peer     tick");
             heartBeat.Tick();
             ReceivePump();
             pingMs = heartBeat.PingMs;
@@ -137,6 +138,8 @@ public class PlayerPeer: IDisposable
         }
 
         state = PeerState.P2P_CONNECTING;
+
+        remotePuid = _remotePuid;
 
         UnityEngine.Debug.Log("p2p接続リクエスト許可");
         //監視する接続要求を指定。ここでは自分あてに来るリクエストを指定
@@ -253,12 +256,22 @@ public class PlayerPeer: IDisposable
 
     void SendHB(byte[] p)
     {
-        if (p2pInterface == null) return;
-        if (remotePuid == null) return;
+        if (p2pInterface == null)
+        {
+            UnityEngine.Debug.Log($"p2pがnull");
+            return;
+        }
+        if (remotePuid == null)
+        {
+            UnityEngine.Debug.Log($"puidがnull");
+            return;
+        }
 
         sendPacketOptions.RemoteUserId = remotePuid;
         sendPacketOptions.Data = p;
-        p2pInterface.SendPacket(ref sendPacketOptions);
+        var r = p2pInterface.SendPacket(ref sendPacketOptions);
+        
+        UnityEngine.Debug.Log($"HB送信：{r}, {sendPacketOptions.SocketId}");
     }
 
     public void SendSeed(uint seed)
