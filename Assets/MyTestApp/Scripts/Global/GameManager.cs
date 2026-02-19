@@ -109,8 +109,6 @@ public class GameManager : Singleton<GameManager>
         {
             var nextScene = await LobbyFlow();
             
-            IGameManager.lobbySceneManager = null;
-
             if (nextScene == LobbyState.GoTitle) break;
 
             var nextState = await MainGameFlow(currentGameMode);
@@ -132,6 +130,8 @@ public class GameManager : Singleton<GameManager>
             cts?.Cancel();
             cts?.Dispose();
             cts = new();
+
+            IGameManager.lobbySceneManager = null;
 
             return nextState;
         }

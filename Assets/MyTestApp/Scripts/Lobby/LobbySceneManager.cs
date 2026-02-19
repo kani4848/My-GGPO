@@ -13,11 +13,14 @@ public class LobbySceneManager : MonoBehaviour, ILobbySceneManager
 
     LobbyState _state = LobbyState.None;
 
+    [SerializeField] LobbyState __state;
+
     public LobbyState state
     {
         get => _state;
         set
         {
+            __state = value;
             _state = value;
             LobbyEvent.RaiseLobbyStateChanged(_state);
         }
@@ -304,13 +307,11 @@ public class LobbySceneManager : MonoBehaviour, ILobbySceneManager
          
             state = LobbyState.Ready;
 
-            cts?.Cancel();
-            cts?.Dispose();
-            cts = new();
+            using var readyCts = CancellationTokenSource.CreateLinkedTokenSource(cts.Token);
 
             try
             {
-                var r = await eosSirvice.Ready(cts.Token);
+                var r = await eosSirvice.Ready(readyCts.Token);
 
                 if (r)
                 {
@@ -324,9 +325,14 @@ public class LobbySceneManager : MonoBehaviour, ILobbySceneManager
             }
             catch (OperationCanceledException)
             {
+                Debug.Log("何か失敗");
                 //レディ待ちキャンセル
                 //ロビー退室
                 //マッチング失敗
+            }
+            finally
+            {
+                readyCts.Cancel();
             }
         }
     }
@@ -369,7 +375,7 @@ public class LobbySceneManager : MonoBehaviour, ILobbySceneManager
         }
     }
 
-    public void GoTitle()
+    public void GoTitle()//ボタン用
     {
         SoundManager.Instance.PlaySE(SE_Handler.SoundType.BUTTON);
         state = LobbyState.GoTitle;
