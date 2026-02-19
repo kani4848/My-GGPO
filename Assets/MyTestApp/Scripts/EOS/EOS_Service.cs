@@ -271,7 +271,7 @@ public class EOS_Service : MonoBehaviour, IEosService
         playerPeer.ClearInputData();
     }
 
-    public async UniTask<int> ShareSignalFrame(CancellationToken token)
+    public async UniTask<bool> SendRoundDataAndWaitAck(RoundData roundData, CancellationToken token)
     {
         var lobby = lobbyManager.GetCurrentLobby();
 
@@ -280,14 +280,18 @@ public class EOS_Service : MonoBehaviour, IEosService
             Debug.Log("かんべんしてよ");
         }
 
-        if (playerData_Local.isOwner)
-        {
-            return await playerPeer.SendSignalAndWait(token);
-        }
-        else
-        {
-            return await playerPeer.WaitReceivingSignal(token);
-        }
+        return await playerPeer.SendRoundDataAndWaitAck(roundData, token);
+    }
+
+    public async UniTask<RoundData> WaitReceivingRoundData(CancellationToken token)
+    {
+        return await playerPeer.WaitReceivingSignal(token);
+    }
+
+
+    public async UniTask<int> SendFinalInputAndWaitRemoteFinalInput(CancellationToken token)
+    {
+        return await playerPeer.SendFinalInputAndWaitRemote(token);
     }
 
     public async UniTask<bool> StartQuickMatch()

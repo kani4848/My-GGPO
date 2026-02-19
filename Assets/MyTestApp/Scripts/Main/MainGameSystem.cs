@@ -40,8 +40,17 @@ public struct MainGameResultData
 
 public sealed class MainGameSystem
 {
-    private int _signalFrame;
+    int round = 0;
+
+    int startSceneFrame;
+    const int startMargin = 60;//スタートを遅らせるフレーム
+
+    Random rand;
+    int _signalFrame;
+    const int signalMaxFrame = 180;
+
     const int afterSignalDuration = 90;
+    
     int timeUpFrame = 0;
     const int minSignalFrame = 120;
 
@@ -53,16 +62,30 @@ public sealed class MainGameSystem
 
     public int roundCount { get; private set; } = 0;
 
-    public void SetSignal(int signal)
+    public RoundData CreateRoundData(int currentSceneFrameCount)
     {
-        // 決定論：seedと計算式が同じなら、どの端末でも同じSignalFrameになる
-        //_rng = new XorShift32(seed);
-        //int r = (int)(_rng.Next() % (uint)Math.Max(1, randomFrameRange));
-
-        _signalFrame = minSignalFrame + signal;
+        startSceneFrame = currentSceneFrameCount + startMargin;
+        _signalFrame = rand.Next(0, signalMaxFrame) + minSignalFrame;
         timeUpFrame = _signalFrame + afterSignalDuration;
+        
+        var roundData = new RoundData(round, startSceneFrame, _signalFrame, timeUpFrame);
+        
+        round++;
 
-        //UnityEngine.Debug.Log($"next signal: {_signalFrame}");
+        return roundData;
+    }
+
+    public bool RoundStart(int sceneFrame)
+    {
+        return sceneFrame >= startSceneFrame;
+    }
+
+    public void SetRoundData(RoundData roundData)
+    {
+        startSceneFrame = roundData.startSceneFrame;
+        _signalFrame = roundData.signalFrame;
+        timeUpFrame = roundData.timeUpFrame;
+        round = roundData.roundCount;
     }
 
     public bool RaiseTimeUp(int currentFrame)

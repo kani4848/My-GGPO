@@ -1,4 +1,5 @@
 using Cysharp.Threading.Tasks;
+using GluonGui.Dialog;
 using System;
 using System.Threading;
 using UnityEngine;
@@ -12,9 +13,8 @@ public class MainSceneManager : MonoBehaviour, IMainSceneManager
     MainFlow_p2pTest p2p;
     CancellationTokenSource cts;
 
+    int sceneFrameCount = 0;//リモートとスタートを合わせるためのフレーム
     int mainGameFrameCount = 0;
-
-    System.Random rand;
 
     Action<int> fixedUpdateAction = null;
 
@@ -46,15 +46,6 @@ public class MainSceneManager : MonoBehaviour, IMainSceneManager
         charaImageHandler = _charaImageHandler;
         mode = gameMode;
         eosService = _eosService;
-
-        if (mode == GameMode.Online)
-        {
-            rand = await GetRandWithSeed();
-        }
-        else
-        {
-            rand = new System.Random();
-        }
 
         PlayerImageData opponentImageData = new();
 
@@ -124,9 +115,6 @@ public class MainSceneManager : MonoBehaviour, IMainSceneManager
 
         //ラウンドセットアップ。相手と通信できるまで待機
         state = MainGameState.ROUND_SETUP;
-
-        int nextSignal = rand.Next(0, 180);
-        gameSystem.SetSignal(nextSignal);
     }
 
     async UniTask RoundStart()
@@ -149,6 +137,9 @@ public class MainSceneManager : MonoBehaviour, IMainSceneManager
         while (true)
         {
             RoundSetUp();
+
+            gameSystem.CreateRoundData(sceneFrameCount);
+
             if (win) await uiManager.ShowSoloModeStageLevel(cpuLv + 1);
             await RoundStart();
             bool flying =  await MainLoop(cts.Token);
@@ -205,6 +196,8 @@ public class MainSceneManager : MonoBehaviour, IMainSceneManager
         if(gameClear) await uiManager.OnGameClear_Solo();
     }
 
+    //ローカルモード==================================================
+
     async UniTask GameLoop_Local()
     {
         triggerAction_1p = () => UnityEngine.Input.GetKeyDown(KeyCode.Z);
@@ -217,6 +210,9 @@ public class MainSceneManager : MonoBehaviour, IMainSceneManager
             while (true)
             {
                 RoundSetUp();
+
+                gameSystem.CreateRoundData(sceneFrameCount);
+
                 await RoundStart();
                 bool flying = await MainLoop(cts.Token);
 
@@ -252,6 +248,19 @@ public class MainSceneManager : MonoBehaviour, IMainSceneManager
         }
     }
 
+    async UniTask<MainGameResultData> Result_Local()
+    {
+        //リザルトステート
+        state = MainGameState.RESULT;
+        fixedUpdateAction = null;
+        MainGameResultData result = gameSystem.CheckResult(mainGameFrameCount, shotFrame_p1, shotFrame_p2);
+        await uiManager.OnPreResult(result.roundResult);
+        await uiManager.OnResult(result);
+        return result;
+    }
+
+
+    //オンラインモード==================================================
     async UniTask GameLoop_Online()
     {
         triggerAction_1p = () =>
@@ -271,17 +280,31 @@ public class MainSceneManager : MonoBehaviour, IMainSceneManager
             while (true)
             {
                 RoundSetUp();
-                var r = await eosService.ShareSignalFrame(cts.Token);//リモートと足並みをそろえる
 
-                if (r == -1)
+                RoundData roundData;
+                bool roundDataShared = false;
+
+                if (eosService.GetLocalPlayerData().isOwner)
                 {
-                    Debug.Log("シグナル共有失敗");
+                    roundData = gameSystem.CreateRoundData(sceneFrameCount);
+                    roundDataShared = await eosService.SendRoundDataAndWaitAck(roundData, cts.Token);//リモートと足並みをそろえる
                 }
                 else
                 {
-                    Debug.Log("シグナル共有成功");
-                    gameSystem.SetSignal(r);//シグナルを上書き
+                    roundData = await eosService.WaitReceivingRoundData(cts.Token);
+                    roundDataShared = roundData != null;
                 }
+
+                if (!roundDataShared)
+                {
+                    Debug.Log("シグナル共有失敗");
+                    await OnError();
+                    return;
+                }
+
+                Debug.Log("シグナル共有成功");
+                gameSystem.SetRoundData(roundData);
+
                 await RoundStart();
                 bool flying = await MainLoop(cts.Token);
 
@@ -291,7 +314,16 @@ public class MainSceneManager : MonoBehaviour, IMainSceneManager
                     await WhiteOut(flying);
                 }
 
-                var result = await Result_Online();
+                //インプットデータを共有
+                shotFrame_p2 = await eosService.SendFinalInputAndWaitRemoteFinalInput(cts.Token);
+                if(shotFrame_p2 == -2)
+                {
+                    Debug.Log("インプットフレーム共有失敗");
+                    await OnError();
+                    return;
+                }
+
+                var result = await ConfirmResult_Online();
 
                 matchResult = gameSystem.CheckMatchResult(result.roundResult);
                 if (matchResult != MatchResult.NONE) break;
@@ -306,7 +338,7 @@ public class MainSceneManager : MonoBehaviour, IMainSceneManager
             //エンド画面ループ
             while (true)
             {
-                await uiManager.ShowGameEndScreen_Online(matchResult);
+                uiManager.ShowGameEndScreen_Online(matchResult);
                 await eosService.CloseConnection();
                 state = await uiManager.OnGameEnd_Online();
 
@@ -327,6 +359,31 @@ public class MainSceneManager : MonoBehaviour, IMainSceneManager
         }
     }
 
+    async UniTask<MainGameResultData> ConfirmResult_Online()
+    {
+        state = MainGameState.RESULT;
+        fixedUpdateAction = null;
+
+        MainGameResultData result = gameSystem.CheckResult(mainGameFrameCount, shotFrame_p1, shotFrame_p2);
+        await uiManager.OnPreResult(result.roundResult);
+        await uiManager.OnResult(result);
+        return result;
+    }
+
+    async UniTask OnError()
+    {
+        await uiManager.ShowErrorWindow();
+        state = MainGameState.GO_LOBBY;
+
+        triggerAction_1p = null;
+        triggerAction_2p = null;
+
+        cts?.Cancel();
+        cts?.Dispose();
+        cts = null;
+    }
+
+    //モード共通==================================================
     int shotFrame_p1 = -1;
     int shotFrame_p2 = -1;
     Func<bool> triggerAction_1p;
@@ -334,6 +391,12 @@ public class MainSceneManager : MonoBehaviour, IMainSceneManager
 
     async UniTask<bool> MainLoop(CancellationToken token)
     {
+        while (true)
+        {
+            if (gameSystem.RoundStart(sceneFrameCount)) break;
+            await UniTask.Yield();
+        }
+
         state = MainGameState.MAIN_GAME;
 
         bool timeUp = false;
@@ -370,31 +433,6 @@ public class MainSceneManager : MonoBehaviour, IMainSceneManager
         return !signal && state == MainGameState.SHOT_WHITE_OUT;
     }
 
-    async UniTask<MainGameResultData> Result_Local()
-    {
-        //リザルトステート
-        state = MainGameState.RESULT;
-        fixedUpdateAction = null;
-        MainGameResultData result = gameSystem.CheckResult(mainGameFrameCount, shotFrame_p1, shotFrame_p2);
-        await uiManager.OnPreResult(result.roundResult);
-        await uiManager.OnResult(result);
-        return result;
-    }
-
-    async UniTask<MainGameResultData> Result_Online()
-    {
-        state = MainGameState.RESULT;
-        fixedUpdateAction = null;
-
-        shotFrame_p2 = eosService.GetRemoteShotFrame();
-
-        MainGameResultData result = gameSystem.CheckResult(mainGameFrameCount, shotFrame_p1, shotFrame_p2);
-        await uiManager.OnPreResult(result.roundResult);
-        await uiManager.OnResult(result);
-        return result;
-    }
-
-
     async UniTask WhiteOut(bool flying)
     {
         fixedUpdateAction = (frame) =>
@@ -419,5 +457,6 @@ public class MainSceneManager : MonoBehaviour, IMainSceneManager
     void FixedUpdate()
     {
         fixedUpdateAction?.Invoke(mainGameFrameCount);
+        if (mode == GameMode.Online) sceneFrameCount++;
     }
 }

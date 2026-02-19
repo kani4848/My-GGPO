@@ -70,6 +70,22 @@ public class PeerInputData
     }
 }
 
+public class RoundData
+{
+    public int roundCount;
+    public int startSceneFrame;//シーンフレーム基準
+    public int signalFrame;//メインフレーム基準
+    public int timeUpFrame;//メインフレーム基準
+
+    public RoundData(int roundCount, int startLocalFrame, int signalFrame, int timeUpFrame)
+    {
+        this.roundCount = roundCount;
+        this.startSceneFrame = startLocalFrame;
+        this.signalFrame = signalFrame;
+        this.timeUpFrame = timeUpFrame;
+    }
+}
+
 
 public interface IEosService
 {
@@ -104,7 +120,13 @@ public interface IEosService
     public PeerInputData GetRemoteInputByFrame(int frame);
     public PeerInputData GetRemoteInputImmediately();
     public int GetRemoteShotFrame();
-    public UniTask<int> ShareSignalFrame(CancellationToken token);
+    public UniTask<bool> SendRoundDataAndWaitAck(RoundData roundData, CancellationToken token);
+
+    public UniTask<RoundData> WaitReceivingRoundData(CancellationToken token);
+
+
+    public UniTask<int> SendFinalInputAndWaitRemoteFinalInput(CancellationToken token);
+
     public UniTask<bool> StartQuickMatch();
     public UniTask CloseConnection();
 }

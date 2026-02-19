@@ -56,11 +56,14 @@ public class UIManager_Main : MonoBehaviour
     [SerializeField] Button goLobbyButton_online;
     [SerializeField] Button goTitleButton_online;
     [SerializeField] GameObject searchingUI;
+    [SerializeField] GameObject networkError;
 
     bool walkAnim = true;
 
     private void Awake()
     {
+        networkError.SetActive(false);
+
         endCanvas.SetActive(false);
         mainCanvas.SetActive(true);
 
@@ -620,7 +623,7 @@ public class UIManager_Main : MonoBehaviour
         goTitleButton_online.onClick.RemoveAllListeners();
     }
 
-    public async UniTask ShowGameEndScreen_Online(MatchResult matchResult)
+    public void ShowGameEndScreen_Online(MatchResult matchResult)
     {
         switch (matchResult)
         {
@@ -646,14 +649,20 @@ public class UIManager_Main : MonoBehaviour
         }
     }
 
-
-
     public async UniTask<MainGameState> OnGameEnd_Online()
     {
         keyGuides.SetActive(false);
         roundResultUI.SetActive(true);
 
         return await ActivateEndMenuButtons_Online();
+    }
+
+    public async UniTask ShowErrorWindow()
+    {
+        DeacetivateEndMenuButtons_Online();
+
+        networkError.SetActive(true);
+        await UniTask.Delay(TimeSpan.FromSeconds(2));
     }
 
 }

@@ -13,6 +13,7 @@ using Codice.CM.Common;
 using UnityEngine.XR;
 using System.Runtime.InteropServices.WindowsRuntime;
 using UnityEditor.ShaderKeywordFilter;
+using System.ComponentModel;
 
 public class PlayerPeer: IDisposable
 {
@@ -41,10 +42,10 @@ public class PlayerPeer: IDisposable
         Seed_Ack = 4,
 
         Input= 5,
-        Input_Ack = 6,
+        Input_Final = 6,
 
-        Signal = 7,
-        Signal_Ack = 8,
+        RoundData = 8,
+        RoundData_Ack = 9,
     }
 
     //リプレイ用インプットストレージ
@@ -56,11 +57,12 @@ public class PlayerPeer: IDisposable
     const int inputBufferSize = 1 + 4 + 1 + 1 * inputHitorySize;
     const int inputAckBufferSize = 1 + 4 + 1;
     const int seedBufferSize = 1 + 4;//ackと兼用
-    const int signalBufferSize = 1 + 1 + 1;//識別子（上限１０）＋シグナル（上限180）＋ラウンド（上限10）、 ackと兼用
+    //識別子（上限１０）＋ラウンド数（上限10）+スタートフレーム＋シグナル（上限180）+タイムアップフレーム、 ackと兼用
+    const int roundDataBufferSize = 1 + 1 + 4 + 1 + 4;
     private readonly byte[] _sendBuffer_input = new byte[inputBufferSize];//過去数フレーム分のインプット履歴も追加
     private readonly byte[] _sendBuffer_inputAck = new byte[inputAckBufferSize];
     private readonly byte[] _sendBuffer_seed = new byte[seedBufferSize];
-    private readonly byte[] _sendBuffer_signal = new byte[signalBufferSize];
+    private readonly byte[] _sendBuffer_roundData = new byte[roundDataBufferSize];
     private readonly byte[] _recvBuffer = new byte[4096];//一時的な受け取りに使う。どんな形式でも共通で使うので長めに設定。
     const int inputDatasMaxSize = 32;
     const int inputDatasMaxSize_musk = inputDatasMaxSize - 1;
@@ -90,10 +92,8 @@ public class PlayerPeer: IDisposable
 
     //ラウンド単位の保存情報
     int latestRemoteInputFrame = -1;
-    int remoteShotFrame = -1;
-
-
-
+    int shotFrame_local = -1;
+    int shotFrame_remote = -1;
 
     public PlayerPeer()
     {
@@ -431,10 +431,12 @@ public class PlayerPeer: IDisposable
     }
 
     //メインゲーム通信===================================================
-    public void SendInput(int frame, bool _input)
+    public void SendInput(int frame, bool _input, bool final = false)
     {
         if (p2pInterface == null) return;
         if (remotePuid == null) return;
+
+        if (_input) shotFrame_local = frame;
 
         //インプットデータをローカルストレージに保存
         int index = frame & inputDatasMaxSize_musk;//リングバッファ
@@ -442,11 +444,7 @@ public class PlayerPeer: IDisposable
         replayStrage_local[index] = data;
         inputDatas_local[index] = data;
 
-        //送信データを作成
-        sendPacketOptions_Unreliable.RemoteUserId = remotePuid;
-        sendPacketOptions_Unreliable.Data = _sendBuffer_input;
-
-        _sendBuffer_input[0] = (byte)PacketType.Input;
+        _sendBuffer_input[0] = final ? (byte)PacketType.Input_Final : (byte)PacketType.Input;
         BitConverter.GetBytes(frame).CopyTo(_sendBuffer_input, 1);
         _sendBuffer_input[1 + 4] = Convert.ToByte(_input);
 
@@ -457,10 +455,16 @@ public class PlayerPeer: IDisposable
             _sendBuffer_input[1 + 4 + 1 + i] = Convert.ToByte(pastInput.input);
         }
 
-        var r = p2pInterface.SendPacket(ref sendPacketOptions_Unreliable);
+        SendPacketOptions opt = final ? sendPacketOptions_Reliable : sendPacketOptions_Unreliable;
+
+        //送信データを作成
+        opt.RemoteUserId = remotePuid;
+        opt.Data = _sendBuffer_input;
+
+        var r = p2pInterface.SendPacket(ref opt);
     }
 
-    void UnPackInputData(byte[] payload)
+    void UnPackInputData(byte[] payload, bool final = false)
     {
         // 最低限の長さチェック
         if (payload == null || payload.Length < inputBufferSize)
@@ -476,7 +480,7 @@ public class PlayerPeer: IDisposable
         if(frame> latestRemoteInputFrame) latestRemoteInputFrame = frame;
 
         //ショットフレームを更新
-        if (input) remoteShotFrame = frame;
+        if (input) shotFrame_remote = frame;
 
         PeerInputData inputData = new(frame, input);
 
@@ -502,19 +506,13 @@ public class PlayerPeer: IDisposable
             inputDatas_remote[pastIndex] = new PeerInputData(pastFrame, pastInput);
         }
 
+        if (final) gotFinalRemoteInput = true;
+
         if (state == PeerState.INPUT_TEST)
         {
             state = PeerState.HANDSHAKED;
             UnityEngine.Debug.Log("インプットデータ受信を確認");
         }
-
-        //ack情報送信
-        _sendBuffer_inputAck[0] = (byte)PacketType.Input_Ack;
-        sendPacketOptions_Unreliable.RemoteUserId = remotePuid;
-        Buffer.BlockCopy(payload, 1, _sendBuffer_inputAck, 1, 4);
-        Buffer.BlockCopy(payload, 1 + 4, _sendBuffer_inputAck, 1 + 4, 1);
-        sendPacketOptions_Unreliable.Data = _sendBuffer_inputAck;
-        p2pInterface.SendPacket(ref sendPacketOptions_Unreliable);
     }
 
     void ReceivePump()
@@ -570,19 +568,19 @@ public class PlayerPeer: IDisposable
                         break;
 
 
-                    case PacketType.Input_Ack:
+                    case PacketType.Input_Final:
                         if (outBytesWritten < inputAckBufferSize) continue;
-                        UnPackInputAckData(_recvBuffer);
+                        UnPackInputData(_recvBuffer, true);
                         break;
 
 
-                    case PacketType.Signal:
-                        if (outBytesWritten < signalBufferSize) continue;
-                        UnPackSignalData(_recvBuffer);
+                    case PacketType.RoundData:
+                        if (outBytesWritten < roundDataBufferSize) continue;
+                        UnPackRoundData(_recvBuffer);
                         break;
 
-                    case PacketType.Signal_Ack:
-                        if (outBytesWritten < signalBufferSize) continue;
+                    case PacketType.RoundData_Ack:
+                        if (outBytesWritten < roundDataBufferSize) continue;
                         UnPackSignalAckData(_recvBuffer);
                         break;
                 }
@@ -607,20 +605,6 @@ public class PlayerPeer: IDisposable
         if (state == PeerState.SEED_SHAERING && _seed == seedAck)
         {
             state = PeerState.SEED_SHARED;
-        }
-    }
-
-    void UnPackInputAckData(byte[] payload)
-    {
-        int myCurrentFrame = BitConverter.ToInt32(payload, 1);
-        bool remoteInput = Convert.ToBoolean(payload[9]);
-
-        PeerInputData inputData = new PeerInputData(myCurrentFrame, remoteInput);
-
-        if (state == PeerState.INPUT_TEST)
-        {
-            state = PeerState.HANDSHAKED;
-            UnityEngine.Debug.Log("インプットデータ受信を確認");
         }
     }
 
@@ -652,83 +636,160 @@ public class PlayerPeer: IDisposable
 
     public int TryGetRemoteShotFrame()
     {
-        return remoteShotFrame;
+        return shotFrame_remote;
+    }
+
+    public async UniTask<int> SendFinalInputAndWaitRemote(CancellationToken token)
+    {
+        gotFinalRemoteInput = false;
+
+        if(shotFrame_local != -1)
+        {
+            SendInput(shotFrame_local, true, true);
+        }
+        else
+        {
+            SendInput(-1, false, true);
+        }
+
+        try
+        {
+            await UniTask.WaitUntil(() => gotFinalRemoteInput, cancellationToken: token)
+                .Timeout(TimeSpan.FromSeconds(5));
+
+            return shotFrame_remote;
+        }
+        catch (TimeoutException)
+        {
+            return -2;
+        }
     }
 
     //メインゲーム：シグナル通信===================================================
-    System.Random rand = new();
-
+    
     bool gotSignal = false;
     bool gotSignalAck = false;
 
-    int signalFrame = -1;
+    bool gotFinalRemoteInput = false;
+
     int roundCount = 0;
-    public async UniTask<int> SendSignalAndWait(CancellationToken token)
+    int startSceneFrame = -1;
+    int signalFrame = -1;
+    int timeUpFrame = -1;
+
+    public async UniTask<bool> SendRoundDataAndWaitAck(RoundData roundData, CancellationToken token)
     {
         gotSignalAck = false;
-        signalFrame = rand.Next(0, 180);
 
-        SendSignal((byte)signalFrame, (byte) roundCount);
+        roundCount = roundData.roundCount;
+        startSceneFrame = roundData.startSceneFrame;
+        signalFrame = roundData.signalFrame;
+        timeUpFrame = roundData.timeUpFrame;
+
+        SendRoundData(roundData);
 
         int retryCount = 0;
 
         while (!gotSignalAck)
         {
-            if (retryCount == 5) return -1;
+            if (retryCount == 5)
+            {
+                UnityEngine.Debug.Log($"スタートフレーム送信タイムアウト");
+                return false;
+            }
 
             await UniTask.Delay(TimeSpan.FromSeconds(1), cancellationToken: token);
 
             if (!gotSignalAck)
             {
-                SendSignal((byte)signalFrame, (byte)roundCount);
+                SendRoundData(roundData);
                 retryCount++;
             }
         }
 
         roundCount++;
-        return signalFrame;
+        return true;
     }
 
-    public async UniTask<int> WaitReceivingSignal(CancellationToken token)
+    public async UniTask<RoundData> WaitReceivingSignal(CancellationToken token)
     {
         gotSignal = false;
 
-        await UniTask.WaitUntil(() => gotSignal, cancellationToken: token);
-        return signalFrame;
+        float timeOut = Time.time + 5;
+
+        var r = await UniTask.WhenAny(
+            UniTask.WaitUntil(() => gotSignal, cancellationToken: token),
+            UniTask.WaitUntil(() => Time.time >= timeOut, cancellationToken: token)
+        );
+
+        if(r == 0 )
+        {
+            return recievedRoundData;
+        }
+        else
+        {
+            UnityEngine.Debug.Log($"スタートフレーム受信タイムアウト");
+            return null;
+        }
     }
 
-    void SendSignal(byte signalFrame, byte roundCount, bool ack = false)
+    void SendRoundData(RoundData roundData, bool ack = false)
     {
-        _sendBuffer_signal[0] = ack ? (byte)PacketType.Signal_Ack : (byte)PacketType.Signal;
-        _sendBuffer_signal[1] = signalFrame;
-        _sendBuffer_signal[2] = roundCount;
+        _sendBuffer_roundData[0] = ack ? (byte)PacketType.RoundData_Ack : (byte)PacketType.RoundData;
+        _sendBuffer_roundData[1] = (byte)roundData.roundCount;
+        BitConverter.GetBytes(roundData.startSceneFrame).CopyTo(_sendBuffer_roundData, 2);
+        _sendBuffer_roundData[6] = (byte)roundData.signalFrame;
+        BitConverter.GetBytes(roundData.timeUpFrame).CopyTo(_sendBuffer_roundData, 7);
 
         sendPacketOptions_Reliable.RemoteUserId = remotePuid;
-        sendPacketOptions_Reliable.Data = _sendBuffer_signal;
+        sendPacketOptions_Reliable.Data = _sendBuffer_roundData;
 
         var r = p2pInterface.SendPacket(ref sendPacketOptions_Reliable);
-        UnityEngine.Debug.Log($"シグナル送信結果：{r},シグナル：{signalFrame}, ラウンド: {roundCount}");
+        UnityEngine.Debug.Log($"ラウンドデータ送信結果：{r}," +
+            $"シグナル：{signalFrame}, ラウンド: {roundCount}, スタートローカルフレーム:{startSceneFrame }");
     }
 
-    void UnPackSignalData(byte[] bytes)
+    RoundData recievedRoundData;
+
+    void UnPackRoundData(byte[] bytes)
     {
-        signalFrame = bytes[1];
-        roundCount = bytes[2];
+        roundCount = bytes[1];
+        startSceneFrame = BitConverter.ToInt32(bytes, 2);
+        signalFrame = bytes[6];
+        timeUpFrame = BitConverter.ToInt32(bytes, 7);
 
-        SendSignal(bytes[1], bytes[2], true);
+        var roundData = new RoundData(roundCount, startSceneFrame, signalFrame, timeUpFrame);
 
-        UnityEngine.Debug.Log($"シグナル受信結果…シグナル：{signalFrame}, ラウンド：{roundCount}");
+        if(roundData == null)
+        {
+            UnityEngine.Debug.Log($"受信したラウンドデータはヌルです");
+            return;
+        }
+
+        SendRoundData(roundData,true);//ack送信
+
+        UnityEngine.Debug.Log($"シグナル受信結果…シグナル：{signalFrame}, ラウンド：{roundCount}, スタートローカルフレーム{startSceneFrame}");
+        
+        recievedRoundData  = roundData;
         gotSignal = true;
     }
 
+
     void UnPackSignalAckData(byte[] bytes)
     {
-        var signalAck = bytes[1];
-        var roundCountAck = bytes[2];
+        var _roundCount = bytes[1];
+        var _startSceneFrame = BitConverter.ToInt32(bytes, 2);
+        var _signalFrame = bytes[6];
+        var _timeUpFrame = BitConverter.ToInt32(bytes, 7);
 
-        if (signalFrame != signalAck || roundCount != roundCountAck)
+        if (roundCount != _roundCount 
+            || startSceneFrame!= _startSceneFrame
+            || signalFrame != _signalFrame
+            || timeUpFrame != _timeUpFrame)
         {
-            UnityEngine.Debug.Log($"相手のシグナルの値が異なっています。シグナル {signalFrame}:{signalAck}, ラウンド{roundCountAck}:{roundCountAck}");
+            UnityEngine.Debug.Log($"相手のシグナルの値が異なっています。" +
+                $"スタート {startSceneFrame}:{_startSceneFrame}, ラウンド{roundCount}:{_roundCount}"+
+                $"シグナル {signalFrame}:{_signalFrame}, タイムアップ{timeUpFrame}:{_timeUpFrame}");
         }
         else
         {
@@ -742,7 +803,7 @@ public class PlayerPeer: IDisposable
         gotSignal = false;
         gotSignalAck = false;
         latestRemoteInputFrame = -1;
-        remoteShotFrame = -1;
+        shotFrame_remote = -1;
 
         PeerInputData inputData = new();
 
