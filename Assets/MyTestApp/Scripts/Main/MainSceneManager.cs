@@ -372,7 +372,8 @@ public class MainSceneManager : MonoBehaviour, IMainSceneManager
 
     async UniTask OnError()
     {
-        await uiManager.ShowErrorWindow();
+        uiManager.ShowErrorWindow();
+        await eosService.CloseConnection();
         state = MainGameState.GO_LOBBY;
 
         triggerAction_1p = null;

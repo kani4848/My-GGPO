@@ -45,7 +45,7 @@ public sealed class MainGameSystem
     int startSceneFrame;
     const int startMargin = 60;//スタートを遅らせるフレーム
 
-    Random rand;
+    Random rand = new();
     int _signalFrame;
     const int signalMaxFrame = 180;
 
