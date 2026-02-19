@@ -106,4 +106,5 @@ public interface IEosService
     public int GetRemoteShotFrame();
     public UniTask<int> ShareSignalFrame(CancellationToken token);
     public UniTask<bool> StartQuickMatch();
+    public UniTask CloseConnection();
 }

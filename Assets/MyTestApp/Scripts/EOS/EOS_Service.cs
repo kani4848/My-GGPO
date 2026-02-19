@@ -238,7 +238,13 @@ public class EOS_Service : MonoBehaviour, IEosService
         return playerPeer.pingMs;
     }
 
-    //メインシーン===============================================
+    public async UniTask CloseConnection()
+    {
+        await inLobbyService.LeaveLobby();
+        playerPeer.CloseConnection();
+    }
+
+    //オンラインメインシーン===============================================
 
     public void SendInput(int frame, bool pressed)
     {

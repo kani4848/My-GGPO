@@ -36,7 +36,7 @@ public class LobbySceneManager : MonoBehaviour, ILobbySceneManager
         IGameManager.lobbySceneManager = this;
     }
 
-    public void Init(IEosService _eosService)
+    public async UniTask<LobbyState> StartFlow(IEosService _eosService)
     {
         state = LobbyState.InLobbySearchRoom;
 
@@ -49,6 +49,11 @@ public class LobbySceneManager : MonoBehaviour, ILobbySceneManager
         SearchLobby();
 
         AutoRefleshLoop(cts.Token).Forget();
+
+        await UniTask.WaitUntil(() => state == LobbyState.GoTitle || state == LobbyState.GoMain,
+            cancellationToken: cts.Token);
+
+        return state;
     }
 
     private void OnEnable()

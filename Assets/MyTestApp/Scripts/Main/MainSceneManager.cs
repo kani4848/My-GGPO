@@ -38,7 +38,8 @@ public class MainSceneManager : MonoBehaviour, IMainSceneManager
         gameSystem = new();
     }
 
-    public async UniTask StartFlow(IEosService _eosService, ICharaImageHandler _charaImageHandler, GameMode gameMode)
+    public async UniTask<MainGameState> StartFlow
+        (IEosService _eosService, ICharaImageHandler _charaImageHandler, GameMode gameMode)
     {
         state = MainGameState.INITIALIZE;
 
@@ -88,6 +89,8 @@ public class MainSceneManager : MonoBehaviour, IMainSceneManager
         }
 
         await uiManager.ExitScene();
+
+        return state;
     }
 
     public async UniTask<System.Random> GetRandWithSeed()
@@ -303,12 +306,11 @@ public class MainSceneManager : MonoBehaviour, IMainSceneManager
             //エンド画面ループ
             while (true)
             {
-                //エンドメニュー表示＆入力待ち
-                state = await uiManager.OnGameEnd_Online(matchResult);
+                await uiManager.ShowGameEndScreen_Online(matchResult);
+                await eosService.CloseConnection();
+                state = await uiManager.OnGameEnd_Online();
 
-                //クイックマッチしないならループ終了
-                if (state != MainGameState.QUICK_MATCH) return;
-
+                if (state != MainGameState.QUICK_MATCH) return;//クイックマッチしないならループ終了
                 bool findPlayer = await eosService.StartQuickMatch();
 
                 if (findPlayer)
@@ -379,7 +381,6 @@ public class MainSceneManager : MonoBehaviour, IMainSceneManager
         return result;
     }
 
-
     async UniTask<MainGameResultData> Result_Online()
     {
         state = MainGameState.RESULT;
@@ -418,10 +419,5 @@ public class MainSceneManager : MonoBehaviour, IMainSceneManager
     void FixedUpdate()
     {
         fixedUpdateAction?.Invoke(mainGameFrameCount);
-    }
-
-    public void GoLobby()
-    {
-        state = MainGameState.GO_LOBBY;
     }
 }

@@ -107,18 +107,18 @@ public class GameManager : Singleton<GameManager>
     {
         while (true)
         {
-            await LobbyFlow();
-            var nextScene = IGameManager.lobbySceneManager.state;
+            var nextScene = await LobbyFlow();
+            
             IGameManager.lobbySceneManager = null;
 
             if (nextScene == LobbyState.GoTitle) break;
 
-            await MainGameFlow(currentGameMode);
+            var nextState = await MainGameFlow(currentGameMode);
 
-            if (IGameManager.mainSceneManager.state == MainGameState.GO_TITLE) break;
+            if (nextState == MainGameState.GO_TITLE) break;
         }
         
-        async UniTask LobbyFlow()
+        async UniTask<LobbyState> LobbyFlow()
         {
             if (SceneManager.GetActiveScene().name != "Lobby") SceneManager.LoadScene(SceneName.Lobby.ToString());
 
@@ -127,27 +127,26 @@ public class GameManager : Singleton<GameManager>
             if (IGameManager.lobbySceneManager == null) await UniTask.WaitUntil(() => IGameManager.lobbySceneManager != null, cancellationToken: cts.Token);
 
             await eos_Service.LogInAsync(cts.Token);
-            IGameManager.lobbySceneManager.Init(eos_Service);
-
-            await UniTask.WaitUntil(() =>
-                IGameManager.lobbySceneManager.state == LobbyState.GoTitle
-                || IGameManager.lobbySceneManager.state == LobbyState.GoMain,
-                cancellationToken: cts.Token);
+            var nextState = await IGameManager.lobbySceneManager.StartFlow(eos_Service);
 
             cts?.Cancel();
             cts?.Dispose();
             cts = new();
+
+            return nextState;
         }
     }
 
-    async UniTask MainGameFlow(GameMode mode)
+    async UniTask<MainGameState> MainGameFlow(GameMode mode)
     {
         if(SceneManager.GetActiveScene().name != "Main") SceneManager.LoadScene(SceneName.Main.ToString());
         state = GameState.Main;
 
         if (IGameManager.mainSceneManager == null) await UniTask.WaitUntil(() => IGameManager.mainSceneManager != null, cancellationToken: cts.Token);
 
-        await IGameManager.mainSceneManager.StartFlow(eos_Service, charaImageHandler, mode);
+        var nextState = await IGameManager.mainSceneManager.StartFlow(eos_Service, charaImageHandler, mode);
         IGameManager.mainSceneManager = null;
+
+        return nextState;
     }
 }

@@ -620,11 +620,8 @@ public class UIManager_Main : MonoBehaviour
         goTitleButton_online.onClick.RemoveAllListeners();
     }
 
-    public async UniTask<MainGameState> OnGameEnd_Online(MatchResult matchResult)
+    public async UniTask ShowGameEndScreen_Online(MatchResult matchResult)
     {
-        keyGuides.SetActive(false);
-        roundResultUI.SetActive(true);
-
         switch (matchResult)
         {
             case MatchResult.WIN_P1:
@@ -647,6 +644,14 @@ public class UIManager_Main : MonoBehaviour
                 roundResultMessageText.text = "draw";
                 break;
         }
+    }
+
+
+
+    public async UniTask<MainGameState> OnGameEnd_Online()
+    {
+        keyGuides.SetActive(false);
+        roundResultUI.SetActive(true);
 
         return await ActivateEndMenuButtons_Online();
     }

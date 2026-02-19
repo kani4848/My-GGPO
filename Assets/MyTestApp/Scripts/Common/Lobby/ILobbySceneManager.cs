@@ -1,6 +1,8 @@
 
+using Cysharp.Threading.Tasks;
+
 public interface ILobbySceneManager
 {
     public LobbyState state { get; set; }
-    public void Init(IEosService eosService) { }
+    public UniTask<LobbyState> StartFlow(IEosService eosService);
 }
