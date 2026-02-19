@@ -297,6 +297,8 @@ public class LobbySceneManager : MonoBehaviour, ILobbySceneManager
         }
     }
 
+    CancellationTokenSource readyCts;
+
     public void Ready()
     {
         ReadyAsync().Forget();
@@ -307,7 +309,9 @@ public class LobbySceneManager : MonoBehaviour, ILobbySceneManager
          
             state = LobbyState.Ready;
 
-            using var readyCts = CancellationTokenSource.CreateLinkedTokenSource(cts.Token);
+            readyCts?.Cancel();
+            readyCts?.Dispose();
+            readyCts = new();
 
             try
             {
@@ -332,7 +336,9 @@ public class LobbySceneManager : MonoBehaviour, ILobbySceneManager
             }
             finally
             {
-                readyCts.Cancel();
+                readyCts?.Cancel();
+                readyCts?.Dispose();
+                readyCts = null;
             }
         }
     }
@@ -349,9 +355,9 @@ public class LobbySceneManager : MonoBehaviour, ILobbySceneManager
         state = LobbyState.InLobby;
         eosSirvice.CancelReady();
 
-        cts?.Cancel();
-        cts?.Dispose();
-        cts = null;
+        readyCts?.Cancel();
+        readyCts?.Dispose();
+        readyCts = null;
 
         await UniTask.Delay(TimeSpan.FromSeconds(1));
     }
