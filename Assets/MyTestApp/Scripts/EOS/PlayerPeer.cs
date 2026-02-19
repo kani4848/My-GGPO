@@ -55,12 +55,12 @@ public class PlayerPeer: IDisposable
     //パケット送受信用の入れ物。高回転なのでリストだと遅いため配列を使用する。
     const int inputHitorySize = 6;
     const int inputBufferSize = 1 + 4 + 1 + 1 * inputHitorySize;
-    const int inputAckBufferSize = 1 + 4 + 1;
+    const int finalInputBufferSize = 1 + 4;
     const int seedBufferSize = 1 + 4;//ackと兼用
     //識別子（上限１０）＋ラウンド数（上限10）+スタートフレーム＋シグナル（上限180）+タイムアップフレーム、 ackと兼用
     const int roundDataBufferSize = 1 + 1 + 4 + 1 + 4;
     private readonly byte[] _sendBuffer_input = new byte[inputBufferSize];//過去数フレーム分のインプット履歴も追加
-    private readonly byte[] _sendBuffer_inputAck = new byte[inputAckBufferSize];
+    private readonly byte[] _sendBuffer_finalInput = new byte[finalInputBufferSize];
     private readonly byte[] _sendBuffer_seed = new byte[seedBufferSize];
     private readonly byte[] _sendBuffer_roundData = new byte[roundDataBufferSize];
     private readonly byte[] _recvBuffer = new byte[4096];//一時的な受け取りに使う。どんな形式でも共通で使うので長めに設定。
@@ -432,7 +432,7 @@ public class PlayerPeer: IDisposable
     }
 
     //メインゲーム通信===================================================
-    public void SendInput(int frame, bool _input, bool final = false)
+    public void SendInput(int frame, bool _input)
     {
         if (p2pInterface == null) return;
         if (remotePuid == null) return;
@@ -445,7 +445,7 @@ public class PlayerPeer: IDisposable
         replayStrage_local[index] = data;
         inputDatas_local[index] = data;
 
-        _sendBuffer_input[0] = final ? (byte)PacketType.Input_Final : (byte)PacketType.Input;
+        _sendBuffer_input[0] = (byte)PacketType.Input;
         BitConverter.GetBytes(frame).CopyTo(_sendBuffer_input, 1);
         _sendBuffer_input[1 + 4] = Convert.ToByte(_input);
 
@@ -456,27 +456,34 @@ public class PlayerPeer: IDisposable
             _sendBuffer_input[1 + 4 + 1 + i] = Convert.ToByte(pastInput.input);
         }
 
-        Result r;
+        sendPacketOptions_Unreliable.RemoteUserId = remotePuid;
+        sendPacketOptions_Unreliable.Data = _sendBuffer_input;
 
-        if (final)
-        {
-            sendPacketOptions_Reliable.RemoteUserId = remotePuid;
-            sendPacketOptions_Reliable.Data = _sendBuffer_input;
-
-            r = p2pInterface.SendPacket(ref sendPacketOptions_Reliable);
-        }
-        else
-        {
-            sendPacketOptions_Unreliable.RemoteUserId = remotePuid;
-            sendPacketOptions_Unreliable.Data = _sendBuffer_input;
-
-            r = p2pInterface.SendPacket(ref sendPacketOptions_Unreliable);
-        }
+        var r = p2pInterface.SendPacket(ref sendPacketOptions_Unreliable);
 
         UnityEngine.Debug.Log($"インプット送信結果:{r}");
     }
 
-    void UnPackInputData(byte[] payload, bool final = false)
+    public void SendFinalInput()
+    {
+        if (p2pInterface == null) return;
+        if (remotePuid == null) return;
+
+        _sendBuffer_input[0] = (byte)PacketType.Input_Final;
+        BitConverter.GetBytes(shotFrame_local).CopyTo(_sendBuffer_input, 1);
+
+        Result r;
+
+        sendPacketOptions_Reliable.RemoteUserId = remotePuid;
+        sendPacketOptions_Reliable.Data = _sendBuffer_input;
+
+        r = p2pInterface.SendPacket(ref sendPacketOptions_Reliable);
+
+        UnityEngine.Debug.Log($"インプット送信結果:{r}");
+    }
+
+
+    void UnPackInputData(byte[] payload)
     {
         // 最低限の長さチェック
         if (payload == null || payload.Length < inputBufferSize)
@@ -518,13 +525,29 @@ public class PlayerPeer: IDisposable
             inputDatas_remote[pastIndex] = new PeerInputData(pastFrame, pastInput);
         }
 
-        if (final) gotFinalRemoteInput = true;
-
         if (state == PeerState.INPUT_TEST)
         {
             state = PeerState.HANDSHAKED;
             UnityEngine.Debug.Log("インプットデータ受信を確認");
         }
+    }
+
+
+    void UnPackFinalInputData(byte[] payload)
+    {
+        // 最低限の長さチェック
+        if (payload == null || payload.Length < finalInputBufferSize)
+        {
+            UnityEngine.Debug.Log("インプットデータに適切なサイズではありません");
+            return;
+        }
+
+        int frame = BitConverter.ToInt32(payload, 1);
+
+        //最新フレームを更新
+        if (frame > latestRemoteInputFrame) latestRemoteInputFrame = frame;
+
+        gotFinalRemoteInput = true;
     }
 
     void ReceivePump()
@@ -579,12 +602,10 @@ public class PlayerPeer: IDisposable
                         UnPackInputData(_recvBuffer);
                         break;
 
-
                     case PacketType.Input_Final:
-                        if (outBytesWritten < inputAckBufferSize) continue;
-                        UnPackInputData(_recvBuffer, true);
+                        if (outBytesWritten < finalInputBufferSize) continue;
+                        UnPackFinalInputData(_recvBuffer);
                         break;
-
 
                     case PacketType.RoundData:
                         if (outBytesWritten < roundDataBufferSize) continue;
@@ -655,14 +676,7 @@ public class PlayerPeer: IDisposable
     {
         gotFinalRemoteInput = false;
 
-        if(shotFrame_local != -1)
-        {
-            SendInput(shotFrame_local, true, true);
-        }
-        else
-        {
-            SendInput(-1, false, true);
-        }
+        SendFinalInput();
 
         try
         {
