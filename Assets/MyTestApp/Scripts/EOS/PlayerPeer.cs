@@ -151,6 +151,8 @@ public class PlayerPeer: IDisposable
     bool gotPing = false;
     bool gotPong = false;
 
+    bool gotInput = false;
+
     public async UniTask<bool> RegisterConnectionRequestAccept(ProductUserId _remotePuid , CancellationToken token)
     {
         //既に接続済みなら終了
@@ -314,8 +316,10 @@ public class PlayerPeer: IDisposable
                     sendInterval += 0.2f;
                 }
 
-                if (state == PeerState.HANDSHAKED)
+                if (gotInput)
                 {
+                    gotInput = falase;
+                    state = PeerState.HANDSHAKED;
                     ClearInputData();
                     return true;
                 }
@@ -435,13 +439,13 @@ public class PlayerPeer: IDisposable
         if (p2pInterface == null) return;
         if (remotePuid == null) return;
 
-        _sendBuffer_input[0] = (byte)PacketType.Input_Final;
-        BitConverter.GetBytes(shotFrame_local).CopyTo(_sendBuffer_input, 1);
+        _sendBuffer_finalInput[0] = (byte)PacketType.Input_Final;
+        BitConverter.GetBytes(shotFrame_local).CopyTo(_sendBuffer_finalInput, 1);
 
         Result r;
 
         sendPacketOptions_Reliable.RemoteUserId = remotePuid;
-        sendPacketOptions_Reliable.Data = _sendBuffer_input;
+        sendPacketOptions_Reliable.Data = _sendBuffer_finalInput;
 
         r = p2pInterface.SendPacket(ref sendPacketOptions_Reliable);
 
@@ -490,9 +494,9 @@ public class PlayerPeer: IDisposable
             inputDatas_remote[pastIndex] = new PeerInputData(pastFrame, pastInput);
         }
 
-        if (state == PeerState.INPUT_TEST)
+        if (!gotInput)
         {
-            state = PeerState.HANDSHAKED;
+            gotInput = true;
             UnityEngine.Debug.Log("インプットデータ受信を確認");
         }
     }
