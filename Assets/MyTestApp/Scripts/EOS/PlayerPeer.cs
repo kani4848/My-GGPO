@@ -399,6 +399,7 @@ public class PlayerPeer: IDisposable
 
         float timeout = Time.time + HandshakeTimeoutMs;
         float sendInterval = Time.time;
+
         try
         {
             while (!token.IsCancellationRequested)
@@ -455,13 +456,24 @@ public class PlayerPeer: IDisposable
             _sendBuffer_input[1 + 4 + 1 + i] = Convert.ToByte(pastInput.input);
         }
 
-        SendPacketOptions opt = final ? sendPacketOptions_Reliable : sendPacketOptions_Unreliable;
+        Result r;
 
-        //送信データを作成
-        opt.RemoteUserId = remotePuid;
-        opt.Data = _sendBuffer_input;
+        if (final)
+        {
+            sendPacketOptions_Reliable.RemoteUserId = remotePuid;
+            sendPacketOptions_Reliable.Data = _sendBuffer_input;
 
-        var r = p2pInterface.SendPacket(ref opt);
+            r = p2pInterface.SendPacket(ref sendPacketOptions_Reliable);
+        }
+        else
+        {
+            sendPacketOptions_Unreliable.RemoteUserId = remotePuid;
+            sendPacketOptions_Unreliable.Data = _sendBuffer_input;
+
+            r = p2pInterface.SendPacket(ref sendPacketOptions_Unreliable);
+        }
+
+        UnityEngine.Debug.Log($"インプット送信結果:{r}");
     }
 
     void UnPackInputData(byte[] payload, bool final = false)
