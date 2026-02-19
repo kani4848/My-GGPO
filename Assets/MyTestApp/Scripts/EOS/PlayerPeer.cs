@@ -152,13 +152,6 @@ public class PlayerPeer: IDisposable
             ReceivePump();
             pingMs = heartBeat.PingMs;
         }
-
-        switch (state)
-        {
-            case PeerState.INPUT_TEST:
-                SendInput(4649, true);
-                break;
-        }
     }
 
     //接続確率===================================================
@@ -405,7 +398,7 @@ public class PlayerPeer: IDisposable
         if(state == PeerState.SEED_SHARED) state = PeerState.INPUT_TEST;
 
         float timeout = Time.time + HandshakeTimeoutMs;
-
+        float sendInterval = Time.time;
         try
         {
             while (!token.IsCancellationRequested)
@@ -419,6 +412,12 @@ public class PlayerPeer: IDisposable
                 if (Time.time > timeout)
                 {
                     return false;
+                }
+
+                if (Time.time == sendInterval)
+                {
+                    SendInput(4649, true);
+                    sendInterval += 0.2f;
                 }
 
                 await UniTask.Yield();
