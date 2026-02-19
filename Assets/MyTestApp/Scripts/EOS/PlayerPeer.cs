@@ -781,8 +781,8 @@ public class PlayerPeer: IDisposable
     {
         roundCount = bytes[1];
         startSceneFrame = BitConverter.ToInt32(bytes, 2);
-        signalFrame = bytes[6];
-        timeUpFrame = BitConverter.ToInt32(bytes, 7);
+        signalFrame = BitConverter.ToInt32(bytes, 6);
+        timeUpFrame = BitConverter.ToInt32(bytes, 10);
 
         var roundData = new RoundData(roundCount, startSceneFrame, signalFrame, timeUpFrame);
 
