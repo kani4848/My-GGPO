@@ -28,15 +28,21 @@ public class PlayerPeer: IDisposable
         HANDSHAKED,
 
         MAIN_GAME,
+        MAIN_GAME_RESULT,
     }
 
     public enum PacketType : byte
     {
+        //大量に送るものはack不要
         HbPing = 1,
         HbPong = 2,
 
-        Input= 5,
+        Input= 3,
+        Input_Ack = 4,//例外的にハンドシェイクフェイズに限りack使用
+
+        //足並みをそろえるタイミングに送るものはackを用意
         Input_Final = 6,
+        Input_Final_Ack = 7,
 
         RoundData = 8,
         RoundData_Ack = 9,
@@ -151,7 +157,7 @@ public class PlayerPeer: IDisposable
     bool gotPing = false;
     bool gotPong = false;
 
-    bool gotInput = false;
+    bool gotInputAck = false;
 
     public async UniTask<bool> RegisterConnectionRequestAccept(ProductUserId _remotePuid , CancellationToken token)
     {
@@ -298,6 +304,8 @@ public class PlayerPeer: IDisposable
 
         state = PeerState.INPUT_TEST;
 
+        gotInputAck = false;
+
         float timeout = Time.time + HandshakeTimeoutMs;
         float sendInterval = Time.time;
 
@@ -316,9 +324,8 @@ public class PlayerPeer: IDisposable
                     sendInterval += 0.2f;
                 }
 
-                if (gotInput)
+                if (gotInputAck)
                 {
-                    gotInput = false;
                     state = PeerState.HANDSHAKED;
                     ClearInputData();
                     return true;
@@ -379,9 +386,17 @@ public class PlayerPeer: IDisposable
                         UnPackInputData(_recvBuffer);
                         break;
 
+                    case PacketType.Input_Ack:
+                        if (state == PeerState.INPUT_TEST) gotInputAck = true;
+                        break;
+
                     case PacketType.Input_Final:
                         if (outBytesWritten < finalInputBufferSize) continue;
                         UnPackFinalInputData(_recvBuffer);
+                        break;
+
+                    case PacketType.Input_Final_Ack:
+                        if (state == PeerState.MAIN_GAME_RESULT) gotFinalInputAck = true;
                         break;
 
                     case PacketType.RoundData:
@@ -402,7 +417,10 @@ public class PlayerPeer: IDisposable
     }
 
     //インプット通信===================================================
-    public void SendInput(int frame, bool _input)
+
+    bool gotFinalInputAck = false;
+
+    public void SendInput(int frame, bool _input, bool ack = false)
     {
         if (p2pInterface == null) return;
         if (remotePuid == null) return;
@@ -415,7 +433,15 @@ public class PlayerPeer: IDisposable
         replayStrage_local[index] = data;
         inputDatas_local[index] = data;
 
-        _sendBuffer_input[0] = (byte)PacketType.Input;
+        if (ack)
+        {
+            _sendBuffer_input[0] = (byte)PacketType.Input_Ack;
+        }
+        else
+        {
+            _sendBuffer_input[0] = (byte)PacketType.Input;
+        }
+
         BitConverter.GetBytes(frame).CopyTo(_sendBuffer_input, 1);
         _sendBuffer_input[1 + 4] = Convert.ToByte(_input);
 
@@ -432,24 +458,6 @@ public class PlayerPeer: IDisposable
         var r = p2pInterface.SendPacket(ref sendPacketOptions_Unreliable);
 
         UnityEngine.Debug.Log($"インプット送信結果:{r}");
-    }
-
-    public void SendFinalInput()
-    {
-        if (p2pInterface == null) return;
-        if (remotePuid == null) return;
-
-        _sendBuffer_finalInput[0] = (byte)PacketType.Input_Final;
-        BitConverter.GetBytes(shotFrame_local).CopyTo(_sendBuffer_finalInput, 1);
-
-        Result r;
-
-        sendPacketOptions_Reliable.RemoteUserId = remotePuid;
-        sendPacketOptions_Reliable.Data = _sendBuffer_finalInput;
-
-        r = p2pInterface.SendPacket(ref sendPacketOptions_Reliable);
-
-        UnityEngine.Debug.Log($"ファイナルインプット送信結果:{r}");
     }
 
     void UnPackInputData(byte[] payload)
@@ -494,11 +502,37 @@ public class PlayerPeer: IDisposable
             inputDatas_remote[pastIndex] = new PeerInputData(pastFrame, pastInput);
         }
 
-        if (!gotInput)
+        if (!gotInputAck)
         {
-            gotInput = true;
+            gotInputAck = true;
             UnityEngine.Debug.Log("インプットデータ受信を確認");
         }
+    }
+
+    public void SendFinalInput(bool ack = false)
+    {
+        if (p2pInterface == null) return;
+        if (remotePuid == null) return;
+
+        if (ack)
+        {
+            _sendBuffer_finalInput[0] = (byte)PacketType.Input_Final_Ack;
+        }
+        else
+        {
+            _sendBuffer_finalInput[0] = (byte)PacketType.Input_Final;
+        }
+
+        BitConverter.GetBytes(shotFrame_local).CopyTo(_sendBuffer_finalInput, 1);
+
+        Result r;
+
+        sendPacketOptions_Reliable.RemoteUserId = remotePuid;
+        sendPacketOptions_Reliable.Data = _sendBuffer_finalInput;
+
+        r = p2pInterface.SendPacket(ref sendPacketOptions_Reliable);
+
+        UnityEngine.Debug.Log($"ファイナルインプット送信結果:{r}");
     }
 
     void UnPackFinalInputData(byte[] payload)
@@ -515,7 +549,7 @@ public class PlayerPeer: IDisposable
         //最新フレームを更新
         if (frame > latestRemoteInputFrame) latestRemoteInputFrame = frame;
 
-        gotFinalRemoteInput = true;
+        SendFinalInput(true);
     }
 
     public PeerInputData TryGetRemoteInput_ByFrame(int frame)
@@ -552,29 +586,43 @@ public class PlayerPeer: IDisposable
     public async UniTask<int> SendFinalInputAndWaitRemote(CancellationToken token)
     {
         UnityEngine.Debug.Log($"ファイナルインプット通信開始");
-        gotFinalRemoteInput = false;
+        
+        state = PeerState.MAIN_GAME_RESULT;
 
-        SendFinalInput();
+        gotFinalInputAck = false;
 
-        try
+        float sendInterval = Time.time;
+        float timeOut = Time.time + 5f;
+
+        while (!token.IsCancellationRequested)
         {
-            await UniTask.WaitUntil(() => gotFinalRemoteInput, cancellationToken: token)
-                .Timeout(TimeSpan.FromSeconds(5));
+            if(Time.time >= sendInterval)
+            {
+                SendFinalInput();
+                sendInterval = Time.time + 0.2f;
+            }
 
-            return shotFrame_remote;
+            if(Time.time >= timeOut)
+            {
+                return -2;
+            }
+
+            if (gotFinalInputAck)
+            {
+                state = PeerState.MAIN_GAME;
+                return shotFrame_remote;
+            }
+
+            await UniTask.Yield();
         }
-        catch (TimeoutException)
-        {
-            return -2;
-        }
+
+        return -2;
     }
 
     //メインゲーム：ラウンドデータ通信===================================================
     
     bool gotSignal = false;
     bool gotSignalAck = false;
-
-    bool gotFinalRemoteInput = false;
 
     int roundCount = 0;
     int signalFrame = -1;
