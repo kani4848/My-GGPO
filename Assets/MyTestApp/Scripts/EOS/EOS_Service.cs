@@ -280,9 +280,7 @@ public class EOS_Service : MonoBehaviour, IEosService
             Debug.Log("かんべんしてよ");
         }
 
-        bool isOwner = playerData_Local.isOwner;
-        
-        if (isOwner)
+        if (playerData_Local.isOwner)
         {
             return  await playerPeer.SendSignalAndWait(token);
         }
