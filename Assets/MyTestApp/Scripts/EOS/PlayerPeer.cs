@@ -669,7 +669,7 @@ public class PlayerPeer: IDisposable
         gotSignalAck = false;
         signalFrame = rand.Next(0, 180);
 
-        SendSignal((byte)roundCount, (byte) signalFrame);
+        SendSignal((byte)signalFrame, (byte) roundCount);
 
         int retryCount = 0;
 
