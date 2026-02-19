@@ -318,7 +318,7 @@ public class PlayerPeer: IDisposable
 
                 if (gotInput)
                 {
-                    gotInput = falase;
+                    gotInput = false;
                     state = PeerState.HANDSHAKED;
                     ClearInputData();
                     return true;
