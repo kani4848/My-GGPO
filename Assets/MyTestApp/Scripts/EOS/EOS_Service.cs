@@ -191,24 +191,6 @@ public class EOS_Service : MonoBehaviour, IEosService
 
             bool r;
 
-            //相手にデータを送信or受信待ち
-            if (playerData_Local.isOwner)
-            {
-                r = await playerPeer.SendSeedAndWaitSeedAck(token);
-            }
-            else
-            {
-                r = await playerPeer.WaitReceivingSeed(token);
-            }
-
-            if (!r)
-            {
-                Debug.Log("シード通信タイムアウト");
-                return false;
-            }
-
-            Debug.Log("シード通信成功");
-
             //インプット通信のテスト
             r = await playerPeer.InputCommunicationTest(token);
 

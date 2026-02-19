@@ -24,9 +24,6 @@ public class PlayerPeer: IDisposable
         P2P_CONNECTING,
         P2P_CONNECTED,
 
-        SEED_SHAERING,
-        SEED_SHARED,
-
         INPUT_TEST,
         HANDSHAKED,
 
@@ -37,9 +34,6 @@ public class PlayerPeer: IDisposable
     {
         HbPing = 1,
         HbPong = 2,
-
-        Seed = 3,
-        Seed_Ack = 4,
 
         Input= 5,
         Input_Final = 6,
@@ -56,12 +50,10 @@ public class PlayerPeer: IDisposable
     const int inputHitorySize = 6;
     const int inputBufferSize = 1 + 4 + 1 + 1 * inputHitorySize;
     const int finalInputBufferSize = 1 + 4;
-    const int seedBufferSize = 1 + 4;//ackと兼用
     //識別子（上限１０）＋ラウンド数（上限10）+スタートフレーム＋シグナル（4バイト）+タイムアップフレーム、 ackと兼用
     const int roundDataBufferSize = 1 + 1 + 4 + 4 + 4;
     private readonly byte[] _sendBuffer_input = new byte[inputBufferSize];//過去数フレーム分のインプット履歴も追加
     private readonly byte[] _sendBuffer_finalInput = new byte[finalInputBufferSize];
-    private readonly byte[] _sendBuffer_seed = new byte[seedBufferSize];
     private readonly byte[] _sendBuffer_roundData = new byte[roundDataBufferSize];
     private readonly byte[] _recvBuffer = new byte[4096];//一時的な受け取りに使う。どんな形式でも共通で使うので長めに設定。
     const int inputDatasMaxSize = 32;
@@ -280,71 +272,6 @@ public class PlayerPeer: IDisposable
         }
     }
 
-    public async UniTask<bool> SendSeedAndWaitSeedAck(CancellationToken token)
-    {
-        state = PeerState.SEED_SHAERING;
-
-        _seed = (uint)UnityEngine.Random.Range(1, int.MaxValue);
-
-        float timeOutClock = Time.time;
-        float nextSendTime = Time.time;
-
-        //シード値の共有
-        while (!token.IsCancellationRequested)
-        {
-            if (state == PeerState.SEED_SHARED)
-            {
-                return true;
-            }
-
-            //時間切れ
-            if (Time.time - timeOutClock >= HandshakeTimeoutMs)
-            {
-                return false;
-            }
-
-            //仮インプットデータ送信
-            if (Time.time >= nextSendTime)
-            {
-                UnityEngine.Debug.Log("シード送信");
-                SendSeed(_seed);
-            }
-
-
-            //これがないと1フレーム中にループしまくってフリーズ
-            await UniTask.Yield();
-        }
-
-        return false;
-    }
-
-    public async UniTask<bool> WaitReceivingSeed(CancellationToken token)
-    {
-        state = PeerState.SEED_SHAERING;
-
-        float timeOutClock = Time.time;
-
-        //シード値の共有
-        while (!token.IsCancellationRequested)
-        {
-            if (state == PeerState.SEED_SHARED)
-            {
-                return true;
-            }
-
-            //時間切れ
-            if (Time.time - timeOutClock >= HandshakeTimeoutMs)
-            {
-                return false;
-            }
-
-            //これがないと1フレーム中にループしまくってフリーズ
-            await UniTask.Yield();
-        }
-
-        return false;
-    }
-
     void SendHB(byte[] p)
     {
         if (p2pInterface == null)
@@ -363,39 +290,11 @@ public class PlayerPeer: IDisposable
         var r = p2pInterface.SendPacket(ref sendPacketOptions_Unreliable);
     }
 
-    public void SendSeed(uint seed)
-    {
-        if (p2pInterface == null) return;
-        if (remotePuid == null) return;
-
-        _sendBuffer_seed[0] = (byte)PacketType.Seed;
-        BitConverter.GetBytes(seed).CopyTo(_sendBuffer_seed, 1);
-
-        sendPacketOptions_Unreliable.RemoteUserId = remotePuid;
-        sendPacketOptions_Unreliable.Data = _sendBuffer_seed;
-
-        var r = p2pInterface.SendPacket(ref sendPacketOptions_Unreliable);
-        UnityEngine.Debug.Log($"シードの送信結果：Seed,{r}, データの長さ: {sendPacketOptions_Unreliable.Data.Count}");
-    }
-
-    public void SendSeedAck(uint seed)
-    {
-        if (p2pInterface == null) return;
-        if (remotePuid == null) return;
-
-        _sendBuffer_seed[0] = (byte)PacketType.Seed_Ack;
-        BitConverter.GetBytes(seed).CopyTo(_sendBuffer_seed, 1);
-
-        sendPacketOptions_Unreliable.RemoteUserId = remotePuid;
-        sendPacketOptions_Unreliable.Data = _sendBuffer_seed;
-
-        var r = p2pInterface.SendPacket(ref sendPacketOptions_Unreliable);
-        UnityEngine.Debug.Log($"シードの送信結果：SeedAck,{r}, データの長さ: {sendPacketOptions_Unreliable.Data.Count}");
-    }
-
     public async UniTask<bool> InputCommunicationTest(CancellationToken token)
     {
-        if(state == PeerState.SEED_SHARED) state = PeerState.INPUT_TEST;
+        await UniTask.WaitUntil(() => state == PeerState.P2P_CONNECTED, cancellationToken: token);
+
+        state = PeerState.INPUT_TEST;
 
         float timeout = Time.time + HandshakeTimeoutMs;
         float sendInterval = Time.time;
@@ -587,16 +486,6 @@ public class PlayerPeer: IDisposable
                         heartBeat.TryPong(_recvBuffer);
                         break;
 
-                    case PacketType.Seed:
-                        if (outBytesWritten < seedBufferSize) continue;
-                        UnPackSeedData(_recvBuffer);
-                        break;
-
-                    case PacketType.Seed_Ack:
-                        if (outBytesWritten < seedBufferSize) continue;
-                        UnPackSeedAckData(_recvBuffer);
-                        break;
-
                     case PacketType.Input:
                         if (outBytesWritten < inputBufferSize) continue;
                         UnPackInputData(_recvBuffer);
@@ -623,24 +512,7 @@ public class PlayerPeer: IDisposable
         {
         }
     }
-    void UnPackSeedData(byte[] bytes)
-    {
-        _seed = BitConverter.ToUInt32(bytes, 1);
-        SendSeedAck(_seed);
-
-        if(state == PeerState.SEED_SHAERING)
-        state = PeerState.SEED_SHARED;
-    }
-
-    void UnPackSeedAckData(byte[] bytes)
-    {
-        var seedAck = BitConverter.ToUInt32(bytes, 1);
-        if (state == PeerState.SEED_SHAERING && _seed == seedAck)
-        {
-            state = PeerState.SEED_SHARED;
-        }
-    }
-
+    
     public PeerInputData TryGetRemoteInput_ByFrame(int frame)
     {
         try
@@ -805,8 +677,8 @@ public class PlayerPeer: IDisposable
     {
         var _roundCount = bytes[1];
         var _startSceneFrame = BitConverter.ToInt32(bytes, 2);
-        var _signalFrame = bytes[6];
-        var _timeUpFrame = BitConverter.ToInt32(bytes, 7);
+        var _signalFrame = BitConverter.ToInt32(bytes, 6);
+        var _timeUpFrame = BitConverter.ToInt32(bytes, 10);
 
         if (roundCount != _roundCount 
             || startSceneFrame!= _startSceneFrame
