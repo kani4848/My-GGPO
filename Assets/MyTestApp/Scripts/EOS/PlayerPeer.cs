@@ -459,8 +459,6 @@ public class PlayerPeer: IDisposable
         }
 
         var r = p2pInterface.SendPacket(ref sendPacketOptions_Unreliable);
-
-        UnityEngine.Debug.Log($"inputデータ送信:{r},{_sendBuffer_input.Length}");
     }
 
     void UnPackInputData(byte[] payload)
@@ -544,8 +542,6 @@ public class PlayerPeer: IDisposable
 
                 //受信データタイプを識別、タイプごとに処理を分岐
                 PacketType pt = (PacketType)_recvBuffer[0];
-
-                UnityEngine.Debug.Log($"メッセージ受信：{pt},{_recvBuffer.Length},{outBytesWritten}");
 
                 switch (pt)
                 {
@@ -667,7 +663,6 @@ public class PlayerPeer: IDisposable
     bool gotSignalAck = false;
 
     int signalFrame = -1;
-
     int roundCount = 0;
     public async UniTask<int> SendSignalAndWait(CancellationToken token)
     {
@@ -686,7 +681,7 @@ public class PlayerPeer: IDisposable
 
             if (!gotSignalAck)
             {
-                SendSignal((byte)roundCount, (byte)signalFrame);
+                SendSignal((byte)signalFrame, (byte)roundCount);
                 retryCount++;
             }
         }
@@ -703,7 +698,7 @@ public class PlayerPeer: IDisposable
         return signalFrame;
     }
 
-    void SendSignal(byte roundCount, byte signalFrame, bool ack = false)
+    void SendSignal(byte signalFrame, byte roundCount, bool ack = false)
     {
         _sendBuffer_signal[0] = ack ? (byte)PacketType.Signal_Ack : (byte)PacketType.Signal;
         _sendBuffer_signal[1] = signalFrame;
@@ -713,16 +708,17 @@ public class PlayerPeer: IDisposable
         sendPacketOptions_Reliable.Data = _sendBuffer_signal;
 
         var r = p2pInterface.SendPacket(ref sendPacketOptions_Reliable);
-        UnityEngine.Debug.Log($"シードの送信結果：signal,{r}, データの長さ: {sendPacketOptions_Reliable.Data.Count}");
+        UnityEngine.Debug.Log($"シグナル送信結果：{r},シグナル：{signalFrame}, ラウンド: {roundCount}");
     }
 
     void UnPackSignalData(byte[] bytes)
     {
-        signalFrame = BitConverter.ToUInt16(bytes, 1);
-        roundCount = BitConverter.ToUInt16(bytes, 2);
+        signalFrame = bytes[1];
+        roundCount = bytes[2];
 
         SendSignal(bytes[1], bytes[2], true);
 
+        UnityEngine.Debug.Log($"シグナル受信結果…シグナル：{signalFrame}, ラウンド：{roundCount}");
         gotSignal = true;
     }
 
@@ -733,7 +729,7 @@ public class PlayerPeer: IDisposable
 
         if (signalFrame != signalAck || roundCount != roundCountAck)
         {
-            UnityEngine.Debug.Log($"相手のシグナルの値が異なっています。");
+            UnityEngine.Debug.Log($"相手のシグナルの値が異なっています。シグナル {signalFrame}:{signalAck}, ラウンド{roundCountAck}:{roundCountAck}");
         }
         else
         {
