@@ -724,8 +724,8 @@ public class PlayerPeer: IDisposable
 
     void UnPackSignalAckData(byte[] bytes)
     {
-        var signalAck = BitConverter.ToUInt16(bytes, 1);
-        var roundCountAck = BitConverter.ToUInt16(bytes, 2);
+        var signalAck = bytes[1];
+        var roundCountAck = bytes[2];
 
         if (signalFrame != signalAck || roundCount != roundCountAck)
         {

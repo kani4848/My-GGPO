@@ -282,7 +282,7 @@ public class EOS_Service : MonoBehaviour, IEosService
 
         if (playerData_Local.isOwner)
         {
-            return  await playerPeer.SendSignalAndWait(token);
+            return await playerPeer.SendSignalAndWait(token);
         }
         else
         {
