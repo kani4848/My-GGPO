@@ -138,7 +138,7 @@ public class MainSceneManager : MonoBehaviour, IMainSceneManager
         {
             RoundSetUp();
 
-            gameSystem.CreateRoundData(sceneFrameCount);
+            gameSystem.CreateRoundData();
 
             if (win) await uiManager.ShowSoloModeStageLevel(cpuLv + 1);
             await RoundStart();
@@ -211,7 +211,7 @@ public class MainSceneManager : MonoBehaviour, IMainSceneManager
             {
                 RoundSetUp();
 
-                gameSystem.CreateRoundData(sceneFrameCount);
+                gameSystem.CreateRoundData();
 
                 await RoundStart();
                 bool flying = await MainLoop(cts.Token);
@@ -286,7 +286,7 @@ public class MainSceneManager : MonoBehaviour, IMainSceneManager
 
                 if (eosService.GetLocalPlayerData().isOwner)
                 {
-                    roundData = gameSystem.CreateRoundData(sceneFrameCount);
+                    roundData = gameSystem.CreateRoundData();
                     roundDataShared = await eosService.SendRoundDataAndWaitAck(roundData, cts.Token);//リモートと足並みをそろえる
                 }
                 else
@@ -305,6 +305,8 @@ public class MainSceneManager : MonoBehaviour, IMainSceneManager
                 Debug.Log("シグナル共有成功");
                 gameSystem.SetRoundData(roundData);
 
+                await UniTask.WaitUntil(
+                    () => gameSystem.RoundStart(sceneFrameCount), PlayerLoopTiming.FixedUpdate ,cancellationToken: cts.Token);
                 await RoundStart();
                 bool flying = await MainLoop(cts.Token);
 
@@ -392,12 +394,6 @@ public class MainSceneManager : MonoBehaviour, IMainSceneManager
 
     async UniTask<bool> MainLoop(CancellationToken token)
     {
-        while (true)
-        {
-            if (gameSystem.RoundStart(sceneFrameCount)) break;
-            await UniTask.Yield();
-        }
-
         state = MainGameState.MAIN_GAME;
 
         bool timeUp = false;

@@ -42,7 +42,6 @@ public sealed class MainGameSystem
 {
     int round = 0;
 
-    int startSceneFrame;
     const int startMargin = 60;//スタートを遅らせるフレーム
 
     Random rand = new();
@@ -58,17 +57,18 @@ public sealed class MainGameSystem
     int life_p1 = maxLife;
     int life_p2 = maxLife;
 
+    int roundStartFrame = 0;
+
     public PlayerSide winnerSide { get; private set; } = PlayerSide.NONE;
 
     public int roundCount { get; private set; } = 0;
 
-    public RoundData CreateRoundData(int currentSceneFrameCount)
+    public RoundData CreateRoundData()
     {
-        startSceneFrame = currentSceneFrameCount + startMargin;
         _signalFrame = rand.Next(0, signalMaxFrame) + minSignalFrame;
         timeUpFrame = _signalFrame + afterSignalDuration;
         
-        var roundData = new RoundData(round, startSceneFrame, _signalFrame, timeUpFrame);
+        var roundData = new RoundData(round, _signalFrame, timeUpFrame);
         
         round++;
 
@@ -77,12 +77,15 @@ public sealed class MainGameSystem
 
     public bool RoundStart(int sceneFrame)
     {
-        return sceneFrame >= startSceneFrame;
+        if (roundStartFrame == 0) roundStartFrame = sceneFrame + startMargin;
+        bool roundStart = sceneFrame >= roundStartFrame;
+        if (roundStart) roundStartFrame = 0;
+
+        return roundStart;
     }
 
     public void SetRoundData(RoundData roundData)
     {
-        startSceneFrame = roundData.startSceneFrame;
         _signalFrame = roundData.signalFrame;
         timeUpFrame = roundData.timeUpFrame;
         round = roundData.roundCount;

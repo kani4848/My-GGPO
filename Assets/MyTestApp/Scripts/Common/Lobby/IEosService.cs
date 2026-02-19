@@ -73,14 +73,12 @@ public class PeerInputData
 public class RoundData
 {
     public int roundCount;
-    public int startSceneFrame;//シーンフレーム基準
     public int signalFrame;//メインフレーム基準
     public int timeUpFrame;//メインフレーム基準
 
-    public RoundData(int roundCount, int startLocalFrame, int signalFrame, int timeUpFrame)
+    public RoundData(int roundCount, int signalFrame, int timeUpFrame)
     {
         this.roundCount = roundCount;
-        this.startSceneFrame = startLocalFrame;
         this.signalFrame = signalFrame;
         this.timeUpFrame = timeUpFrame;
     }

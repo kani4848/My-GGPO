@@ -146,7 +146,7 @@ public class PlayerPeer: IDisposable
         }
     }
 
-    //接続確率===================================================
+    //ｐ２ｐ接続確立===================================================
 
     bool gotPing = false;
     bool gotPong = false;
@@ -330,7 +330,74 @@ public class PlayerPeer: IDisposable
         return false;
     }
 
-    //メインゲーム通信===================================================
+    //共通===================================================
+    void ReceivePump()
+    {
+        if (p2pInterface == null) return;
+
+        try
+        {
+            for (int i = 0; i < 8; i++)
+            {
+                //パケットの受信と開封
+                var result = p2pInterface.ReceivePacket(
+                    ref receivePacketOptions,//上記を参照
+                    ref outPeerId, //送信元のPUID
+                    ref _socketId, //EOSにおけるポート番号的なもの
+                    out outChannel, //ポートのサブカテゴリ的なもので受信データをもう一段階細分化したいときに使う。soketで十分なのであんまり使わない
+                    _recvBuffer, //受信データの保存先変数
+                    out outBytesWritten//受信データのサイズ
+                    );
+
+                if (result != Result.Success) break;//successではないなら、キュー内に条件に合うパケットがないので終了
+                if (outPeerId == null) continue;
+                if (outPeerId != remotePuid) continue;
+
+                //受信データタイプを識別、タイプごとに処理を分岐
+                PacketType pt = (PacketType)_recvBuffer[0];
+
+                UnityEngine.Debug.Log($"パケット受信:{pt}");
+
+                switch (pt)
+                {
+                    case PacketType.HbPing:
+                        gotPing = true;
+                        heartBeat.TryPing(_recvBuffer);
+                        break;
+
+                    case PacketType.HbPong:
+                        gotPong = true;
+                        heartBeat.TryPong(_recvBuffer);
+                        break;
+
+                    case PacketType.Input:
+                        if (outBytesWritten < inputBufferSize) continue;
+                        UnPackInputData(_recvBuffer);
+                        break;
+
+                    case PacketType.Input_Final:
+                        if (outBytesWritten < finalInputBufferSize) continue;
+                        UnPackFinalInputData(_recvBuffer);
+                        break;
+
+                    case PacketType.RoundData:
+                        if (outBytesWritten < roundDataBufferSize) continue;
+                        UnPackRoundData(_recvBuffer);
+                        break;
+
+                    case PacketType.RoundData_Ack:
+                        if (outBytesWritten < roundDataBufferSize) continue;
+                        UnPackSignalAckData(_recvBuffer);
+                        break;
+                }
+            }
+        }
+        finally
+        {
+        }
+    }
+
+    //インプット通信===================================================
     public void SendInput(int frame, bool _input)
     {
         if (p2pInterface == null) return;
@@ -378,9 +445,8 @@ public class PlayerPeer: IDisposable
 
         r = p2pInterface.SendPacket(ref sendPacketOptions_Reliable);
 
-        UnityEngine.Debug.Log($"インプット送信結果:{r}");
+        UnityEngine.Debug.Log($"ファイナルインプット送信結果:{r}");
     }
-
 
     void UnPackInputData(byte[] payload)
     {
@@ -431,7 +497,6 @@ public class PlayerPeer: IDisposable
         }
     }
 
-
     void UnPackFinalInputData(byte[] payload)
     {
         // 最低限の長さチェック
@@ -449,70 +514,6 @@ public class PlayerPeer: IDisposable
         gotFinalRemoteInput = true;
     }
 
-    void ReceivePump()
-    {
-        if (p2pInterface == null) return;
-
-        try
-        {
-            for (int i = 0; i < 8; i++)
-            {
-                //パケットの受信と開封
-                var result = p2pInterface.ReceivePacket(
-                    ref receivePacketOptions,//上記を参照
-                    ref outPeerId, //送信元のPUID
-                    ref _socketId, //EOSにおけるポート番号的なもの
-                    out outChannel, //ポートのサブカテゴリ的なもので受信データをもう一段階細分化したいときに使う。soketで十分なのであんまり使わない
-                    _recvBuffer, //受信データの保存先変数
-                    out outBytesWritten//受信データのサイズ
-                    );
-
-                if (result != Result.Success) break;//successではないなら、キュー内に条件に合うパケットがないので終了
-                if (outPeerId == null) continue;
-                if (outPeerId != remotePuid) continue;
-
-                //受信データタイプを識別、タイプごとに処理を分岐
-                PacketType pt = (PacketType)_recvBuffer[0];
-
-                switch (pt)
-                {
-                    case PacketType.HbPing:
-                        gotPing = true;
-                        heartBeat.TryPing(_recvBuffer);
-                        break;
-
-                    case PacketType.HbPong:
-                        gotPong = true;
-                        heartBeat.TryPong(_recvBuffer);
-                        break;
-
-                    case PacketType.Input:
-                        if (outBytesWritten < inputBufferSize) continue;
-                        UnPackInputData(_recvBuffer);
-                        break;
-
-                    case PacketType.Input_Final:
-                        if (outBytesWritten < finalInputBufferSize) continue;
-                        UnPackFinalInputData(_recvBuffer);
-                        break;
-
-                    case PacketType.RoundData:
-                        if (outBytesWritten < roundDataBufferSize) continue;
-                        UnPackRoundData(_recvBuffer);
-                        break;
-
-                    case PacketType.RoundData_Ack:
-                        if (outBytesWritten < roundDataBufferSize) continue;
-                        UnPackSignalAckData(_recvBuffer);
-                        break;
-                }
-            }
-        }
-        finally
-        {
-        }
-    }
-    
     public PeerInputData TryGetRemoteInput_ByFrame(int frame)
     {
         try
@@ -546,6 +547,7 @@ public class PlayerPeer: IDisposable
 
     public async UniTask<int> SendFinalInputAndWaitRemote(CancellationToken token)
     {
+        UnityEngine.Debug.Log($"ファイナルインプット通信開始");
         gotFinalRemoteInput = false;
 
         SendFinalInput();
@@ -563,7 +565,7 @@ public class PlayerPeer: IDisposable
         }
     }
 
-    //メインゲーム：シグナル通信===================================================
+    //メインゲーム：ラウンドデータ通信===================================================
     
     bool gotSignal = false;
     bool gotSignalAck = false;
@@ -580,7 +582,6 @@ public class PlayerPeer: IDisposable
         gotSignalAck = false;
 
         roundCount = roundData.roundCount;
-        startSceneFrame = roundData.startSceneFrame;
         signalFrame = roundData.signalFrame;
         timeUpFrame = roundData.timeUpFrame;
 
@@ -635,7 +636,6 @@ public class PlayerPeer: IDisposable
     {
         _sendBuffer_roundData[0] = ack ? (byte)PacketType.RoundData_Ack : (byte)PacketType.RoundData;
         _sendBuffer_roundData[1] = (byte)roundData.roundCount;
-        BitConverter.GetBytes(roundData.startSceneFrame).CopyTo(_sendBuffer_roundData, 2);
         BitConverter.GetBytes(roundData.signalFrame).CopyTo(_sendBuffer_roundData, 6);
         BitConverter.GetBytes(roundData.timeUpFrame).CopyTo(_sendBuffer_roundData, 10);
 
@@ -656,7 +656,7 @@ public class PlayerPeer: IDisposable
         signalFrame = BitConverter.ToInt32(bytes, 6);
         timeUpFrame = BitConverter.ToInt32(bytes, 10);
 
-        var roundData = new RoundData(roundCount, startSceneFrame, signalFrame, timeUpFrame);
+        var roundData = new RoundData(roundCount, signalFrame, timeUpFrame);
 
         if(roundData == null)
         {
@@ -671,7 +671,6 @@ public class PlayerPeer: IDisposable
         recievedRoundData  = roundData;
         gotSignal = true;
     }
-
 
     void UnPackSignalAckData(byte[] bytes)
     {
