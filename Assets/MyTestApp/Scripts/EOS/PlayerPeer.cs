@@ -245,6 +245,7 @@ public class PlayerPeer: IDisposable
 
             // どちらが勝っても、最終成功条件はここで決める
             bool acceptOk = false;
+            
             if (winner == 1)
             {
                 // connectTcsが先に完了
@@ -317,7 +318,7 @@ public class PlayerPeer: IDisposable
                     return false;
                 }
 
-                if (Time.time == sendInterval)
+                if (Time.time >= sendInterval)
                 {
                     SendInput(4649, true);
                     sendInterval += 0.2f;
@@ -501,10 +502,9 @@ public class PlayerPeer: IDisposable
             inputDatas_remote[pastIndex] = new PeerInputData(pastFrame, pastInput);
         }
 
-        if (!gotInputAck)
+        if (state == PeerState.INPUT_TEST)
         {
-            gotInputAck = true;
-            UnityEngine.Debug.Log("インプットデータ受信を確認");
+            SendInput(0, true, true);
         }
     }
 
