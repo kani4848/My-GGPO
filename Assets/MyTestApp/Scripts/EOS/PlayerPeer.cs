@@ -412,6 +412,7 @@ public class PlayerPeer: IDisposable
             {
                 if (state == PeerState.HANDSHAKED)
                 {
+                    ClearInputData();
                     return true;
                 }
 
@@ -433,14 +434,21 @@ public class PlayerPeer: IDisposable
     //メインゲーム通信===================================================
 
     System.Random rand = new();
-    bool sharedSignal = false;
+    
+    bool gotSignal = false;
+    bool gotSignalAck = false;
+
     int signalFrame = -1;
 
     public async UniTask<int> SendSignalAndWait(CancellationToken token)
     {
+        gotSignalAck = false;
+
+        ushort signalFrame = (ushort)rand.Next(0, 180);
+
         _sendBuffer_signal[0] = (byte)PacketType.Signal;
-        int signalFrame = rand.Next(0, 180);
         _sendBuffer_signal[1] = (byte)rand.Next(0, 180);
+        BitConverter.TryWriteBytes(_sendBuffer_signal.AsSpan(1, 2), signalFrame);
 
         sendPacketOptions_Reliable.RemoteUserId = remotePuid;
         sendPacketOptions_Reliable.Data = _sendBuffer_signal;
@@ -448,27 +456,27 @@ public class PlayerPeer: IDisposable
         var r = p2pInterface.SendPacket(ref sendPacketOptions_Reliable);
         UnityEngine.Debug.Log($"シードの送信結果：signal,{r}, データの長さ: {sendPacketOptions_Reliable.Data.Count}");
 
-        await UniTask.WaitUntil(() => sharedSignal, cancellationToken: token);
+        await UniTask.WaitUntil(() => gotSignalAck, cancellationToken: token);
 
-        sharedSignal = false;
         return signalFrame;
     }
 
     public async UniTask<int> WaitReceivingSignal(CancellationToken token)
     {
-        await UniTask.WaitUntil(() => sharedSignal, cancellationToken: token);
+        gotSignal = false;
 
-        sharedSignal = false;
+        await UniTask.WaitUntil(() => gotSignal, cancellationToken: token);
         return signalFrame;
     }
 
 
     void UnPackSignalData(byte[] bytes)
     {
-        signalFrame = BitConverter.ToUInt16(bytes, 1);
+        var sig = BitConverter.ToUInt16(bytes, 1);
+        signalFrame = sig;
 
         _sendBuffer_signal[0] = (byte)PacketType.Signal_Ack;
-        _sendBuffer_signal[1] = (byte)signalFrame;
+        BitConverter.TryWriteBytes(_sendBuffer_signal.AsSpan(1, 2), sig);
 
         sendPacketOptions_Reliable.RemoteUserId = remotePuid;
         sendPacketOptions_Reliable.Data = _sendBuffer_signal;
@@ -476,16 +484,16 @@ public class PlayerPeer: IDisposable
         var r = p2pInterface.SendPacket(ref sendPacketOptions_Reliable);
         UnityEngine.Debug.Log($"シードの送信結果：signal,{r}, データの長さ: {sendPacketOptions_Reliable.Data.Count}");
 
-        sharedSignal = true;
+        gotSignal = true;
     }
 
     void UnPackSignalAckData(byte[] bytes)
     {
-        int signalAck = BitConverter.ToUInt16(bytes, 1);
+        var sig = BitConverter.ToUInt16(bytes, 1);
 
-        if (signalFrame != signalAck) UnityEngine.Debug.Log("渡したシグナルと違います");
+        if (signalFrame != sig) UnityEngine.Debug.Log("渡したシグナルと違います");
 
-        sharedSignal = true;
+        gotSignalAck = true;
     }
 
     public void SendInput(int frame, bool _input)
@@ -719,7 +727,8 @@ public class PlayerPeer: IDisposable
 
     public void ClearInputData()
     {
-        sharedSignal = false;
+        gotSignal = false;
+        gotSignalAck = false;
         latestRemoteInputFrame = -1;
         remoteShotFrame = -1;
 

@@ -17,7 +17,7 @@ public class EOS_Service : MonoBehaviour, IEosService
     [SerializeField] PlayerData playerData_Local;
     [SerializeField] PlayerData playerData_Remote;
 
-    [SerializeField] PlayerPeer.PeerState peerState;
+    [SerializeField] PlayerPeer.PeerState peerState;//インスペクタ監視用
 
     LobbyService_search searchService;
     LobbyService_InLobby inLobbyService;
@@ -274,12 +274,13 @@ public class EOS_Service : MonoBehaviour, IEosService
     public async UniTask<int> ShareSignalFrame(CancellationToken token)
     {
         var lobby = lobbyManager.GetCurrentLobby();
+
         if(lobby == null || !lobby.IsValid())
         {
             Debug.Log("かんべんしてよ");
         }
 
-        bool isOwner = lobby.IsOwner(EosCommonData.myPuid);
+        bool isOwner = playerData_Local.isOwner;
         
         if (isOwner)
         {
