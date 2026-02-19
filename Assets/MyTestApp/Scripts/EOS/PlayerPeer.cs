@@ -50,8 +50,8 @@ public class PlayerPeer: IDisposable
     const int inputHitorySize = 6;
     const int inputBufferSize = 1 + 4 + 1 + 1 * inputHitorySize;
     const int finalInputBufferSize = 1 + 4;
-    //識別子（上限１０）＋ラウンド数（上限10）+スタートフレーム＋シグナル（4バイト）+タイムアップフレーム、 ackと兼用
-    const int roundDataBufferSize = 1 + 1 + 4 + 4 + 4;
+    //識別子（上限１０）＋ラウンド数（上限10）＋シグナル（4バイト）+タイムアップフレーム、 ackと兼用
+    const int roundDataBufferSize = 1 + 1 + 4 + 4;
     private readonly byte[] _sendBuffer_input = new byte[inputBufferSize];//過去数フレーム分のインプット履歴も追加
     private readonly byte[] _sendBuffer_finalInput = new byte[finalInputBufferSize];
     private readonly byte[] _sendBuffer_roundData = new byte[roundDataBufferSize];
@@ -303,12 +303,6 @@ public class PlayerPeer: IDisposable
         {
             while (!token.IsCancellationRequested)
             {
-                if (state == PeerState.HANDSHAKED)
-                {
-                    ClearInputData();
-                    return true;
-                }
-
                 if (Time.time > timeout)
                 {
                     return false;
@@ -318,6 +312,12 @@ public class PlayerPeer: IDisposable
                 {
                     SendInput(4649, true);
                     sendInterval += 0.2f;
+                }
+
+                if (state == PeerState.HANDSHAKED)
+                {
+                    ClearInputData();
+                    return true;
                 }
 
                 await UniTask.Yield();
@@ -573,7 +573,6 @@ public class PlayerPeer: IDisposable
     bool gotFinalRemoteInput = false;
 
     int roundCount = 0;
-    int startSceneFrame = -1;
     int signalFrame = -1;
     int timeUpFrame = -1;
 
@@ -636,15 +635,15 @@ public class PlayerPeer: IDisposable
     {
         _sendBuffer_roundData[0] = ack ? (byte)PacketType.RoundData_Ack : (byte)PacketType.RoundData;
         _sendBuffer_roundData[1] = (byte)roundData.roundCount;
-        BitConverter.GetBytes(roundData.signalFrame).CopyTo(_sendBuffer_roundData, 6);
-        BitConverter.GetBytes(roundData.timeUpFrame).CopyTo(_sendBuffer_roundData, 10);
+        BitConverter.GetBytes(roundData.signalFrame).CopyTo(_sendBuffer_roundData, 2);
+        BitConverter.GetBytes(roundData.timeUpFrame).CopyTo(_sendBuffer_roundData, 6);
 
         sendPacketOptions_Reliable.RemoteUserId = remotePuid;
         sendPacketOptions_Reliable.Data = _sendBuffer_roundData;
 
         var r = p2pInterface.SendPacket(ref sendPacketOptions_Reliable);
         UnityEngine.Debug.Log($"ラウンドデータ送信結果：{r}," +
-            $"シグナル：{signalFrame}, ラウンド: {roundCount}, スタートローカルフレーム:{startSceneFrame }");
+            $"シグナル：{signalFrame}, ラウンド: {roundCount}");
     }
 
     RoundData recievedRoundData;
@@ -652,9 +651,8 @@ public class PlayerPeer: IDisposable
     void UnPackRoundData(byte[] bytes)
     {
         roundCount = bytes[1];
-        startSceneFrame = BitConverter.ToInt32(bytes, 2);
-        signalFrame = BitConverter.ToInt32(bytes, 6);
-        timeUpFrame = BitConverter.ToInt32(bytes, 10);
+        signalFrame = BitConverter.ToInt32(bytes, 2);
+        timeUpFrame = BitConverter.ToInt32(bytes, 6);
 
         var roundData = new RoundData(roundCount, signalFrame, timeUpFrame);
 
@@ -666,7 +664,7 @@ public class PlayerPeer: IDisposable
 
         SendRoundData(roundData,true);//ack送信
 
-        UnityEngine.Debug.Log($"シグナル受信結果…シグナル：{signalFrame}, ラウンド：{roundCount}, スタートローカルフレーム{startSceneFrame}");
+        UnityEngine.Debug.Log($"シグナル受信結果…シグナル：{signalFrame}, ラウンド：{roundCount}");
         
         recievedRoundData  = roundData;
         gotSignal = true;
@@ -675,18 +673,15 @@ public class PlayerPeer: IDisposable
     void UnPackSignalAckData(byte[] bytes)
     {
         var _roundCount = bytes[1];
-        var _startSceneFrame = BitConverter.ToInt32(bytes, 2);
-        var _signalFrame = BitConverter.ToInt32(bytes, 6);
-        var _timeUpFrame = BitConverter.ToInt32(bytes, 10);
+        var _signalFrame = BitConverter.ToInt32(bytes, 2);
+        var _timeUpFrame = BitConverter.ToInt32(bytes, 6);
 
         if (roundCount != _roundCount 
-            || startSceneFrame!= _startSceneFrame
             || signalFrame != _signalFrame
             || timeUpFrame != _timeUpFrame)
         {
             UnityEngine.Debug.Log($"相手のラウンドデータが異なっています。" +
-                $"スタート {startSceneFrame}:{_startSceneFrame}, ラウンド{roundCount}:{_roundCount}"+
-                $"シグナル {signalFrame}:{_signalFrame}, タイムアップ{timeUpFrame}:{_timeUpFrame}");
+                $"ラウンド{roundCount}:{_roundCount}+シグナル {signalFrame}:{_signalFrame}, タイムアップ{timeUpFrame}:{_timeUpFrame}");
         }
         else
         {
