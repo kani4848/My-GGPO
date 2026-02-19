@@ -81,7 +81,6 @@ public class PlayerPeer: IDisposable
 
     //保存情報
     public PeerState state { get; private set; } = PeerState.SLEEP;
-    uint _seed;
     ulong notifyPeerRequestId;
     public double pingMs { get; private set; } = -1;
 
@@ -638,26 +637,26 @@ public class PlayerPeer: IDisposable
 
         SendRoundData(roundData);
 
-        int retryCount = 0;
+        float sendInterval = Time.time;
+        float timeout = Time.time + 5f;
 
-        while (!gotSignalAck)
+        while (!token.IsCancellationRequested)
         {
-            if (retryCount == 5)
+            if (Time.time >= timeout)
             {
                 UnityEngine.Debug.Log($"スタートフレーム送信タイムアウト");
                 return false;
             }
 
-            await UniTask.Delay(TimeSpan.FromSeconds(1), cancellationToken: token);
-
-            if (!gotSignalAck)
+            if (Time.time >= sendInterval)
             {
                 SendRoundData(roundData);
-                retryCount++;
+                sendInterval = Time.time + 0.2f;
             }
+
+            if (gotSignalAck) return true;
         }
 
-        roundCount++;
         return true;
     }
 
@@ -760,7 +759,6 @@ public class PlayerPeer: IDisposable
 
     public void CloseConnection()
     {
-        roundCount = 0;
         ClearInputData();
 
         state = PeerState.SLEEP;

@@ -253,6 +253,7 @@ public class EOS_Service : MonoBehaviour, IEosService
         playerPeer.ClearInputData();
     }
 
+    //下とセット
     public async UniTask<bool> SendRoundDataAndWaitAck(RoundData roundData, CancellationToken token)
     {
         var lobby = lobbyManager.GetCurrentLobby();
@@ -264,11 +265,11 @@ public class EOS_Service : MonoBehaviour, IEosService
 
         return await playerPeer.SendRoundDataAndWaitAck(roundData, token);
     }
-
     public async UniTask<RoundData> WaitReceivingRoundData(CancellationToken token)
     {
         return await playerPeer.WaitReceivingSignal(token);
     }
+    //上とセット
 
     public async UniTask<int> SendFinalInputAndWaitRemoteFinalInput(CancellationToken token)
     {
