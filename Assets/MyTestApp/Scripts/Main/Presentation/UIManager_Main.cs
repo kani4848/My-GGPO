@@ -657,12 +657,11 @@ public class UIManager_Main : MonoBehaviour
         return await ActivateEndMenuButtons_Online();
     }
 
-    public async UniTask ShowErrorWindow()
+    public void ShowErrorWindow()
     {
         DeacetivateEndMenuButtons_Online();
 
         networkError.SetActive(true);
-        await UniTask.Delay(TimeSpan.FromSeconds(2));
     }
 
 }

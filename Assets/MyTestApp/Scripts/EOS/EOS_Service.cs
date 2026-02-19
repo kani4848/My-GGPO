@@ -288,7 +288,6 @@ public class EOS_Service : MonoBehaviour, IEosService
         return await playerPeer.WaitReceivingSignal(token);
     }
 
-
     public async UniTask<int> SendFinalInputAndWaitRemoteFinalInput(CancellationToken token)
     {
         return await playerPeer.SendFinalInputAndWaitRemote(token);

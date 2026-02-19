@@ -57,8 +57,8 @@ public class PlayerPeer: IDisposable
     const int inputBufferSize = 1 + 4 + 1 + 1 * inputHitorySize;
     const int finalInputBufferSize = 1 + 4;
     const int seedBufferSize = 1 + 4;//ackと兼用
-    //識別子（上限１０）＋ラウンド数（上限10）+スタートフレーム＋シグナル（上限180）+タイムアップフレーム、 ackと兼用
-    const int roundDataBufferSize = 1 + 1 + 4 + 1 + 4;
+    //識別子（上限１０）＋ラウンド数（上限10）+スタートフレーム＋シグナル（4バイト）+タイムアップフレーム、 ackと兼用
+    const int roundDataBufferSize = 1 + 1 + 4 + 4 + 4;
     private readonly byte[] _sendBuffer_input = new byte[inputBufferSize];//過去数フレーム分のインプット履歴も追加
     private readonly byte[] _sendBuffer_finalInput = new byte[finalInputBufferSize];
     private readonly byte[] _sendBuffer_seed = new byte[seedBufferSize];
@@ -764,8 +764,8 @@ public class PlayerPeer: IDisposable
         _sendBuffer_roundData[0] = ack ? (byte)PacketType.RoundData_Ack : (byte)PacketType.RoundData;
         _sendBuffer_roundData[1] = (byte)roundData.roundCount;
         BitConverter.GetBytes(roundData.startSceneFrame).CopyTo(_sendBuffer_roundData, 2);
-        _sendBuffer_roundData[6] = (byte)roundData.signalFrame;
-        BitConverter.GetBytes(roundData.timeUpFrame).CopyTo(_sendBuffer_roundData, 7);
+        BitConverter.GetBytes(roundData.signalFrame).CopyTo(_sendBuffer_roundData, 6);
+        BitConverter.GetBytes(roundData.timeUpFrame).CopyTo(_sendBuffer_roundData, 10);
 
         sendPacketOptions_Reliable.RemoteUserId = remotePuid;
         sendPacketOptions_Reliable.Data = _sendBuffer_roundData;
@@ -813,7 +813,7 @@ public class PlayerPeer: IDisposable
             || signalFrame != _signalFrame
             || timeUpFrame != _timeUpFrame)
         {
-            UnityEngine.Debug.Log($"相手のシグナルの値が異なっています。" +
+            UnityEngine.Debug.Log($"相手のラウンドデータが異なっています。" +
                 $"スタート {startSceneFrame}:{_startSceneFrame}, ラウンド{roundCount}:{_roundCount}"+
                 $"シグナル {signalFrame}:{_signalFrame}, タイムアップ{timeUpFrame}:{_timeUpFrame}");
         }
