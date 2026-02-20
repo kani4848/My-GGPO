@@ -60,13 +60,24 @@ public class PlayerPeer: IDisposable
     //ｐ２ｐ接続フロー===================================================
     public async UniTask<bool> AcceptRequestP2P(ProductUserId remote, CancellationToken token)
     {
-        return await router.RegisterConnectionRequestAccept(remote, token);
+        state = PeerState.P2P_CONNECTING;
+
+        bool r = await router.RegisterConnectionRequestAccept(remote, token);
+
+        if (r)
+        {
+            state = PeerState.P2P_CONNECTED;
+        }
+
+        return r;
     }
 
     //ハンドシェイクフロー===================================================
 
     public async UniTask<bool> handShakeFlow(CancellationToken token)
     {
+        state = PeerState.INPUT_TEST;
+
         var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(token);
 
         //オールレディは保証されている前提

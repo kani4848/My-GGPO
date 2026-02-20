@@ -109,7 +109,6 @@ public class PeerRouter
         heartBeat = new(SendHB);
     }
 
-
     public async UniTask<bool> RegisterConnectionRequestAccept(ProductUserId _remotePuid, CancellationToken token)
     {
         //既に接続済みなら終了
