@@ -382,7 +382,8 @@ public class PeerRouter
     public bool gotInput { get; private set; } = false;
     public bool gotInputResultAck { get; private set; } = false;
     public bool gotInputResult_remote { get; private set; } = false;
-    public PeerInputData shotInputData { get; private set; }
+    
+    public int shotFrame_local { get; set; } = -1;
     public int shotFrame_remote { get; set; } = -1;
 
     public void SendInput(int frame, bool _input)
@@ -413,7 +414,7 @@ public class PeerRouter
 
         UnityEngine.Debug.Log($"インプット送信結果:{r}");
 
-        if (r == Result.Success && _input) shotInputData = new PeerInputData(frame, _input);
+        if (r == Result.Success && _input) shotFrame_local = frame;
     }
     void UnPackInput(byte[] payload)
     {
@@ -477,8 +478,8 @@ public class PeerRouter
             _sendBuffer_InputResult[0] = (byte)PacketType.Input_Result;
         }
 
-        BitConverter.GetBytes(shotInputData.frame).CopyTo(_sendBuffer_InputResult, 1);
-        
+        BitConverter.GetBytes(shotFrame_local).CopyTo(_sendBuffer_InputResult, 1);
+
         Result r;
 
         sendPacketOptions_Reliable.RemoteUserId = remotePuid;
@@ -508,7 +509,6 @@ public class PeerRouter
         gotInput = false;
         gotInputResultAck = false;
         gotInputResult_remote = false;
-        shotInputData = null;
         shotFrame_remote = -1;
     }
 
