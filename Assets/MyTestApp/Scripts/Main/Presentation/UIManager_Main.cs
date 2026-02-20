@@ -139,8 +139,8 @@ public class UIManager_Main : MonoBehaviour
         switch (mode)
         {
             case GameMode.Online:
-                chara_p1.Init(isOwner, charaImageData_p1);
-                chara_p2.Init(!isOwner, charaImageData_p2);
+                chara_p1.Init(true, charaImageData_p1);
+                chara_p2.Init(false, charaImageData_p2);
                 break;
 
             case GameMode.Local:

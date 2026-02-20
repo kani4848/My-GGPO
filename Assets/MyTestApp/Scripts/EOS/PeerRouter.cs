@@ -509,6 +509,8 @@ public class PeerRouter
         gotInput = false;
         gotInputResultAck = false;
         gotInputResult_remote = false;
+
+        shotFrame_local = -1;
         shotFrame_remote = -1;
     }
 

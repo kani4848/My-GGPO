@@ -93,7 +93,7 @@ public class PlayerPeer: IDisposable
 
                 if (Time.time >= sendInterval)
                 {
-                    router.SendInput(4649, true);
+                    router.SendInput(4649, false);
                     sendInterval += resendInterval;
                 }
 
