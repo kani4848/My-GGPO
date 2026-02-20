@@ -6,6 +6,7 @@ using System.Linq;
 using Cysharp.Threading.Tasks;
 using System;
 using System.Threading;
+using System.IO;
 
 public class JoinedLobbyUI : MonoBehaviour
 {
@@ -22,6 +23,8 @@ public class JoinedLobbyUI : MonoBehaviour
     [SerializeField] Transform memberRoot;
     [SerializeField] Transform logRoot;
     [SerializeField] GameObject logPrefab;
+
+    [SerializeField] GameObject errorWindow;
 
     //キーには名前ではなくPUIDを入力
     Dictionary<string, LobbyMemberNamePlate> namePlateDic = new();
@@ -209,5 +212,10 @@ public class JoinedLobbyUI : MonoBehaviour
     {
         int v = Mathf.CeilToInt((float)val);
         ping.text = $"{v}ms";
+    }
+
+    public void SwitchErrorWindow(bool active)
+    {
+        errorWindow.SetActive(active);
     }
 }

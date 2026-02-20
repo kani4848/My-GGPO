@@ -170,7 +170,7 @@ public class EOS_Service : MonoBehaviour, IEosService
             Debug.Log(opponent.ProductId);
 
             //データ受け入れ設定を登録&待ち受け
-            var r = await playerPeer.RegisterConnectionRequestAccept(opponent.ProductId, token);
+            var r = await playerPeer.AcceptRequestP2P(opponent.ProductId, token);
 
             if (r)
             {
@@ -192,7 +192,7 @@ public class EOS_Service : MonoBehaviour, IEosService
             bool r;
 
             //インプット通信のテスト
-            r = await playerPeer.InputCommunicationTest(token);
+            r = await playerPeer.handShakeFlow(token);
 
             if (!r)
             {
@@ -230,17 +230,19 @@ public class EOS_Service : MonoBehaviour, IEosService
 
     public void SendInput(int frame, bool pressed)
     {
-        playerPeer.SendInput(frame, pressed);
+        //playerPeer.SendInput(frame, pressed);
     }
 
     public PeerInputData GetRemoteInputByFrame(int frame)
     {
-        return playerPeer.TryGetRemoteInput_ByFrame(frame);
+        return new PeerInputData(frame);
+        //return playerPeer.TryGetRemoteInput_ByFrame(frame);
     }
 
     public PeerInputData GetRemoteInputImmediately()
     {
-        return playerPeer.TryGetRemoteInput_Latest();
+        return new PeerInputData(0);
+        //return playerPeer.TryGetRemoteInput_Latest();
     }
 
     public int GetRemoteShotFrame()
