@@ -5402,6 +5402,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: SingletonRoot
       objectReference: {fileID: 0}
+    - target: {fileID: 3142364230227905067, guid: 86e91e2367c6e6445970c71d22358e19, type: 3}
+      propertyPath: fadeTime
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 5067549044579665919, guid: 86e91e2367c6e6445970c71d22358e19, type: 3}
       propertyPath: m_LocalPosition.x
       value: 110

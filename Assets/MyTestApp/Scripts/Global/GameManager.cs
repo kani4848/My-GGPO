@@ -108,7 +108,7 @@ public class GameManager : Singleton<GameManager>
         while (true)
         {
             var nextScene = await LobbyFlow();
-            
+
             if (nextScene == LobbyState.GoTitle) break;
 
             var nextState = await MainGameFlow(currentGameMode);

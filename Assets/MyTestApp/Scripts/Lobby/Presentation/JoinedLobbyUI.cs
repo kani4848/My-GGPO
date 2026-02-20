@@ -54,6 +54,20 @@ public class JoinedLobbyUI : MonoBehaviour
         ClearLog();
     }
 
+    private void Update()
+    {
+        if (Input.GetKeyDown(KeyCode.Z))
+        {
+            readyButton.onClick.Invoke();
+        }
+
+        if (Input.GetKeyDown(KeyCode.X))
+        {
+            leaveButton.onClick.Invoke();
+        }
+    }
+
+
     void AddMemberNamePlate(PlayerData memberData)
     {
         if (namePlateDic.ContainsKey(memberData.puid)) return;
@@ -87,11 +101,35 @@ public class JoinedLobbyUI : MonoBehaviour
         readyButton.gameObject.SetActive(true);
     }
 
+
+    void ActivatedButtons()
+    {
+        readyButton.interactable = true;
+        //readyCancelButton.interactable = true;
+        leaveButton.interactable = true;
+
+        readyCancelButton.onClick.AddListener(() =>
+        {
+            SoundManager.Instance.PlaySE(SE_Handler.SoundType.BUTTON);
+            //レディ
+            DeactivateButtons();
+        });
+
+        leaveButton.onClick.AddListener(() =>
+        {
+            SoundManager.Instance.PlaySE(SE_Handler.SoundType.BUTTON);
+            //退出
+            DeactivateButtons();
+        });
+    }
+
     public void DeactivateButtons()
     {
         readyButton.gameObject.SetActive(false);
-        readyCancelButton.gameObject.SetActive(false);
         leaveButton.gameObject.SetActive(false);
+
+        readyButton.onClick.RemoveAllListeners();
+        leaveButton.onClick.RemoveAllListeners();
     }
 
     public void SwitchButtonsOnReady()

@@ -80,7 +80,7 @@ public class EOS_Service : MonoBehaviour, IEosService
         }
     }
 
-    //ロビーシーン===============================================
+    //ロビー検索シーン===============================================
     public async UniTask<List<SearchedLobbyData>> SearchLobby(string path = "")
     {
         var data = await searchService.SearchLobbyAuto(path);
@@ -96,9 +96,6 @@ public class EOS_Service : MonoBehaviour, IEosService
         if (data == null) return null;
 
         inLobbyService.EnterLobbyAction();
-
-        AutoP2pConnect(token).Forget();
-
         return data;
     }
 
@@ -107,18 +104,12 @@ public class EOS_Service : MonoBehaviour, IEosService
         playerData_Local.isOwner = true;
         var data = await searchService.CreateAndJoinAsync(path, playerData_Local);
 
-        AutoP2pConnect(token).Forget();
-
+        if (data == null)
+        {
+            Debug.Log("ロビー作成失敗");
+            return null;
+        }
         return data;
-    }
-
-    public async UniTask LeaveLobby()
-    {
-        p2pConnected = false;
-        
-        playerPeer.CloseConnection();
-        await inLobbyService.LeaveLobby();
-        inLobbyService.ExitAction();
     }
 
     public static PlayerData CreatePlayerData(LobbyMember lobbyMember)
@@ -151,7 +142,16 @@ public class EOS_Service : MonoBehaviour, IEosService
         return new PlayerData(puid, memberName, imageData, ready, isOwner);
     }
 
-    float handShakePollTime = 6;
+    //インロビーシーン===============================================
+
+    public async UniTask LeaveLobby()
+    {
+        p2pConnected = false;
+
+        playerPeer.CloseConnection();
+        await inLobbyService.LeaveLobby();
+        inLobbyService.ExitAction();
+    }
 
     public async UniTask AutoP2pConnect(CancellationToken token)
     {
@@ -170,15 +170,12 @@ public class EOS_Service : MonoBehaviour, IEosService
 
             if(opponent == null) continue;
 
-            Debug.Log(opponent.ProductId);
-
             //データ受け入れ設定を登録&待ち受け
             var r = await playerPeer.AcceptRequestP2P(opponent.ProductId, token);
 
             if (r)
             {
                 Debug.Log("ｐ２ｐ接続完了");
-                playerData_Remote = searchService.CreatePlayerDataFromLobbyMemberData(opponent);
                 break;
             }
         }
@@ -204,6 +201,8 @@ public class EOS_Service : MonoBehaviour, IEosService
             }
 
             Debug.Log("インプット通信成功、ハンドシェイク完了");
+            var opponent = inLobbyService.GetOpponentMemberData();
+            playerData_Remote = searchService.CreatePlayerDataFromLobbyMemberData(opponent);
             return true;
         }
         finally

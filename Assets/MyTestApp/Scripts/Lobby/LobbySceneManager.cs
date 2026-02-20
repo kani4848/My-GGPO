@@ -29,8 +29,10 @@ public class LobbySceneManager : MonoBehaviour, ILobbySceneManager
     public static string emptyPlayerName = "No name";
     public static string localUserName = emptyPlayerName;
 
-    IEosService eosSirvice;    
-    CancellationTokenSource cts;
+    IEosService eosSirvice;
+
+    CancellationTokenSource SceneCts;
+    CancellationTokenSource searchCts;
     CancellationTokenSource inLobbyCts;
 
     public void Awake()
@@ -38,148 +40,106 @@ public class LobbySceneManager : MonoBehaviour, ILobbySceneManager
         state = LobbyState.None;
         IGameManager.lobbySceneManager = this;
     }
-
-    public async UniTask<LobbyState> StartFlow(IEosService _eosService)
-    {
-        state = LobbyState.InLobbySearchRoom;
-
-        cts?.Cancel();
-        cts?.Dispose();
-        cts = new();
-
-        eosSirvice = _eosService;
-        uiManager.Init();
-        SearchLobby();
-
-        AutoRefleshLoop(cts.Token).Forget();
-
-        await UniTask.WaitUntil(() => state == LobbyState.GoTitle || state == LobbyState.GoMain,
-            cancellationToken: cts.Token);
-
-
-        ExitAction();
-
-        return state;
-    }
-
     private void OnEnable()
     {
         LobbyEvent.RequestJoinLobbyEvent += OnJoin;
+
+        LobbyButtonEvent.QuickMatchEvent += OnQuickMatch;
+        LobbyButtonEvent.CreateLobbyEvent += OnCreateLobby;
+        LobbyButtonEvent.SearchLobbyEvent += OnSearchLobby;
+        LobbyButtonEvent.GoTitleEvent += OnGoTitle;
     }
-
-    private void OnApplicationQuit()
-    {
-        ExitAction();
-    }
-
-    private void OnDestroy()
-    {
-        ExitAction();
-    }
-
-    Action UpdateAction = null;
-
-    private void Update()
-    {
-        UpdateAction?.Invoke();
-
-        if (UiInputGuard.IsTypingInTextField()) return;
-
-        if (Input.GetKeyDown(KeyCode.Z))
-        {
-            switch (state)
-            {
-                case LobbyState.InLobbySearchRoom:
-                    //クイックマッチ
-                    break;
-
-                case LobbyState.InLobby:
-                    Ready();
-                    break;
-
-                case LobbyState.Ready:
-                    ReadyCancel();
-                    break;
-            }
-        }
-
-        if (Input.GetKeyDown(KeyCode.X))
-        {
-            switch (state)
-            {
-                case LobbyState.InLobbySearchRoom:
-                    CreateAndJoinLobby();
-                    break;
-
-                case LobbyState.Ready:
-                case LobbyState.InLobby:
-                    LeaveLobby();
-                    break;
-            }
-        }
-
-        if (Input.GetKeyDown(KeyCode.C))
-        {
-            switch (state)
-            {
-                case LobbyState.InLobbySearchRoom:
-                    string lobbyPath = uiManager.GetLobbyPath_Search();
-                    SearchLobbyAsync(lobbyPath).Forget();
-                    break;
-            }
-        }
-
-        if (Input.GetKeyDown(KeyCode.V))
-        {
-            switch (state)
-            {
-                case LobbyState.InLobbySearchRoom:
-                    state = LobbyState.GoTitle;
-                    break;
-            }
-        }
-    }
-     
-    void ExitAction()
+    void SceneExitAction()
     {
         LobbyEvent.RequestJoinLobbyEvent -= OnJoin;
 
-        cts?.Cancel();
-        cts?.Dispose();
-        cts = null;
+        LobbyButtonEvent.QuickMatchEvent -= OnQuickMatch;
+        LobbyButtonEvent.CreateLobbyEvent -= OnCreateLobby;
+        LobbyButtonEvent.SearchLobbyEvent -= OnSearchLobby;
+        LobbyButtonEvent.GoTitleEvent -= OnGoTitle;
+
+        SceneCts?.Cancel();
+        SceneCts?.Dispose();
+        SceneCts = null;
+
+        searchCts?.Cancel();
+        searchCts?.Dispose();
+        searchCts = null;
 
         inLobbyCts?.Cancel();
         inLobbyCts?.Dispose();
         inLobbyCts = null;
-    }
 
-    async UniTask LobbyFlow()
+        autoSearchCts?.Cancel();
+        autoSearchCts?.Dispose();
+        autoSearchCts = null;
+    }
+    private void OnApplicationQuit()
     {
-        await SearchFlow();
-        await InLobbyFlow();
-        ExitAction();
+        SceneExitAction();
+    }
+    private void OnDestroy()
+    {
+        SceneExitAction();
+    }
+    public async UniTask<LobbyState> StartFlow(IEosService _eosService)
+    {
+        eosSirvice = _eosService;
+
+        SceneCts?.Cancel();
+        SceneCts?.Dispose();
+        SceneCts = new();
+
+        while (!SceneCts.IsCancellationRequested)
+        {
+            await SearchFlow();
+
+            if (state == LobbyState.GoTitle) break;
+
+            await JoinFlow();
+
+            if (state == LobbyState.JoiningError) continue;
+
+            await InLobbyFlow();
+        }
+
+        SceneExitAction();
+
+        return state;
     }
 
     //ロビー検索画面===========================
 
+    CancellationTokenSource autoSearchCts;
+
     async UniTask SearchFlow()
     {
-        //ろびー検索
+        state = LobbyState.InLobbySearchRoom;
+        //入場処理
+        searchCts?.Cancel();
+        searchCts?.Dispose();
+        searchCts = new();
 
-        //メニュー選択
-        await UniTask.WaitUntil(() => state != LobbyState.InLobbySearchRoom, cancellationToken: cts.Token);
+        autoSearchCts?.Cancel();
+        autoSearchCts?.Dispose();
+        autoSearchCts = new();
 
-        switch (state)
-        {
-            case LobbyState.SearchingLobby:
-                break;
-            case LobbyState.Joining:
-                break;
-        }
 
-        //ロビー検索
-        //クイックマッチ＞クイックマッチ処理＞シーン終了
-        //
+        uiManager.ActivateSearchLobbyUI();//検索画面表示
+        AutoRefleshLoop(autoSearchCts.Token).Forget();//自動検索開始
+     
+        await UniTask.WaitUntil(() => state != LobbyState.InLobbySearchRoom, cancellationToken: searchCts.Token);
+        
+        //退場処理
+        searchCts?.Cancel();
+        searchCts?.Dispose();
+        searchCts = null;
+        
+        autoSearchCts?.Cancel();
+        autoSearchCts?.Dispose();
+        autoSearchCts = null;
+        
+        uiManager.DeactivateSearchLobbyUI();
     }
 
     private async UniTask AutoRefleshLoop(CancellationToken token)
@@ -188,44 +148,117 @@ public class LobbySceneManager : MonoBehaviour, ILobbySceneManager
 
         while (!token.IsCancellationRequested)
         {
-            if (state != LobbyState.InLobbySearchRoom)
-            {
-                await UniTask.Delay(TimeSpan.FromSeconds(5), cancellationToken: token);
-                continue;
-            }
-
             var searchResult = await eosSirvice.SearchLobby();
 
             if (searchResult != preSearchResult)
             {
-                uiManager.ClearSearchedLobbyList();
-                uiManager.RefreshAvailableLobby(searchResult);
+                uiManager.ClearSearchedLobbyButtons();
+                uiManager.ShowSearchResult(searchResult);
             }
 
             preSearchResult = searchResult;
-
             await UniTask.Delay(TimeSpan.FromSeconds(5), cancellationToken: token);
         }
     }
 
-    public void CreateAndJoinLobby()
+    void OnSearchLobby(string lobbyPath = "")
+    {
+        OnSearchLobbyAsync().Forget();
+
+        async UniTask OnSearchLobbyAsync()
+        {
+            autoSearchCts?.Cancel();
+            autoSearchCts?.Dispose();
+            autoSearchCts = null;
+
+            uiManager.StartSearching();
+            var searchResult = await eosSirvice.SearchLobby(lobbyPath);
+            state = LobbyState.InLobbySearchRoom;
+            uiManager.ShowSearchResult(searchResult);
+
+            autoSearchCts = new();
+            AutoRefleshLoop(autoSearchCts.Token).Forget();
+        }
+    }
+
+    public void OnQuickMatch()
     {
         SoundManager.Instance.PlaySE(SE_Handler.SoundType.BUTTON);
+        eosSirvice.StartQuickMatch();
+    }
+
+    void OnGoTitle()
+    {
+        GoTitleAsync().Forget();
+
+        async UniTask GoTitleAsync()
+        {
+            await ColorFadeService.Instance.BlackFadeIn();
+            state = LobbyState.GoTitle;
+        }
+    }
+
+    //ロビー参加中===========================
+    async UniTask JoinFlow()
+    {
+        uiManager.SwitchLoadigUI(true);
+        await UniTask.WaitUntil(() => state != LobbyState.JoiningLobby, cancellationToken: SceneCts.Token);
+
+        if(state == LobbyState.JoiningError)
+        {
+            Debug.Log("ロビー参加失敗");
+            await uiManager.ShowErrorWindow();
+        }
+
+        uiManager.SwitchLoadigUI(false);
+    }
+
+    public void OnCreateLobby(string path)
+    {
         CreateAndJoinLobbyAsync().Forget();
 
         async UniTask CreateAndJoinLobbyAsync()
         {
-            state = LobbyState.CreateLobbyAndJoin;
+            state = LobbyState.JoiningLobby;
 
-            inLobbyCts?.Cancel();
-            inLobbyCts?.Dispose();
-            inLobbyCts = new();
+            var lobbyData = await eosSirvice.CreateLobby(path, inLobbyCts.Token);
 
-            var lobbyData = await eosSirvice.CreateLobby(uiManager.GetLobbyPath_Create(), inLobbyCts.Token);
-            UpdatePing(inLobbyCts.Token).Forget();
-            state = LobbyState.InLobby;
-            uiManager.ActivatedInLobbyUI(lobbyData);
+            if (lobbyData == null)state = LobbyState.JoiningError;
+            else joinedLobbyData = lobbyData;
         }
+    }
+
+    async UniTask OnJoin(string id)
+    {
+        state = LobbyState.JoiningLobby;
+
+        var lobbyData = await eosSirvice.JoinLobby(id, inLobbyCts.Token);
+
+        if (lobbyData == null) state = LobbyState.JoiningError;
+        else joinedLobbyData = lobbyData;
+    }
+
+    //インロビー画面===========================
+
+    LobbyData joinedLobbyData;
+    CancellationTokenSource readyCts;
+
+    async UniTask InLobbyFlow()
+    {
+        state = LobbyState.InLobby_NoReady;
+        inLobbyCts?.Cancel();
+        inLobbyCts?.Dispose();
+        inLobbyCts = new();
+        UpdatePing(inLobbyCts.Token).Forget();
+        eosSirvice.AutoP2pConnect(inLobbyCts.Token).Forget();
+
+        uiManager.ActivatedInLobbyUI(joinedLobbyData);
+
+        await UniTask.WaitUntil(() => state != LobbyState.InLobby_NoReady, cancellationToken: inLobbyCts.Token);
+
+        inLobbyCts?.Cancel();
+        inLobbyCts?.Dispose();
+        inLobbyCts = null;
     }
 
     async UniTask UpdatePing(CancellationToken token)
@@ -237,81 +270,13 @@ public class LobbySceneManager : MonoBehaviour, ILobbySceneManager
             await UniTask.Delay(TimeSpan.FromSeconds(3));
         }
     }
-    public void SearchLobby()
-    {
-        SoundManager.Instance.PlaySE(SE_Handler.SoundType.BUTTON);
-        string lobbyPath = uiManager.GetLobbyPath_Search();
-        SearchLobbyAsync(lobbyPath).Forget();
-    }
-
-    async UniTask SearchLobbyAsync(string lobbyPath = "")
-    {
-        state = LobbyState.SearchingLobby;
-        uiManager.ClearSearchedLobbyList();
-        var searchResult = await eosSirvice.SearchLobby(lobbyPath);
-
-        state = LobbyState.InLobbySearchRoom;
-        uiManager.RefreshAvailableLobby(searchResult);
-    }
-
-    public void QuickMatch()
-    {
-        SoundManager.Instance.PlaySE(SE_Handler.SoundType.BUTTON);
-        eosSirvice.StartQuickMatch();
-    }
-
-    async UniTask OnJoin(string id)
-    {
-        state = LobbyState.Joining;
-
-        inLobbyCts?.Cancel();
-        inLobbyCts?.Dispose();
-        inLobbyCts = new();
-
-        var lobbyData = await eosSirvice.JoinLobby(id, inLobbyCts.Token);
-
-        if (lobbyData == null)
-        {
-            Debug.Log("ロビー参加失敗");
-            inLobbyCts?.Cancel();
-            inLobbyCts?.Dispose();
-            inLobbyCts = null;
-
-            state = LobbyState.InLobbySearchRoom;
-            return;
-        }
-        else
-        {
-            Debug.Log("ロビー参加成功");
-        }
-
-        state = LobbyState.InLobby;
-        UpdatePing(inLobbyCts.Token).Forget();
-        uiManager.ActivatedInLobbyUI(lobbyData);
-    }
-
-    //ロビー画面===========================
-
-    async UniTask InLobbyFlow()
-    {
-        if (eosSirvice.p2pConnected)
-        {
-            //HB送信
-        }
-    }
-
-    CancellationTokenSource readyCts;
-
+    
     public void Ready()
     {
         ReadyAsync().Forget();
 
         async UniTask ReadyAsync()
         {
-            SoundManager.Instance.PlaySE(SE_Handler.SoundType.BUTTON);
-         
-            state = LobbyState.Ready;
-
             readyCts?.Cancel();
             readyCts?.Dispose();
             readyCts = new();
@@ -355,7 +320,6 @@ public class LobbySceneManager : MonoBehaviour, ILobbySceneManager
     {
         SoundManager.Instance.PlaySE(SE_Handler.SoundType.BUTTON);
 
-        state = LobbyState.InLobby;
         eosSirvice.CancelReady();
 
         readyCts?.Cancel();
@@ -376,18 +340,11 @@ public class LobbySceneManager : MonoBehaviour, ILobbySceneManager
 
         async UniTask LeaveLobbyAsync()
         {
-            ExitAction();
+            SceneExitAction();
             state = LobbyState.LeavingLobby;
             await eosSirvice.LeaveLobby();
-            await SearchLobbyAsync();
             state = LobbyState.InLobbySearchRoom;
         }
-    }
-
-    public void GoTitle()//ボタン用
-    {
-        SoundManager.Instance.PlaySE(SE_Handler.SoundType.BUTTON);
-        state = LobbyState.GoTitle;
     }
 }
 

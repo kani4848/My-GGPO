@@ -11,20 +11,17 @@ public enum LobbyState
 {
     None,
 
-    SearchingLobby,
-
     InLobbySearchRoom,
-    CreateLobbyAndJoin,
-
-    Joining,
-
-    InLobby,
+    
+    JoiningLobby,
+    JoiningError,
     LeavingLobby,
 
-    Ready,
-    ConnectingOpponent,
-    GoMain,
+    InLobby_NoReady,
+    InLobby_Ready,
+    InLobby_AllReady,
 
+    GoMain,
     GoTitle,
     
     Error,

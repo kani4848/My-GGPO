@@ -2,36 +2,68 @@ using TMPro;
 using UnityEngine;
 using System.Collections.Generic;
 using UnityEngine.UI;
+using Codice.Client.Common;
 
 public class SearchLobbyUI : MonoBehaviour
 {
     [SerializeField] private RectTransform contentRoot; // VerticalLayoutGroup推奨
     [SerializeField] LobbyJoinButton lobbyJoinButtonPrefab;
 
-
     [SerializeField] UnityEngine.UI.Button quickBtn;
     [SerializeField] UnityEngine.UI.Button createBtn;
     [SerializeField] UnityEngine.UI.Button searchBtn;
-    [SerializeField] UnityEngine.UI.Button logOutBtn;
+    [SerializeField] UnityEngine.UI.Button titleBtn;
 
     [SerializeField] TMP_InputField lobbyPath_create;
     [SerializeField] TMP_InputField lobbyPath_search;
 
+
+    [SerializeField] GameObject searchingUI;
     [SerializeField] GameObject noLobbies;
     public void Activated()
     {
         gameObject.SetActive(true);
         ActivatedButtons();
+        StartSearching();
     }
 
     public void Deactivated()
     {
         gameObject.SetActive(false);
-        ClearUI();
+        ClearLobbyButtons();
+        DeactivatedButtons();
     }
-    
+
+    private void Update()
+    {
+        if (UiInputGuard.IsTypingInTextField()) return;
+
+        if (Input.GetKeyDown(KeyCode.Z))
+        {
+            quickBtn.onClick.Invoke();
+        }
+
+        if (Input.GetKeyDown(KeyCode.X))
+        {
+            createBtn.onClick.Invoke();
+        }
+
+        if (Input.GetKeyDown(KeyCode.C))
+        {
+            searchBtn.onClick.Invoke();
+        }
+
+        if (Input.GetKeyDown(KeyCode.V))
+        {
+            titleBtn.onClick.Invoke();
+        }
+    }
+
     public void RefreshList(List<SearchedLobbyData> searchLobbyDatas)
     {
+        SwitchSearcingUI(false);
+        ActivatedButtons();
+
         if (searchLobbyDatas == null || searchLobbyDatas.Count == 0)
         {
             noLobbies.SetActive(true);
@@ -44,8 +76,6 @@ public class SearchLobbyUI : MonoBehaviour
         {
             CreateLobbyButton(lobbyData);
         }
-
-        ActivatedButtons();
     }
 
     private void CreateLobbyButton(SearchedLobbyData lobbyData)
@@ -55,7 +85,7 @@ public class SearchLobbyUI : MonoBehaviour
         btn.SetLobbyDatas(lobbyData);
     }
 
-    public void ClearUI()
+    public void ClearLobbyButtons()
     {
         noLobbies.SetActive(false);
 
@@ -67,23 +97,21 @@ public class SearchLobbyUI : MonoBehaviour
         }
     }
 
-    public string GetLobbyPath_Create()
+    public void StartSearching()
     {
-        return lobbyPath_create.text;
+        SwitchNoLobbiesText(false);
+        SwitchSearcingUI(true);
+        ClearLobbyButtons();
     }
 
-    public string GetLobbyPath_Search()
+    public void SwitchNoLobbiesText(bool active)
     {
-        return lobbyPath_search.text;
+        noLobbies.SetActive(active);
     }
 
-
-    public void DeactivatedButtons()
+    public void SwitchSearcingUI(bool active)
     {
-        quickBtn.interactable = false;
-        createBtn.interactable = false;
-        searchBtn.interactable = false;
-        logOutBtn.interactable =false;
+        searchingUI.SetActive(active);
     }
 
     void ActivatedButtons()
@@ -91,6 +119,47 @@ public class SearchLobbyUI : MonoBehaviour
         quickBtn.interactable = true;
         createBtn.interactable = true;
         searchBtn.interactable = true;
-        logOutBtn.interactable = true;
+        titleBtn.interactable = true;
+
+        quickBtn.onClick.AddListener(() =>
+        {
+            SoundManager.Instance.PlaySE(SE_Handler.SoundType.BUTTON);
+            LobbyButtonEvent.RaiseQuickMatch();
+            DeactivatedButtons();
+        });
+
+        createBtn.onClick.AddListener(() =>
+        {
+            SoundManager.Instance.PlaySE(SE_Handler.SoundType.BUTTON);
+            LobbyButtonEvent.RaiseCreateLobby(lobbyPath_create.text);
+            DeactivatedButtons();
+        });
+
+        searchBtn.onClick.AddListener(() =>
+        {
+            SoundManager.Instance.PlaySE(SE_Handler.SoundType.BUTTON);
+            LobbyButtonEvent.RaiseSearchLobby(lobbyPath_search.text);
+            DeactivatedButtons();
+        });
+
+        titleBtn.onClick.AddListener(() =>
+        {
+            SoundManager.Instance.PlaySE(SE_Handler.SoundType.BUTTON);
+            LobbyButtonEvent.RaiseGoTitle();
+            DeactivatedButtons();
+        });
+    }
+
+    public void DeactivatedButtons()
+    {
+        quickBtn.interactable = false;
+        createBtn.interactable = false;
+        searchBtn.interactable = false;
+        titleBtn.interactable = false;
+
+        quickBtn.onClick.RemoveAllListeners();
+        createBtn.onClick.RemoveAllListeners();
+        searchBtn.onClick.RemoveAllListeners();
+        titleBtn.onClick.RemoveAllListeners();
     }
 }

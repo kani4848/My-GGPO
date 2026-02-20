@@ -4,19 +4,18 @@ using System.Linq;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
+using Cysharp.Threading.Tasks;
 
 public sealed class LobbyUIManager : MonoBehaviour
 {
     [Header("UI")]
     [SerializeField] SearchLobbyUI searchUI;
     [SerializeField] JoinedLobbyUI inLobbyUI;
-    [SerializeField] GameObject loading;
+    
     [SerializeField] TextMeshProUGUI systemMessage;
+    [SerializeField] GameObject loading;
+    [SerializeField] GameObject errorWindow;
 
-    public void Init()
-    {
-        ActivateLoadUI();
-    }
     private void OnEnable()
     {
         LobbyEvent.lobbyStateChangedEvent += OnChangeLobbyState;
@@ -49,57 +48,49 @@ public sealed class LobbyUIManager : MonoBehaviour
 
     void OnChangeLobbyState(LobbyState state)
     {
-
         systemMessage.text = state.ToString();
-
-        switch (state)
-        {
-
-            case LobbyState.None:
-                ActivateLoadUI();
-                break; 
-
-            case LobbyState.InLobbySearchRoom:
-                searchUI.Activated();
-                inLobbyUI.Deactivated();
-                loading.SetActive(false);
-                break;
-
-            case LobbyState.SearchingLobby:
-                loading.SetActive(true);
-                searchUI.DeactivatedButtons();
-                break;
-
-            case LobbyState.CreateLobbyAndJoin:
-            case LobbyState.Joining:
-            case LobbyState.LeavingLobby:
-                ActivateLoadUI();
-                break;
-
-
-            case LobbyState.InLobby:
-                inLobbyUI.SwitchButtonsOnReadyCancel();
-                break;
-
-            case LobbyState.Ready:
-                inLobbyUI.SwitchButtonsOnReady();
-                break;
-
-            case LobbyState.ConnectingOpponent:
-                inLobbyUI.DeactivateButtons();
-                loading.SetActive(true);
-                break;
-        }
     }
 
-    //ロード画面の起動
-    void ActivateLoadUI()
+    //ロビー検索画面===================================
+    public void ActivateSearchLobbyUI()
+    {
+        searchUI.Activated();
+    }
+
+    public void ShowSearchResult(List<SearchedLobbyData> searchLobbyDatas)
+    {
+        searchUI.RefreshList(searchLobbyDatas);
+    }
+
+    public void ClearSearchedLobbyButtons()
+    {
+        searchUI.ClearLobbyButtons();
+    }
+
+    public void StartSearching()
+    {
+        searchUI.StartSearching();
+    }
+
+    public void DeactivateSearchLobbyUI()
     {
         searchUI.Deactivated();
-        inLobbyUI.Deactivated();
-        loading.SetActive(true);
     }
 
+    //参加中画面===================================
+    public void SwitchLoadigUI(bool active)
+    {
+        loading.SetActive(active);
+    }
+
+    public async UniTask ShowErrorWindow()
+    {
+        errorWindow.SetActive(true);
+        await UniTask.Delay(TimeSpan.FromSeconds(2));
+        errorWindow.SetActive(false);
+    }
+
+    //ロビー内画面===================================
     public void ActivatedInLobbyUI(LobbyData data)
     {
         searchUI.Deactivated();
@@ -107,28 +98,10 @@ public sealed class LobbyUIManager : MonoBehaviour
         inLobbyUI.Activated(data);
     }
 
-    public void RefreshAvailableLobby(List<SearchedLobbyData> searchLobbyDatas)
-    {
-        searchUI.RefreshList(searchLobbyDatas);
-    }
-
-    public string GetLobbyPath_Create()
-    {
-        return searchUI.GetLobbyPath_Create();
-    }
-
-    public string GetLobbyPath_Search()
-    {
-        return searchUI.GetLobbyPath_Search();
-    }
-
-    public void ClearSearchedLobbyList()
-    {
-        searchUI.ClearUI();
-    }
-
     public void UpdatePing(double ping)
     {
         inLobbyUI.UpdatePing(ping);
     }
+
+
 }
