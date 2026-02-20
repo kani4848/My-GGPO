@@ -56,6 +56,9 @@ public class LobbySceneManager : MonoBehaviour, ILobbySceneManager
         await UniTask.WaitUntil(() => state == LobbyState.GoTitle || state == LobbyState.GoMain,
             cancellationToken: cts.Token);
 
+
+        ExitAction();
+
         return state;
     }
 

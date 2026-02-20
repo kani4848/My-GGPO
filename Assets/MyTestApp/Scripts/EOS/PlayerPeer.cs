@@ -221,6 +221,8 @@ public class PlayerPeer: IDisposable
             }
 
             if (router.SharedRoundData()) return true;
+
+            await UniTask.Yield();
         }
 
         return true;

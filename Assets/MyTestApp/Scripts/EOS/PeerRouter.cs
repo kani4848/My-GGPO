@@ -493,6 +493,8 @@ public class PeerRouter
 
     public bool SharedRoundData()
     {
+        if (lastSendRoundData == null) return false;
+        if (recvRoundDataAck == null) return false;
         return lastSendRoundData == recvRoundDataAck;
     }
 

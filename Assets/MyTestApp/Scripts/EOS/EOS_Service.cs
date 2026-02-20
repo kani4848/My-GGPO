@@ -262,7 +262,8 @@ public class EOS_Service : MonoBehaviour, IEosService
 
         if(lobby == null || !lobby.IsValid())
         {
-            Debug.Log("かんべんしてよ");
+            Debug.Log("ロビー情報取得失敗");
+            return false;
         }
 
         return await playerPeer.SendRoundDataAndWaitAck(roundData, token);
