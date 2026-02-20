@@ -220,13 +220,11 @@ public class LobbyService_InLobby
         }
         finally
         {
-            Debug.Log("レディ解除");
             _lobbyManager.RemoveNotifyMemberUpdate(CheckAllReady);
         }
 
         void CheckAllReady(string LobbyId, ProductUserId MemberId)
         {
-            Debug.Log("レディチェック");
             Lobby lobby = _lobbyManager.GetCurrentLobby();
             if (lobby == null) return;
             if (lobby.Members.Count != 2) return;

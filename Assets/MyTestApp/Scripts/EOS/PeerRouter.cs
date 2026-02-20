@@ -346,8 +346,7 @@ public class PeerRouter
 
         //インプットデータをローカルストレージに保存
         int index = frame & inputDatasMaxSize_musk;//リングバッファ
-        var data = new PeerInputData(frame, _input);
-        ringBuffer_input_local[index] = data;
+        ringBuffer_input_local[index] = new PeerInputData(frame, _input);
 
         _sendBuffer_input[0] = (byte)PacketType.Input;
 
@@ -406,8 +405,17 @@ public class PeerRouter
 
     public void SendFinalInput(bool ack = false)
     {
-        if (p2pInterface == null) return;
-        if (remotePuid == null) return;
+        if (p2pInterface == null)
+        {
+
+            UnityEngine.Debug.Log($"p2pがねえ");
+            return;
+        }
+        if (remotePuid == null)
+        {
+            UnityEngine.Debug.Log($"puidがねえ");
+            return;
+        }
 
         if (ack)
         {

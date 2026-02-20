@@ -36,7 +36,8 @@ public class PlayerPeer: IDisposable
 
     PeerRouter router;
 
-    float timeOutSeconds = 5;
+    float timeOutSeconds = 5f;
+    float resendInterval = 0.2f;
 
     public PlayerPeer()
     {
@@ -76,12 +77,12 @@ public class PlayerPeer: IDisposable
 
     public async UniTask<bool> handShakeFlow(CancellationToken token)
     {
-        state = PeerState.INPUT_TEST;
-
         var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(token);
 
         //オールレディは保証されている前提
         await UniTask.WaitUntil(() => state == PeerState.P2P_CONNECTED, cancellationToken: linkedCts.Token);
+        
+        state = PeerState.INPUT_TEST;
 
         float timeout = Time.time + timeOutSeconds;
         float sendInterval = Time.time;
@@ -90,7 +91,7 @@ public class PlayerPeer: IDisposable
         {
             while (!token.IsCancellationRequested)
             {
-                if (Time.time > timeout)
+                if (Time.time >= timeout)
                 {
                     return false;
                 }
@@ -98,7 +99,7 @@ public class PlayerPeer: IDisposable
                 if (Time.time >= sendInterval)
                 {
                     router.SendInput(4649, true);
-                    sendInterval += 0.2f;
+                    sendInterval += resendInterval;
                 }
 
                 if (router.gotInput)
