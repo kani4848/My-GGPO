@@ -115,15 +115,13 @@ public interface IEosService
 
     //メインゲーム==================================================
     public void SendInput(int frame, bool pressed);
-    public PeerInputData GetRemoteInputByFrame(int frame);
-    public PeerInputData GetRemoteInputImmediately();
-    public int GetRemoteShotFrame();
+    public bool GetRemoteInput_MainLoop();
+    
     public UniTask<bool> SendRoundDataAndWaitAck(RoundData roundData, CancellationToken token);
 
     public UniTask<RoundData> WaitReceivingRoundData(CancellationToken token);
 
-
-    public UniTask<int> SendFinalInputAndWaitRemoteFinalInput(CancellationToken token);
+    public UniTask<int> SendInputResultAndWaitRemote(CancellationToken token);
 
     public UniTask<bool> StartQuickMatch();
     public UniTask CloseConnection();

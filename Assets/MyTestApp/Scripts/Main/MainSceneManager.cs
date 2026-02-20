@@ -270,7 +270,7 @@ public class MainSceneManager : MonoBehaviour, IMainSceneManager
             return p1Input;
         };
 
-        triggerAction_2p = () => eosService.GetRemoteInputImmediately().input;
+        triggerAction_2p = () => eosService.GetRemoteInput_MainLoop();
 
         while (true)
         {
@@ -317,7 +317,8 @@ public class MainSceneManager : MonoBehaviour, IMainSceneManager
                 }
 
                 //インプットデータを共有
-                shotFrame_p2 = await eosService.SendFinalInputAndWaitRemoteFinalInput(cts.Token);
+                shotFrame_p2 = await eosService.SendInputResultAndWaitRemote(cts.Token);
+
                 if(shotFrame_p2 == -2)
                 {
                     Debug.Log("インプットフレーム共有失敗");

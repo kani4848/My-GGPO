@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System;
 using Epic.OnlineServices.Lobby;
 using System.ComponentModel;
+using Epic.OnlineServices.Logging;
 
 public class EOS_Service : MonoBehaviour, IEosService
 {
@@ -37,6 +38,8 @@ public class EOS_Service : MonoBehaviour, IEosService
         loginService = new();
         playerData_Local = new PlayerData();
         playerData_Local.imageData = new PlayerImageData();
+
+        LoggingInterface.SetLogLevel(LogCategory.AllCategories, LogLevel.Error);
     }
 
     private void OnDisable()
@@ -228,31 +231,9 @@ public class EOS_Service : MonoBehaviour, IEosService
 
     //オンラインメインシーン===============================================
 
-    public void SendInput(int frame, bool pressed)
-    {
-        //playerPeer.SendInput(frame, pressed);
-    }
-
-    public PeerInputData GetRemoteInputByFrame(int frame)
-    {
-        return new PeerInputData(frame);
-        //return playerPeer.TryGetRemoteInput_ByFrame(frame);
-    }
-
-    public PeerInputData GetRemoteInputImmediately()
-    {
-        return new PeerInputData(0);
-        //return playerPeer.TryGetRemoteInput_Latest();
-    }
-
-    public int GetRemoteShotFrame()
-    {
-        return playerPeer.TryGetRemoteShotFrame();
-    }
-
     public void OnRoundReset()
     {
-        playerPeer.ClearInputData();
+        playerPeer.ResetBuffers();
     }
 
     //下とセット
@@ -274,7 +255,7 @@ public class EOS_Service : MonoBehaviour, IEosService
     }
     //上とセット
 
-    public async UniTask<int> SendFinalInputAndWaitRemoteFinalInput(CancellationToken token)
+    public async UniTask<int> SendInputResultAndWaitRemote(CancellationToken token)
     {
         return await playerPeer.SendFinalInputAndWaitRemote(token);
     }
@@ -282,6 +263,17 @@ public class EOS_Service : MonoBehaviour, IEosService
     public async UniTask<bool> StartQuickMatch()
     {
         return true;
+    }
+
+
+    public void SendInput(int frame, bool pressed)
+    {
+        playerPeer.SendInput(frame, pressed);
+    }
+
+    public bool GetRemoteInput_MainLoop()
+    {
+        return playerPeer.TryGetRemoteInput();
     }
 
     //シーン共通===============================================
