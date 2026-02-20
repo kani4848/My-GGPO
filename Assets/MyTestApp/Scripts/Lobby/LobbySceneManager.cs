@@ -319,7 +319,7 @@ public class LobbySceneManager : MonoBehaviour, ILobbySceneManager
 
                 if (r)
                 {
-                    state = LobbyState.GoMain;
+                   // state = LobbyState.GoMain;
                 }
                 else
                 {
