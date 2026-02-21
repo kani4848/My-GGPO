@@ -3,6 +3,19 @@ using System.Collections.Generic;
 using UnityEngine;
 using System.Threading;
 using System;
+using Epic.OnlineServices.Lobby;
+
+public class SearchedLobbyData_Quick
+{
+    public string lobbyId;
+    public LobbyDetails details;
+
+    public SearchedLobbyData_Quick(string lobbyId, LobbyDetails details)
+    {
+        this.lobbyId = lobbyId;
+        this.details = details;
+    }
+}
 
 public class SearchedLobbyData
 {
@@ -95,7 +108,10 @@ public interface IEosService
 
     public UniTask<LobbyData> JoinLobby(string id, CancellationToken token);
 
-    public UniTask<bool> Ready(CancellationToken token);
+    public UniTask Ready(CancellationToken token);
+
+    public UniTask<bool> AllReady(CancellationToken token);
+
 
     public void CancelReady();
 
@@ -123,6 +139,8 @@ public interface IEosService
 
     public UniTask<int> SendInputResultAndWaitRemote(CancellationToken token);
 
-    public UniTask<bool> StartQuickMatch();
+    public UniTask<bool> QuickMatch_FindOpponent(CancellationToken token);
+    public UniTask<bool> QuickMatch_HandShake(CancellationToken token);
+
     public UniTask CloseConnection();
 }

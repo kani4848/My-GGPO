@@ -7,16 +7,17 @@ using Epic.OnlineServices.Lobby;
 using PlayEveryWare.EpicOnlineServices.Samples;
 using Cysharp.Threading.Tasks;
 using System.Threading;
+using Codice.Client.Common;
+using PlayEveryWare.EpicOnlineServices;
 
 public class LobbyService_InLobby
 {
     EOSLobbyManager _lobbyManager;
 
-    [SerializeField] private float memberPollIntervalSec = 2.0f;
-    private CancellationTokenSource _memberPollCts;
-    UniTaskCompletionSource tcs_HB;
-    CancellationTokenSource _hbCts;
+    LobbyInterface _lobbyInterface;
 
+    [SerializeField] private float memberPollIntervalSec = 2.0f;
+    
     //退室時用リセット=============
     ProductUserId prevOwnerId = null;
     List<ProductUserId> preMemberPuids = new();
@@ -25,39 +26,18 @@ public class LobbyService_InLobby
     {
         _lobbyManager = lm;
 
-        _memberPollCts?.Cancel();
-        _memberPollCts?.Dispose();
-        _memberPollCts = null;
+        _lobbyInterface = EOSManager.Instance.GetEOSPlatformInterface().GetLobbyInterface();
     }
 
     //ロビー内イベント開始・終了===============================
     public void EnterLobbyAction()
-    {   
-        _lobbyManager.AddNotifyLobbyUpdate(OnLobbyUpdated);
-        _lobbyManager.AddNotifyMemberUpdateReceived(OnMemberUpdated);
-
-        _memberPollCts?.Cancel();
-        _memberPollCts?.Dispose();
-        _memberPollCts = new();
-
-        //HeartbeatLoopAsync().Forget();
-    }
-    public void ExitAction()
     {
+        prevOwnerId = null;
+        preMemberPuids.Clear();
         leaveLobby = false;
 
-        _hbCts?.Cancel();
-        _hbCts?.Dispose();
-        _hbCts = null;
-
-        tcs_HB?.TrySetResult();
-
-        _lobbyManager.RemoveNotifyLobbyUpdate(OnLobbyUpdated);
-        _lobbyManager.RemoveNotifyMemberUpdate(OnMemberUpdated);
-
-        _memberPollCts?.Cancel();
-        _memberPollCts?.Dispose();
-        _memberPollCts = null;
+        _lobbyManager.AddNotifyLobbyUpdate(OnLobbyUpdated);
+        _lobbyManager.AddNotifyMemberUpdateReceived(OnMemberUpdated);
     }
 
     //ロビー情報アップデート時のコールバック処理
@@ -85,6 +65,17 @@ public class LobbyService_InLobby
                 prevOwnerId = newOwner.ProductId;
             }
         }
+    }
+
+    public void ExitAction()
+    {
+        prevOwnerId = null;
+        preMemberPuids.Clear();
+        leaveLobby = false;
+
+        _lobbyManager.RemoveNotifyLobbyUpdate(OnLobbyUpdated);
+        _lobbyManager.RemoveNotifyMemberUpdate(OnMemberUpdated);
+
     }
 
     //メンバー情報アップデート時のコールバック処理===============================
@@ -136,61 +127,6 @@ public class LobbyService_InLobby
         }
 
         preMemberPuids = currentMemberDatas.Select(m=>m.ProductId).ToList();
-
-
-    }
-
-
-    async UniTask HeartbeatLoopAsync()
-    {
-        _hbCts?.Cancel();
-        _hbCts?.Dispose();
-        _hbCts = new();
-
-        // 1回目を即送る（UIの反応も良くなる）
-        while (!_hbCts.Token.IsCancellationRequested)
-        {
-            try
-            {
-                UpdateHBAttributeAsync();
-            }
-            catch (OperationCanceledException)
-            {
-                break;
-            }
-            catch (Exception e)
-            {
-                // 一時失敗してもループ継続（stale判定はUI側で吸収）
-                Debug.LogWarning($"Heartbeat update failed: {e.Message}");
-            }
-
-            // interval
-            await UniTask.Delay(TimeSpan.FromSeconds(1), cancellationToken: _hbCts.Token);
-        }
-
-        Debug.Log($"鼓動終了");
-
-        void UpdateHBAttributeAsync()
-        {
-            if (leaveLobby) return;
-
-            var lobby = _lobbyManager.GetCurrentLobby();
-
-            if (lobby == null || !lobby.IsValid()) return;
-
-            long nowUnix = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-            string value = nowUnix.ToString();
-
-            var attr = new LobbyAttribute
-            {
-                Key = EosCommonData.HB_KEY,
-                ValueType = AttributeType.String,
-                AsString = value,
-                Visibility = LobbyAttributeVisibility.Public
-            };
-
-            _lobbyManager.SetMemberAttribute(attr);
-        }
     }
 
     //レディ===============================
@@ -263,19 +199,41 @@ public class LobbyService_InLobby
     bool leaveLobby = false;
     public async UniTask LeaveLobby()
     {
-        if(_lobbyManager.GetCurrentLobby() == null) return;
+        var lobby = _lobbyManager.GetCurrentLobby();
 
+        if(string.IsNullOrEmpty(lobby.Id)) return;
+        if (leaveLobby) return;
         leaveLobby = true;
+
         var tcs = new UniTaskCompletionSource();
 
-        _lobbyManager.LeaveLobby(result =>
+        if (lobby.Members.Count == 1)
         {
-            tcs.TrySetResult();
-        });
+            DestroyLobbyOptions destOpt = new DestroyLobbyOptions()
+            {
+                LocalUserId = EosCommonData.myPuid,
+                LobbyId = lobby.Id,
+            };
+
+            _lobbyInterface.DestroyLobby(ref destOpt, null, (ref DestroyLobbyCallbackInfo info) =>
+            {
+                Debug.Log($"ロビーを破棄 ID:{lobby.Id}");
+                ExitAction();
+                tcs.TrySetResult();
+            });
+        }
+        else
+        {
+            _lobbyManager.LeaveLobby(result =>
+            {
+                Debug.Log($"ロビー退室 ID:{lobby.Id}");
+                ExitAction();
+                tcs.TrySetResult();
+            });
+        }
 
         await tcs.Task;
     }
-
 
     // データ取得 ===============================
     public LobbyMember GetOpponentMemberData()

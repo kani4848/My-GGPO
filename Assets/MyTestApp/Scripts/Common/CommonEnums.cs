@@ -14,12 +14,15 @@ public enum LobbyState
     InLobbySearchRoom,
     
     JoiningLobby,
+    JoiningSuccess,
     JoiningError,
-    LeavingLobby,
+
+    QuickMatch,
 
     InLobby_NoReady,
     InLobby_Ready,
     InLobby_AllReady,
+    LeavingLobby,
 
     GoMain,
     GoTitle,

@@ -51,19 +51,12 @@ public class UIManager_Main : MonoBehaviour
     [SerializeField] Button rematchButton_local;
     [SerializeField] Button goTitleButton_local;
 
-    [Header("オンラインモード")]
-    [SerializeField] Button quickMatchButton_online;
-    [SerializeField] Button goLobbyButton_online;
-    [SerializeField] Button goTitleButton_online;
-    [SerializeField] GameObject searchingUI;
-    [SerializeField] GameObject networkError;
+    [SerializeField] MainUI_Online onlineUI;
 
     bool walkAnim = true;
 
     private void Awake()
     {
-        networkError.SetActive(false);
-
         endCanvas.SetActive(false);
         mainCanvas.SetActive(true);
 
@@ -567,60 +560,15 @@ public class UIManager_Main : MonoBehaviour
 
 
     //オンラインモード===============================================================================
-    public UniTask<MainGameState> ActivateEndMenuButtons_Online()
+
+    public async UniTask<MainGameState> ActivateEndMenuButtons_Online()
     {
-        searchingUI.SetActive(false);
-
-        quickMatchButton_online.gameObject.SetActive(true);
-        goLobbyButton_online.gameObject.SetActive(true);
-        goTitleButton_online.gameObject.SetActive(true);
-
-        quickMatchButton_online.interactable = true;
-        goLobbyButton_online.interactable = true;
-        goTitleButton_online.interactable = true;
-
-        var endMenuTask = new UniTaskCompletionSource<MainGameState>();
-
-        quickMatchButton_online.onClick.AddListener(() =>
-        {
-            SoundManager.Instance.PlaySE(SE_Handler.SoundType.BUTTON);
-            endMenuTask.TrySetResult(MainGameState.QUICK_MATCH);
-            DeacetivateEndMenuButtons_Online();
-            searchingUI.SetActive(true);
-        });
-
-        goLobbyButton_online.onClick.AddListener(() =>
-        {
-            SoundManager.Instance.PlaySE(SE_Handler.SoundType.BUTTON);
-            endMenuTask.TrySetResult(MainGameState.GO_LOBBY);
-            DeacetivateEndMenuButtons_Online();
-        });
-
-        goTitleButton_online.onClick.AddListener(() =>
-        {
-            SoundManager.Instance.PlaySE(SE_Handler.SoundType.BUTTON);
-            endMenuTask.TrySetResult(MainGameState.GO_TITLE);
-            DeacetivateEndMenuButtons_Online();
-        });
-
-        return endMenuTask.Task;
+        return await onlineUI.ActivateEndMenuButtons();
     }
 
     public void DeacetivateEndMenuButtons_Online()
     {
-        searchingUI.SetActive(false);
-
-        quickMatchButton_online.gameObject.SetActive(false);
-        goLobbyButton_online.gameObject.SetActive(false);
-        goTitleButton_online.gameObject.SetActive(false);
-
-        quickMatchButton_online.interactable = false;
-        goLobbyButton_online.interactable = false;
-        goTitleButton_online.interactable = false;
-
-        quickMatchButton_online.onClick.RemoveAllListeners();
-        goLobbyButton_online.onClick.RemoveAllListeners();
-        goTitleButton_online.onClick.RemoveAllListeners();
+        onlineUI.DeacetivateButtons();
     }
 
     public void ShowGameEndScreen_Online(MatchResult matchResult)
@@ -659,9 +607,16 @@ public class UIManager_Main : MonoBehaviour
 
     public void ShowErrorWindow()
     {
-        DeacetivateEndMenuButtons_Online();
-
-        networkError.SetActive(true);
+        onlineUI.ShowErrorWindow();
     }
 
+    public void StartQuickMatch()
+    {
+        onlineUI.OnStartQuickMatcn();
+    }
+
+    public void DeactivateQuickMatchCancelButton()
+    {
+        onlineUI.DeactivateCancelButton();
+    }
 }

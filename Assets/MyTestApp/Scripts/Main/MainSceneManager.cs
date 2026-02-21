@@ -11,7 +11,9 @@ public class MainSceneManager : MonoBehaviour, IMainSceneManager
 
     MainGameSystem gameSystem;
     MainFlow_p2pTest p2p;
-    CancellationTokenSource cts;
+
+    CancellationTokenSource SceneCts;
+    CancellationTokenSource qmCts;
 
     int sceneFrameCount = 0;//リモートとスタートを合わせるためのフレーム
     int mainGameFrameCount = 0;
@@ -20,9 +22,9 @@ public class MainSceneManager : MonoBehaviour, IMainSceneManager
 
     private void OnDisable()
     {
-        cts?.Cancel();
-        cts?.Dispose();
-        cts = null;
+        SceneCts?.Cancel();
+        SceneCts?.Dispose();
+        SceneCts = null;
     }
 
     GameMode mode;
@@ -105,9 +107,9 @@ public class MainSceneManager : MonoBehaviour, IMainSceneManager
 
     void RoundSetUp()
     {
-        cts?.Cancel();
-        cts?.Dispose();
-        cts = new();
+        SceneCts?.Cancel();
+        SceneCts?.Dispose();
+        SceneCts = new();
 
         shotFrame_p1 = -1;
         shotFrame_p2 = -1;
@@ -142,7 +144,7 @@ public class MainSceneManager : MonoBehaviour, IMainSceneManager
 
             if (win) await uiManager.ShowSoloModeStageLevel(cpuLv + 1);
             await RoundStart();
-            bool flying =  await MainLoop(cts.Token);
+            bool flying =  await MainLoop(SceneCts.Token);
 
             //白飛びステート
             if (state == MainGameState.SHOT_WHITE_OUT)
@@ -214,7 +216,7 @@ public class MainSceneManager : MonoBehaviour, IMainSceneManager
                 gameSystem.CreateRoundData();
 
                 await RoundStart();
-                bool flying = await MainLoop(cts.Token);
+                bool flying = await MainLoop(SceneCts.Token);
 
                 //白飛びステート
                 if (state == MainGameState.SHOT_WHITE_OUT)
@@ -287,11 +289,11 @@ public class MainSceneManager : MonoBehaviour, IMainSceneManager
                 if (eosService.GetLocalPlayerData().isOwner)
                 {
                     roundData = gameSystem.CreateRoundData();
-                    roundDataShared = await eosService.SendRoundDataAndWaitAck(roundData, cts.Token);//リモートと足並みをそろえる
+                    roundDataShared = await eosService.SendRoundDataAndWaitAck(roundData, SceneCts.Token);//リモートと足並みをそろえる
                 }
                 else
                 {
-                    roundData = await eosService.WaitReceivingRoundData(cts.Token);
+                    roundData = await eosService.WaitReceivingRoundData(SceneCts.Token);
                     roundDataShared = roundData != null;
                 }
 
@@ -306,9 +308,9 @@ public class MainSceneManager : MonoBehaviour, IMainSceneManager
                 gameSystem.SetRoundData(roundData);
 
                 await UniTask.WaitUntil(
-                    () => gameSystem.RoundStart(sceneFrameCount), PlayerLoopTiming.FixedUpdate ,cancellationToken: cts.Token);
+                    () => gameSystem.RoundStart(sceneFrameCount), PlayerLoopTiming.FixedUpdate ,cancellationToken: SceneCts.Token);
                 await RoundStart();
-                bool flying = await MainLoop(cts.Token);
+                bool flying = await MainLoop(SceneCts.Token);
 
                 //白飛びステート
                 if (state == MainGameState.SHOT_WHITE_OUT)
@@ -317,7 +319,7 @@ public class MainSceneManager : MonoBehaviour, IMainSceneManager
                 }
 
                 //インプットデータを共有
-                shotFrame_p2 = await eosService.SendInputResultAndWaitRemote(cts.Token);
+                shotFrame_p2 = await eosService.SendInputResultAndWaitRemote(SceneCts.Token);
 
                 if(shotFrame_p2 == -2)
                 {
@@ -342,22 +344,41 @@ public class MainSceneManager : MonoBehaviour, IMainSceneManager
             while (true)
             {
                 uiManager.ShowGameEndScreen_Online(matchResult);
+
                 await eosService.CloseConnection();
+                
                 state = await uiManager.OnGameEnd_Online();
 
                 if (state != MainGameState.QUICK_MATCH) return;//クイックマッチしないならループ終了
-                bool findPlayer = await eosService.StartQuickMatch();
 
-                if (findPlayer)
+                //クイックマッチ
+                uiManager.StartQuickMatch();
+
+                qmCts?.Cancel();
+                qmCts?.Dispose();
+                qmCts = CancellationTokenSource.CreateLinkedTokenSource(SceneCts.Token);
+
+                var r = await eosService.QuickMatch_FindOpponent(qmCts.Token);
+
+                if (!r)
                 {
-                    //見つかったらbreak;
-                    break;
-                }
-                else
-                {
-                    //タイムアウトならループ
+                    uiManager.ShowErrorWindow();
+                    await UniTask.Delay(TimeSpan.FromSeconds(2), cancellationToken: qmCts.Token);
                     continue;
                 }
+
+                uiManager.DeactivateQuickMatchCancelButton();
+
+                r = await eosService.QuickMatch_HandShake(qmCts.Token);
+
+                if (!r)
+                {
+                    uiManager.ShowErrorWindow();
+                    await UniTask.Delay(TimeSpan.FromSeconds(2), cancellationToken: qmCts.Token);
+                    continue;
+                }
+
+                //マッチング成功
             }
         }
     }
@@ -382,9 +403,9 @@ public class MainSceneManager : MonoBehaviour, IMainSceneManager
         triggerAction_1p = null;
         triggerAction_2p = null;
 
-        cts?.Cancel();
-        cts?.Dispose();
-        cts = null;
+        SceneCts?.Cancel();
+        SceneCts?.Dispose();
+        SceneCts = null;
     }
 
     //モード共通==================================================

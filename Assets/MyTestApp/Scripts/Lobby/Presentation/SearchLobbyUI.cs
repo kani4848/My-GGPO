@@ -24,7 +24,9 @@ public class SearchLobbyUI : MonoBehaviour
     {
         gameObject.SetActive(true);
         ActivatedButtons();
-        StartSearching();
+        ClearLobbyButtons(); 
+        SwitchNoLobbiesText(false);
+        SwitchSearcingUI(true);
     }
 
     public void Deactivated()
@@ -38,32 +40,51 @@ public class SearchLobbyUI : MonoBehaviour
     {
         if (UiInputGuard.IsTypingInTextField()) return;
 
-        if (Input.GetKeyDown(KeyCode.Z))
+        if (Input.GetKeyDown(KeyCode.Z) && quickBtn.interactable)
         {
             quickBtn.onClick.Invoke();
         }
 
-        if (Input.GetKeyDown(KeyCode.X))
+        if (Input.GetKeyDown(KeyCode.X) && createBtn.interactable)
         {
             createBtn.onClick.Invoke();
         }
 
-        if (Input.GetKeyDown(KeyCode.C))
+        if (Input.GetKeyDown(KeyCode.C) && searchBtn.interactable)
         {
             searchBtn.onClick.Invoke();
         }
 
-        if (Input.GetKeyDown(KeyCode.V))
+        if (Input.GetKeyDown(KeyCode.V) && titleBtn.interactable)
         {
             titleBtn.onClick.Invoke();
         }
     }
 
-    public void RefreshList(List<SearchedLobbyData> searchLobbyDatas)
+    public void StartManualSearching()
+    {
+        SwitchNoLobbiesText(false);
+        SwitchSearcingUI(true);
+        ClearLobbyButtons();
+        DeactivatedButtons();
+    }
+    public void ShowManualSearchResult(List<SearchedLobbyData> searchLobbyDatas)
+    {
+        RefreshList(searchLobbyDatas);
+        ActivatedButtons();
+    }
+
+    public void ShowAutoSearchResult(List<SearchedLobbyData> searchLobbyDatas)
+    {
+        ClearLobbyButtons();
+        RefreshList(searchLobbyDatas);
+    }
+
+    //処理パーツ=================================================
+    void RefreshList(List<SearchedLobbyData> searchLobbyDatas)
     {
         SwitchSearcingUI(false);
-        ActivatedButtons();
-
+        
         if (searchLobbyDatas == null || searchLobbyDatas.Count == 0)
         {
             noLobbies.SetActive(true);
@@ -78,14 +99,14 @@ public class SearchLobbyUI : MonoBehaviour
         }
     }
 
-    private void CreateLobbyButton(SearchedLobbyData lobbyData)
+    void CreateLobbyButton(SearchedLobbyData lobbyData)
     {
         var btn = Instantiate(lobbyJoinButtonPrefab, contentRoot);
         
         btn.SetLobbyDatas(lobbyData);
     }
 
-    public void ClearLobbyButtons()
+    void ClearLobbyButtons()
     {
         noLobbies.SetActive(false);
 
@@ -97,25 +118,20 @@ public class SearchLobbyUI : MonoBehaviour
         }
     }
 
-    public void StartSearching()
-    {
-        SwitchNoLobbiesText(false);
-        SwitchSearcingUI(true);
-        ClearLobbyButtons();
-    }
-
-    public void SwitchNoLobbiesText(bool active)
+    void SwitchNoLobbiesText(bool active)
     {
         noLobbies.SetActive(active);
     }
 
-    public void SwitchSearcingUI(bool active)
+    void SwitchSearcingUI(bool active)
     {
         searchingUI.SetActive(active);
     }
 
     void ActivatedButtons()
     {
+        Debug.Log("ボタン復活");
+
         quickBtn.interactable = true;
         createBtn.interactable = true;
         searchBtn.interactable = true;
@@ -150,7 +166,7 @@ public class SearchLobbyUI : MonoBehaviour
         });
     }
 
-    public void DeactivatedButtons()
+    void DeactivatedButtons()
     {
         quickBtn.interactable = false;
         createBtn.interactable = false;

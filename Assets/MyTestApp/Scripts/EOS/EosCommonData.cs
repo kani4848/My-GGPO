@@ -14,8 +14,9 @@ public static class EosCommonData
     public static string MEMBER_KEY_CHARA = "CHARA";
 
     //ロビーキー、IDは必ず小文字
-    public static string LobbyCommonKey = "bucket";
-    public static string LobbyCommonId = "test";
+    public static string LobbyCommonKey = "common";
+    public static string LobbyCommonId = "commonId";
+    public static string LobbyQuickKey = "quickquickquick";
 
     public static string LOBBY_KEY_PATH = "pass";
     public static string LOBBY_KEY_OWNER_NAME = "owner";

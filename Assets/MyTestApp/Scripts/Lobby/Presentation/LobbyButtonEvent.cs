@@ -4,9 +4,7 @@ using UnityEngine;
 
 public static class LobbyButtonEvent
 {
-    public static event Action QuickMatchEvent;
-    public static void RaiseQuickMatch() => QuickMatchEvent?.Invoke();
-
+    
     public static event Action<string> CreateLobbyEvent;
     public static void RaiseCreateLobby(string path) => CreateLobbyEvent?.Invoke(path);
 
@@ -15,4 +13,21 @@ public static class LobbyButtonEvent
 
     public static event Action GoTitleEvent;
     public static void RaiseGoTitle() => GoTitleEvent?.Invoke();
+
+    public static event Action ReadyEvent;
+    public static void RaiseReady() => ReadyEvent?.Invoke();
+
+    public static event Action ReadyCancelEvent;
+    public static void RaiseCancelReady() => ReadyCancelEvent?.Invoke();
+
+    public static event Action LeaveLobbyEvent;
+    public static void RaiseLeaveLobby() => LeaveLobbyEvent?.Invoke();
+
+
+    public static event Action QuickMatchEvent;
+    public static void RaiseQuickMatch() => QuickMatchEvent?.Invoke();
+
+    public static event Action CancelQuickMatchEvent;
+    public static void RaiseCancelQuickMatch() => CancelQuickMatchEvent?.Invoke();
+
 }

@@ -5,17 +5,17 @@ using UnityEngine;
 using Epic.OnlineServices;
 using Epic.OnlineServices.Lobby;
 using PlayEveryWare.EpicOnlineServices.Samples;
-using PlayEveryWare.EpicOnlineServices;
 
 using Cysharp.Threading.Tasks;
 using System.Threading;
-using NUnit.Framework;
+using UnityEditor.PackageManager.Requests;
 
 public sealed class LobbyService_search
 {
     uint maxMembers = 2;
     EOSLobbyManager _lobbyManager;    
     Dictionary<Lobby, LobbyDetails> searchedLobbies = new();
+    LobbySearchGuard searchGuard  = new();
 
     public LobbyService_search(EOSLobbyManager lm)
     {
@@ -117,9 +117,11 @@ public sealed class LobbyService_search
         }
     }
 
+    
     public UniTask<LobbyData> Join(string lobbyId, PlayerData playerData_local)
     {
         LobbyDetails details;
+        var tcs = new UniTaskCompletionSource<LobbyData>();
 
         try
         {
@@ -129,14 +131,17 @@ public sealed class LobbyService_search
         catch(NullReferenceException)
         {
             Debug.Log("ロビー参加失敗");
-            return UniTask.FromResult<LobbyData>(null);
+            tcs.TrySetResult(null);
+            return tcs.Task;
         }
-
-        var tcs = new UniTaskCompletionSource<LobbyData>(); 
 
         _lobbyManager.JoinLobby(lobbyId, details, presenceEnabled: false, result =>
         {
-            if(result != Result.Success)return;
+            if (result != Result.Success)
+            {
+                tcs.TrySetResult(null);
+                return;
+            }
 
             var current = _lobbyManager.GetCurrentLobby();
             Debug.Log($"lobbyservice 人数は{current.Members.Count}人");
@@ -148,7 +153,7 @@ public sealed class LobbyService_search
 
         return tcs.Task;
     }
-    public UniTask<List<SearchedLobbyData>> SearchLobbyAuto(string lobbyPath = "")
+    public UniTask<List<SearchedLobbyData>> SearchLobby(string lobbyPath = "")
     {
         string key;
         string path;
@@ -165,6 +170,11 @@ public sealed class LobbyService_search
         }
 
         var tcs = new UniTaskCompletionSource<List<SearchedLobbyData>>();
+
+
+        // 追加：この検索を「最新」として登録
+        int requestId = searchGuard.BeginRequest();
+
         Dictionary<Lobby, LobbyDetails> findLobbies = new();
         _lobbyManager.SearchByAttribute(key, path, OnSearchCompleted);
 
@@ -172,82 +182,72 @@ public sealed class LobbyService_search
 
         void OnSearchCompleted(Result result)
         {
-            if (result != Result.Success)
+            try
             {
-                tcs.TrySetResult(null);
-                return;
+                // 追加：古い検索結果なら捨てる（UIや状態を汚さない）
+                if (!searchGuard.IsLatest(requestId)) return;
+
+                if (result != Result.Success)
+                {
+                    tcs.TrySetResult(null);
+                    return;
+                }
+
+                searchedLobbies = _lobbyManager.GetSearchResults();
+
+                if (searchedLobbies.Count == 0)
+                {
+                    tcs.TrySetResult(null);
+                    return;
+                }
+
+                var raw = _lobbyManager.GetSearchResults();
+                if (raw == null || raw.Count == 0)
+                {
+                    tcs.TrySetResult(null);
+                    return;
+                }
+
+                // 重要：LobbyId で重複排除してから一覧化する
+                var uniqueByLobbyId = new Dictionary<string, LobbyDetails>();
+
+                foreach (var kv in raw)
+                {
+                    var details = kv.Value;
+                    if (details == null) continue;
+
+                    // LobbyDetails -> LobbyId 取得
+                    var opt = new LobbyDetailsCopyInfoOptions();
+                    var r = details.CopyInfo(ref opt, out LobbyDetailsInfo? info);
+                    if (r != Result.Success || !info.HasValue) continue;
+
+                    string lobbyId = info.Value.LobbyId;
+                    if (string.IsNullOrEmpty(lobbyId)) continue;
+
+                    // 同じ LobbyId がすでにあれば上書きしない（先勝ちでOK）
+                    if (!uniqueByLobbyId.ContainsKey(lobbyId))
+                        uniqueByLobbyId.Add(lobbyId, details);
+                }
+
+                // ついでに class field も「重複なし」に更新したいならここで作り直す
+                // searchedLobbies は Lobbyキーなので、ここではUI用だけ作るのが安全
+                // searchedLobbies = raw;
+
+                var lobbyDatas = new List<SearchedLobbyData>(capacity: 8);
+
+                foreach (var details in uniqueByLobbyId.Values)
+                {
+                    lobbyDatas.Add(CreateSearchedLobbyData(details));
+                    if (lobbyDatas.Count == 8) break;
+                }
+
+                tcs.TrySetResult(lobbyDatas);
             }
-
-            searchedLobbies = _lobbyManager.GetSearchResults();
-
-            if (searchedLobbies.Count == 0)
+            finally
             {
-                tcs.TrySetResult(null);
-                return;
+                // 追加：in-flight 終了
+                searchGuard.EndRequest();
             }
-
-            // 表示用に並べ替え（例：空きスロット多い順）
-            var lobbies = searchedLobbies.Keys
-                .Where(l => l != null && l.IsValid())
-                .OrderByDescending(l => l.AvailableSlots)
-                .ToList();
-
-            List<SearchedLobbyData> lobbyDatas = new();
-
-            foreach (var searchedLobby in searchedLobbies)
-            {
-                var lobbyData = CreateSearchedLobbyData(searchedLobby.Value);
-                lobbyDatas.Add(lobbyData);
-                if (lobbyDatas.Count == 8) break;
-            }
-
-            tcs.TrySetResult(lobbyDatas);
-        }
-    }
-
-    public UniTask<List<SearchedLobbyData>> SearchLobbyAuto()
-    {
-        string key = EosCommonData.LobbyCommonKey;
-        string path = EosCommonData.LobbyCommonId;
-
-        var tcs = new UniTaskCompletionSource<List<SearchedLobbyData>>();
-        Dictionary<Lobby, LobbyDetails> findLobbies = new();
-        _lobbyManager.SearchByAttribute(key, path, OnSearchCompleted);
-        
-        return tcs.Task;
-
-        void OnSearchCompleted(Result result)
-        {
-            if (result != Result.Success)
-            {
-                tcs.TrySetResult(null);
-                return;
-            }
-
-            searchedLobbies = _lobbyManager.GetSearchResults();
-
-            if (searchedLobbies.Count == 0)
-            {
-                tcs.TrySetResult(null);
-                return;
-            }
-
-            // 表示用に並べ替え（例：空きスロット多い順）
-            var lobbies = searchedLobbies.Keys
-                .Where(l => l != null && l.IsValid())
-                .OrderByDescending(l => l.AvailableSlots)
-                .ToList();
-
-            List<SearchedLobbyData> lobbyDatas = new();
-
-            foreach(var searchedLobby in searchedLobbies)
-            {
-                var lobbyData = CreateSearchedLobbyData(searchedLobby.Value);
-                lobbyDatas.Add(lobbyData);
-                if (lobbyDatas.Count == 8) break;
-            }
-
-            tcs.TrySetResult(lobbyDatas);
         }
     }
 
@@ -263,10 +263,7 @@ public sealed class LobbyService_search
         {
             foreach (var member in lobby.Members)
             {
-                if (member.ProductId == EosCommonData.myPuid) continue; 
-
                 var pd = CreatePlayerDataFromLobbyMemberData(member);
-
                 playerDatas.Add(pd);
             }
         }
@@ -277,7 +274,7 @@ public sealed class LobbyService_search
     public PlayerData CreatePlayerDataFromLobbyMemberData(LobbyMember member)
     {
         string puid = member.ProductId == null ? "" : member.ProductId.ToString();
-        string name = member.DisplayName == null ? "no name" : member.DisplayName;
+        string name = member.DisplayName == null ? "" : member.DisplayName;
 
         int charaId = -1;
         if (member.MemberAttributes.TryGetValue(EosCommonData.MEMBER_KEY_CHARA, out var cid))
@@ -365,6 +362,211 @@ public sealed class LobbyService_search
 
         SearchedLobbyData data = new SearchedLobbyData(lobbyId, ownerName, charaId, hatCol);
         return data;
+    }
+
+    //クイックマッチ================================================
+    
+    const float retryInterval_quick = 0.5f;
+    public async UniTask<bool> QuickMatch_FindOpponent(CancellationToken token)
+    {
+        int loopCount_quick = 0;
+        int loopLimit_quick = 10;
+
+        while (!token.IsCancellationRequested)
+        {
+            var foundLobbies = await SearchLobby_Quick(token);
+
+            if (foundLobbies.Count == 0) continue;
+
+            foreach(var lobby in foundLobbies)
+            {
+                bool r = await JoinLobby_Quick(lobby, token);
+                if (r) return true;
+            }
+
+            //失敗
+            loopCount_quick++;
+
+            if (loopCount_quick > loopLimit_quick)
+            {
+                break;
+            }
+
+            await UniTask.Delay(TimeSpan.FromSeconds(retryInterval_quick), cancellationToken:token);
+        }
+
+        //検索でロビー未発見なら作成
+        try
+        {
+            bool r = await CreateLobby_Quick(token);
+            
+            //getcurrentlobby一回だと固定値なので、毎フレーム取り直さないといけない
+            await UniTask.WaitUntil(() =>
+            {
+                var lobby = _lobbyManager.GetCurrentLobby();
+                return lobby != null && lobby.IsValid() && lobby.Members.Count == 2;
+            }, cancellationToken: token);
+
+            return true;
+        }
+        catch (Exception ex)
+        {
+            return false;
+        }
+    }
+
+    async UniTask<HashSet<SearchedLobbyData_Quick>> SearchLobby_Quick(CancellationToken token)
+    {
+        var tcs = new UniTaskCompletionSource<HashSet<SearchedLobbyData_Quick>>();
+
+        try
+        {
+            Dictionary<Lobby, LobbyDetails> findLobbies = new();
+
+            _lobbyManager.SearchByAttribute(EosCommonData.LobbyQuickKey, EosCommonData.LOBBY_KEY_PATH, OnSearchCompleted);
+
+            void OnSearchCompleted(Result result)
+            {
+                try
+                {
+                    if (result != Result.Success)
+                    {
+                        tcs.TrySetResult(new HashSet<SearchedLobbyData_Quick>(0));
+                        return;
+                    }
+
+                    var searchedresults = _lobbyManager.GetSearchResults();
+
+                    if (searchedresults.Count == 0)
+                    {
+                        tcs.TrySetResult(new HashSet<SearchedLobbyData_Quick>(0));
+                        return;
+                    }
+
+                    var raw = _lobbyManager.GetSearchResults();
+                    if (raw == null || raw.Count == 0)
+                    {
+                        tcs.TrySetResult(new HashSet<SearchedLobbyData_Quick>(0));
+                        return;
+                    }
+
+                    var searchedLobbies = new HashSet<SearchedLobbyData_Quick>(capacity: 50);
+
+                    foreach (var kv in raw)
+                    {
+                        var details = kv.Value;
+                        if (details == null) continue;
+
+                        // LobbyDetails -> LobbyId 取得
+                        var opt = new LobbyDetailsCopyInfoOptions();
+                        var r = details.CopyInfo(ref opt, out LobbyDetailsInfo? info);
+                        if (r != Result.Success || !info.HasValue) continue;
+
+                        string lobbyId = info.Value.LobbyId;
+                        if (string.IsNullOrEmpty(lobbyId)) continue;
+
+                        var lobbydata = new SearchedLobbyData_Quick (lobbyId, details);
+
+                        searchedLobbies.Add(lobbydata);
+                    }
+
+                    // ついでに class field も「重複なし」に更新したいならここで作り直す
+                    // searchedLobbies は Lobbyキーなので、ここではUI用だけ作るのが安全
+                    // searchedLobbies = raw;
+
+                    if (searchedLobbies.Count == 0)
+                    {
+                        tcs.TrySetResult(new HashSet<SearchedLobbyData_Quick>(0));
+                        return;
+                    }
+
+                    tcs.TrySetResult(searchedLobbies);
+                }
+                finally
+                {
+                }
+            }
+
+            return await tcs.Task;
+
+        }
+        finally
+        {
+
+        }
+    }
+
+    async UniTask<bool> CreateLobby_Quick(CancellationToken token)
+    {
+        int loopCount_quick = 0;
+        int loopLimit_quick = 10;
+
+        var lobbySettings = new Lobby
+        {
+            MaxNumLobbyMembers = maxMembers,
+            BucketId = EosCommonData.LobbyCommonId,
+            LobbyPermissionLevel = LobbyPermissionLevel.Publicadvertised, // テスト向け
+            PresenceEnabled = false,
+            AllowInvites = false,
+        };
+
+        try
+        {
+            while (!token.IsCancellationRequested)
+            {
+                var lobbyCreate = new UniTaskCompletionSource<bool>();
+
+                _lobbyManager.CreateLobby(lobbySettings, r =>
+                {
+                    if (r != Result.Success)
+                    {
+                        lobbyCreate.TrySetResult(false);
+                        return;
+                    }
+
+                    Lobby myLobby = _lobbyManager.GetCurrentLobby();
+                    lobbyCreate.TrySetResult(true);
+                });
+
+                bool r = await lobbyCreate.Task;
+
+                if (!r && loopCount_quick > loopLimit_quick) return false;
+
+                if (!r)
+                {
+                    Debug.Log("クイックロビー作成失敗");
+                    loopCount_quick++;
+                    await UniTask.Delay(TimeSpan.FromSeconds(retryInterval_quick), cancellationToken: token);
+                    continue;
+                }
+
+                return true;
+            }
+
+        }
+        finally
+        {
+
+        }
+        return false;
+    }
+
+    async UniTask<bool> JoinLobby_Quick(SearchedLobbyData_Quick lobbyData, CancellationToken token)
+    {
+        var tcs = new UniTaskCompletionSource<bool>();
+
+        _lobbyManager.JoinLobby(lobbyData.lobbyId, lobbyData.details, presenceEnabled: false, result =>
+        {
+            if (result != Result.Success)
+            {
+                tcs.TrySetResult(false);
+                return;
+            }
+
+            tcs.TrySetResult(true);
+        });
+
+        return await tcs.Task;
     }
 }
 

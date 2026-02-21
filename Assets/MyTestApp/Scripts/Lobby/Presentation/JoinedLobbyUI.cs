@@ -29,6 +29,11 @@ public class JoinedLobbyUI : MonoBehaviour
     //キーには名前ではなくPUIDを入力
     Dictionary<string, LobbyMemberNamePlate> namePlateDic = new();
 
+    private void Awake()
+    {
+        gameObject.SetActive(false);
+    }
+
     public void Activated(LobbyData lobbyData)
     {
         gameObject.SetActive(true);
@@ -43,45 +48,40 @@ public class JoinedLobbyUI : MonoBehaviour
 
         foreach(var playerData in lobbyData.playerDatas)
         {
-            AddMemberNamePlate(playerData);
+            Debug.Log($"インロビー起動によるネームプレート生成");
+            Debug.Log($"インロビー起動：{playerData.puid},{playerData.name},{playerData.imageData.charaId},{playerData.imageData.umaCol}");
+
+            UpdateOrCreateNamePlate(playerData);
         }
+
+        ActivatedButtons();
     }
 
     public void Deactivated()
     {
         gameObject.SetActive(false);
+        DeactivateButtons();
         ClearNamePlates();
         ClearLog();
+    }
+
+    private void OnDisable()
+    {
+        DeactivateButtons();
     }
 
     private void Update()
     {
         if (Input.GetKeyDown(KeyCode.Z))
         {
-            readyButton.onClick.Invoke();
+            if (readyButton.interactable) readyButton.onClick.Invoke();
+            if (readyCancelButton.interactable) readyCancelButton.onClick.Invoke();
         }
 
         if (Input.GetKeyDown(KeyCode.X))
         {
-            leaveButton.onClick.Invoke();
+            if(leaveButton.interactable)leaveButton.onClick.Invoke();
         }
-    }
-
-
-    void AddMemberNamePlate(PlayerData memberData)
-    {
-        if (namePlateDic.ContainsKey(memberData.puid)) return;
-
-        LobbyMemberNamePlate memberNamePlate = Instantiate(memberNamePlatePrefab, memberRoot);
-
-        memberNamePlate.UpdateImage(memberData);
-
-        namePlateDic.Add(memberData.puid, memberNamePlate);
-
-        // 1) Layoutの計算を即時反映
-        LayoutRebuilder.ForceRebuildLayoutImmediate(memberRoot.GetComponent<RectTransform>());
-        // 2) 念のためキャンバス全体の更新も確定
-        Canvas.ForceUpdateCanvases();
     }
 
     void ClearNamePlates()
@@ -101,34 +101,72 @@ public class JoinedLobbyUI : MonoBehaviour
         readyButton.gameObject.SetActive(true);
     }
 
+    bool _busy = false;
 
     void ActivatedButtons()
     {
         readyButton.interactable = true;
-        //readyCancelButton.interactable = true;
         leaveButton.interactable = true;
 
-        readyCancelButton.onClick.AddListener(() =>
+        readyCancelButton.gameObject.SetActive(false);
+        readyCancelButton.interactable = false;
+
+        readyButton.onClick.AddListener(async () =>
         {
             SoundManager.Instance.PlaySE(SE_Handler.SoundType.BUTTON);
-            //レディ
-            DeactivateButtons();
+            LobbyButtonEvent.RaiseReady();
+
+            readyButton.gameObject.SetActive(false);
+            readyButton.interactable = false;
+
+            readyCancelButton.gameObject.SetActive(true);
+            readyCancelButton.interactable = false;
+
+            leaveButton.interactable = false;
+
+            await UniTask.Delay(TimeSpan.FromSeconds(1));
+
+            readyCancelButton.interactable = true;
+        });
+
+        readyCancelButton.onClick.AddListener(async () =>
+        {
+            SoundManager.Instance.PlaySE(SE_Handler.SoundType.BUTTON);
+            LobbyButtonEvent.RaiseCancelReady();
+
+            readyCancelButton.gameObject.SetActive(false);
+            readyCancelButton.interactable = false;
+
+            readyButton.gameObject.SetActive(true);
+            readyButton.interactable = false;
+
+            leaveButton.interactable = true;
+
+            await UniTask.Delay(TimeSpan.FromSeconds(1));
+
+            readyButton.interactable = true;
         });
 
         leaveButton.onClick.AddListener(() =>
         {
             SoundManager.Instance.PlaySE(SE_Handler.SoundType.BUTTON);
-            //退出
+            LobbyButtonEvent.RaiseLeaveLobby();
             DeactivateButtons();
         });
     }
 
     public void DeactivateButtons()
     {
-        readyButton.gameObject.SetActive(false);
-        leaveButton.gameObject.SetActive(false);
+        //readyButton.gameObject.SetActive(false);
+        //readyCancelButton.gameObject.SetActive(false);
+        //leaveButton.gameObject.SetActive(false);
+
+        readyButton.interactable = false;
+        readyCancelButton.interactable = false;
+        leaveButton.interactable = false;
 
         readyButton.onClick.RemoveAllListeners();
+        readyCancelButton.onClick.RemoveAllListeners();
         leaveButton.onClick.RemoveAllListeners();
     }
 
@@ -139,30 +177,29 @@ public class JoinedLobbyUI : MonoBehaviour
         readyCancelButton.gameObject.SetActive(true);
     }
 
-    //コールバック=========================================================
-
+    //イベントコールバック=========================================================
     public void OnJoined(PlayerData memberData)
     {
-        Debug.Log("参加");
-        AddMemberNamePlate(memberData);
+        UpdateOrCreateNamePlate(memberData);
         CreateLog(memberData, LobbyLogType.JOIN);
     }
 
-    public void OnMemberDataUpdate(PlayerData memberData)
+    public void UpdateOrCreateNamePlate(PlayerData memberData)
     {
-        if (namePlateDic.Count == 0) return;
+        LobbyMemberNamePlate namePlate;
 
-        if (!namePlateDic.TryGetValue(memberData.puid, out var targetNamePlate))
+        if (!namePlateDic.TryGetValue(memberData.puid, out namePlate))
         {
-            Debug.Log("kokoda");
-            return;
+            namePlate = Instantiate(memberNamePlatePrefab, memberRoot);
+            namePlateDic.Add(memberData.puid, namePlate);
         }
 
-        targetNamePlate.UpdateImage(memberData);
+        namePlate.UpdateImage(memberData);
 
+        //ログのアップデート
         var userLogs = logs.Where(m => m.id == memberData.puid);
 
-        foreach(var log in userLogs)
+        foreach (var log in userLogs)
         {
             log.UpdateNameText(memberData.name);
         }
@@ -228,11 +265,13 @@ public class JoinedLobbyUI : MonoBehaviour
 
     List<LobbyActionLog> logs = new();
 
-    void CreateLog(PlayerData data, LobbyLogType logType)
+    void CreateLog(PlayerData playerData, LobbyLogType logType)
     {
+        Debug.Log($"インロビー起動：{playerData.puid},{playerData.name},{playerData.imageData.charaId},{playerData.imageData.umaCol}");
+
         var _log = Instantiate(logPrefab, logRoot);
         var log = _log.GetComponent<LobbyActionLog>();
-        log.UpdateData(data.puid, data.name, logType);
+        log.UpdateData(playerData.puid, playerData.name, logType);
         logs.Add(log);
     }
 

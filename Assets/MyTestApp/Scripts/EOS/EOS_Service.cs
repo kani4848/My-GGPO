@@ -9,6 +9,7 @@ using System;
 using Epic.OnlineServices.Lobby;
 using System.ComponentModel;
 using Epic.OnlineServices.Logging;
+using System.Data;
 
 public class EOS_Service : MonoBehaviour, IEosService
 {
@@ -44,7 +45,6 @@ public class EOS_Service : MonoBehaviour, IEosService
 
     private void OnDisable()
     {
-        inLobbyService?.LeaveLobby().Forget();
         inLobbyService?.ExitAction();
         playerPeer?.Dispose();
     }
@@ -83,8 +83,7 @@ public class EOS_Service : MonoBehaviour, IEosService
     //ロビー検索シーン===============================================
     public async UniTask<List<SearchedLobbyData>> SearchLobby(string path = "")
     {
-        var data = await searchService.SearchLobbyAuto(path);
-        inLobbyService.EnterLobbyAction();
+        var data = await searchService.SearchLobby(path);
         return data;
     }
 
@@ -101,6 +100,8 @@ public class EOS_Service : MonoBehaviour, IEosService
 
     public  async UniTask<LobbyData> CreateLobby(string path, CancellationToken token)
     {
+        path ??= "";
+
         playerData_Local.isOwner = true;
         var data = await searchService.CreateAndJoinAsync(path, playerData_Local);
 
@@ -109,6 +110,8 @@ public class EOS_Service : MonoBehaviour, IEosService
             Debug.Log("ロビー作成失敗");
             return null;
         }
+
+        inLobbyService.EnterLobbyAction();
         return data;
     }
 
@@ -142,6 +145,35 @@ public class EOS_Service : MonoBehaviour, IEosService
         return new PlayerData(puid, memberName, imageData, ready, isOwner);
     }
 
+    //クイックマッチ============================================================
+    public async UniTask<bool> QuickMatch_FindOpponent(CancellationToken token)
+    {
+        return await searchService.QuickMatch_FindOpponent(token);
+    }
+
+    public async UniTask<bool> QuickMatch_HandShake(CancellationToken token)
+    {
+        try
+        {
+            var opponent = inLobbyService.GetOpponentMemberData();
+
+            if (opponent == null) return false;
+
+            bool r = await playerPeer.AcceptRequestP2P(opponent.ProductId, token);
+
+            if (!r) return false;
+
+            r = await playerPeer.handShakeFlow(token);
+
+            return r;
+        }
+        catch (Exception ex)
+        {
+            return false;
+        }
+    }
+
+
     //インロビーシーン===============================================
 
     public async UniTask LeaveLobby()
@@ -150,7 +182,6 @@ public class EOS_Service : MonoBehaviour, IEosService
 
         playerPeer.CloseConnection();
         await inLobbyService.LeaveLobby();
-        inLobbyService.ExitAction();
     }
 
     public async UniTask AutoP2pConnect(CancellationToken token)
@@ -182,15 +213,25 @@ public class EOS_Service : MonoBehaviour, IEosService
     }
 
     //ロビーのメンバー全員がレディ状態になったらシーンマネジャから呼ぶ
-    public async UniTask<bool> Ready(CancellationToken token)
+    public async UniTask Ready(CancellationToken token)
     {
         try
         {
             inLobbyService.OnReady();
             await inLobbyService.WaitAllReady(token);
+        }
+        finally
+        {
 
-            bool r;
+        }
+    }
 
+    public async UniTask<bool> AllReady(CancellationToken token)
+    {
+        bool r;
+
+        try
+        {
             //インプット通信のテスト
             r = await playerPeer.handShakeFlow(token);
 
@@ -258,12 +299,6 @@ public class EOS_Service : MonoBehaviour, IEosService
     {
         return await playerPeer.SendFinalInputAndWaitRemote(token);
     }
-
-    public async UniTask<bool> StartQuickMatch()
-    {
-        return true;
-    }
-
 
     public void SendInput(int frame, bool pressed)
     {

@@ -1,0 +1,130 @@
+using Cysharp.Threading.Tasks;
+using Unity.Collections;
+using UnityEngine;
+using UnityEngine.UI;
+
+public class MainUI_Online : MonoBehaviour
+{
+    [SerializeField] Button qmButton;
+    [SerializeField] Button goLobbyButton;
+    [SerializeField] Button goTitleButton;
+    [SerializeField] Button cancelButton;
+
+    [SerializeField] GameObject searchingUI;
+    [SerializeField] GameObject networkError;
+
+    private void Awake()
+    {
+        searchingUI.SetActive(false);
+        networkError.SetActive(false);
+        DeacetivateButtons();
+    }
+
+    private void Update()
+    {
+        if (Input.GetKeyDown(KeyCode.Z) && qmButton.interactable)
+        {
+            qmButton.onClick.Invoke();
+        }
+
+        if (Input.GetKeyDown(KeyCode.X) && cancelButton.interactable)
+        {
+            cancelButton.onClick.Invoke();
+        }
+
+        if (Input.GetKeyDown(KeyCode.X) && goLobbyButton.interactable)
+        {
+            goLobbyButton.onClick.Invoke();
+        }
+
+        if (Input.GetKeyDown(KeyCode.C) && goTitleButton.interactable)
+        {
+            goTitleButton.onClick.Invoke();
+        }
+    }
+
+    //オンラインモード===============================================================================
+    public UniTask<MainGameState> ActivateEndMenuButtons()
+    {
+        searchingUI.SetActive(false);
+
+        qmButton.gameObject.SetActive(true);
+        goLobbyButton.gameObject.SetActive(true);
+        goTitleButton.gameObject.SetActive(true);
+
+        qmButton.interactable = true;
+        goLobbyButton.interactable = true;
+        goTitleButton.interactable = true;
+
+        var endMenuTask = new UniTaskCompletionSource<MainGameState>();
+
+        qmButton.onClick.AddListener(() =>
+        {
+            SoundManager.Instance.PlaySE(SE_Handler.SoundType.BUTTON);
+            endMenuTask.TrySetResult(MainGameState.QUICK_MATCH);
+            DeacetivateButtons();
+            searchingUI.SetActive(true);
+        });
+
+        goLobbyButton.onClick.AddListener(() =>
+        {
+            SoundManager.Instance.PlaySE(SE_Handler.SoundType.BUTTON);
+            endMenuTask.TrySetResult(MainGameState.GO_LOBBY);
+            DeacetivateButtons();
+        });
+
+        goTitleButton.onClick.AddListener(() =>
+        {
+            SoundManager.Instance.PlaySE(SE_Handler.SoundType.BUTTON);
+            endMenuTask.TrySetResult(MainGameState.GO_TITLE);
+            DeacetivateButtons();
+        });
+
+        return endMenuTask.Task;
+    }
+
+    public void OnStartQuickMatcn()
+    {
+        searchingUI.SetActive(true);
+        DeacetivateButtons();
+
+        cancelButton.gameObject.SetActive(true);
+        cancelButton.interactable = true;
+        cancelButton.onClick.AddListener(() =>
+        {
+            SoundManager.Instance.PlaySE(SE_Handler.SoundType.BUTTON);
+
+        });
+    }
+
+    public void DeactivateCancelButton()
+    {
+        cancelButton.interactable = false;
+        cancelButton.onClick.RemoveAllListeners();
+    }
+
+    public void DeacetivateButtons()
+    {
+        qmButton.gameObject.SetActive(false);
+        goLobbyButton.gameObject.SetActive(false);
+        goTitleButton.gameObject.SetActive(false);
+        cancelButton.gameObject.SetActive(false);
+
+        qmButton.interactable = false;
+        goLobbyButton.interactable = false;
+        goTitleButton.interactable = false;
+        cancelButton.interactable = false;
+
+        qmButton.onClick.RemoveAllListeners();
+        goLobbyButton.onClick.RemoveAllListeners();
+        goTitleButton.onClick.RemoveAllListeners();
+        cancelButton.onClick.RemoveAllListeners();
+    }
+
+    public void ShowErrorWindow()
+    {
+        searchingUI.SetActive(false);
+        DeacetivateButtons();
+        networkError.SetActive(true);
+    }
+}

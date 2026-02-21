@@ -29,7 +29,7 @@ public class LobbyMemberNamePlate : MonoBehaviour
     {
         userName.text = memberData.name;
         
-        if(memberData.imageData.hatCol == Color.black)
+        if(memberData.imageData.hatCol == default)
         {
             hat.gameObject.SetActive(false);
         }

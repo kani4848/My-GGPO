@@ -11,7 +11,8 @@ public sealed class LobbyUIManager : MonoBehaviour
     [Header("UI")]
     [SerializeField] SearchLobbyUI searchUI;
     [SerializeField] JoinedLobbyUI inLobbyUI;
-    
+    [SerializeField] LobbyQuickMatchUi qmUI;
+
     [SerializeField] TextMeshProUGUI systemMessage;
     [SerializeField] GameObject loading;
     [SerializeField] GameObject errorWindow;
@@ -20,9 +21,10 @@ public sealed class LobbyUIManager : MonoBehaviour
     {
         LobbyEvent.lobbyStateChangedEvent += OnChangeLobbyState;
 
-        LobbyMemberEvent.UpdatePlayerData += inLobbyUI.OnMemberDataUpdate;
+        LobbyMemberEvent.UpdatePlayerData += inLobbyUI.UpdateOrCreateNamePlate;
 
         LobbyMemberEvent.MemberJoinedEvent += inLobbyUI.OnJoined;
+
         LobbyMemberEvent.MemberLeftEvent += inLobbyUI.OnLeft;
         LobbyMemberEvent.MemberHbStopEvent += inLobbyUI.OnDisconnect;
         
@@ -37,13 +39,14 @@ public sealed class LobbyUIManager : MonoBehaviour
     {
         LobbyEvent.lobbyStateChangedEvent -= OnChangeLobbyState;
 
-        LobbyMemberEvent.UpdatePlayerData -= inLobbyUI.OnMemberDataUpdate;
+        LobbyMemberEvent.UpdatePlayerData -= inLobbyUI.UpdateOrCreateNamePlate;
         LobbyMemberEvent.MemberJoinedEvent -= inLobbyUI.OnJoined;
         LobbyMemberEvent.MemberLeftEvent -= inLobbyUI.OnLeft;
         LobbyMemberEvent.MemberHbStopEvent -= inLobbyUI.OnDisconnect;
         LobbyMemberEvent.MemberReviveEvent -= inLobbyUI.OnRevive;
         LobbyMemberEvent.OwnerChangedEvent -= inLobbyUI.OnOwnerChanged;
         LobbyMemberEvent.HeartBeatEvent -= inLobbyUI.HeartBeat;
+
     }
 
     void OnChangeLobbyState(LobbyState state)
@@ -57,19 +60,19 @@ public sealed class LobbyUIManager : MonoBehaviour
         searchUI.Activated();
     }
 
-    public void ShowSearchResult(List<SearchedLobbyData> searchLobbyDatas)
+    public void StartManualSearching()
     {
-        searchUI.RefreshList(searchLobbyDatas);
+        searchUI.StartManualSearching();
     }
 
-    public void ClearSearchedLobbyButtons()
+    public void ShowManualSearchResult(List<SearchedLobbyData> searchLobbyDatas)
     {
-        searchUI.ClearLobbyButtons();
+        searchUI.ShowManualSearchResult(searchLobbyDatas);
     }
 
-    public void StartSearching()
+    public void ShowAutoSearchResult(List<SearchedLobbyData> searchLobbyDatas)
     {
-        searchUI.StartSearching();
+        searchUI.ShowAutoSearchResult(searchLobbyDatas);
     }
 
     public void DeactivateSearchLobbyUI()
@@ -77,7 +80,24 @@ public sealed class LobbyUIManager : MonoBehaviour
         searchUI.Deactivated();
     }
 
-    //参加中画面===================================
+    //クイックマッチ画面===================================
+
+    public void ActivateQuickMatchUI(PlayerData playerData)
+    {
+        qmUI.Activate(playerData);
+    }
+
+    public void DeactivateButtons_QuickMatch()
+    {
+        qmUI.DeativatedButton();
+    }
+
+    public void DeactivateQuickMatchUI()
+    {
+        qmUI.Deactivate();
+    }
+
+    //入室処理画面===================================
     public void SwitchLoadigUI(bool active)
     {
         loading.SetActive(active);
@@ -85,23 +105,28 @@ public sealed class LobbyUIManager : MonoBehaviour
 
     public async UniTask ShowErrorWindow()
     {
+        loading.SetActive(false);
         errorWindow.SetActive(true);
         await UniTask.Delay(TimeSpan.FromSeconds(2));
         errorWindow.SetActive(false);
     }
 
-    //ロビー内画面===================================
-    public void ActivatedInLobbyUI(LobbyData data)
-    {
-        searchUI.Deactivated();
-        loading.SetActive(false);
-        inLobbyUI.Activated(data);
-    }
+    //インロビー画面===================================
+    public void ActivatedInLobbyUI(LobbyData data) => inLobbyUI.Activated(data);
 
     public void UpdatePing(double ping)
     {
         inLobbyUI.UpdatePing(ping);
     }
 
+    public void DeactivateButtons()
+    {
+        inLobbyUI.DeactivateButtons();
+    }
+
+    public void DeactivatedInLobbyUI()
+    {
+        inLobbyUI.Deactivated();
+    }
 
 }
