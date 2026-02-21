@@ -12,13 +12,6 @@ public class LobbyQuickMatchUi : MonoBehaviour
 
     [SerializeField] Button cancelBtn;
 
-
-
-    void Start()
-    {
-        gameObject.SetActive(false);
-    }
-
     private void OnDisable()
     {
         DeativatedButton();

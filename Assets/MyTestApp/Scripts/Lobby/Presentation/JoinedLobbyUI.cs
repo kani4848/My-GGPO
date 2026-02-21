@@ -31,7 +31,7 @@ public class JoinedLobbyUI : MonoBehaviour
 
     private void Awake()
     {
-        gameObject.SetActive(false);
+        //gameObject.SetActive(false);
     }
 
     public void Activated(LobbyData lobbyData)
