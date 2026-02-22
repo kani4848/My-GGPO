@@ -10,6 +10,7 @@ using Cysharp.Threading.Tasks;
 using System.Threading;
 using UnityEditor.PackageManager.Requests;
 using PlayEveryWare.EpicOnlineServices;
+using log4net.Appender;
 
 public sealed class LobbyService_search
 {
@@ -123,40 +124,44 @@ public sealed class LobbyService_search
     }
 
     
-    public UniTask<LobbyData> Join(string lobbyId, PlayerData playerData_local)
+    public async UniTask<LobbyData> Join(string lobbyId, PlayerData playerData_local)
     {
-        LobbyDetails details;
         var tcs = new UniTaskCompletionSource<LobbyData>();
 
         try
         {
-            var targetLobbyInfo = searchedLobbies.First(m => m.Key.Id == lobbyId);
-            details = targetLobbyInfo.Value;
+            var targetLobbyInfo = searchedLobbies.FirstOrDefault(m => m.Key.Id == lobbyId);
+            if(targetLobbyInfo.Key == default)
+            {
+                tcs.TrySetResult(null);
+            }
+            else
+            {
+                _lobbyManager.JoinLobby(lobbyId, targetLobbyInfo.Value, presenceEnabled: false, result =>
+                {
+                    if (result != Result.Success)
+                    {
+                        tcs.TrySetResult(null);
+                        return;
+                    }
+
+                    var current = _lobbyManager.GetCurrentLobby();
+                    Debug.Log($"lobbyservice 人数は{current.Members.Count}人");
+                    EOS_Service.SetMyMemberLobbyAttribute(playerData_local);
+                    var lobbyData = CreateLobbyData(current);
+
+                    tcs.TrySetResult(lobbyData);
+                });
+            }
         }
         catch(NullReferenceException)
         {
             Debug.Log("ロビー参加失敗");
             tcs.TrySetResult(null);
-            return tcs.Task;
         }
 
-        _lobbyManager.JoinLobby(lobbyId, details, presenceEnabled: false, result =>
-        {
-            if (result != Result.Success)
-            {
-                tcs.TrySetResult(null);
-                return;
-            }
 
-            var current = _lobbyManager.GetCurrentLobby();
-            Debug.Log($"lobbyservice 人数は{current.Members.Count}人");
-            EOS_Service.SetMyMemberLobbyAttribute(playerData_local);
-            var lobbyData = CreateLobbyData(current);
-
-            tcs.TrySetResult(lobbyData);    
-        });
-
-        return tcs.Task;
+        return await tcs.Task;
     }
 
     string disposedLobbyId;
@@ -430,13 +435,21 @@ public sealed class LobbyService_search
 
         try
         {
-            var targetLobbyInfo = searchedLobbies.First(m => m.Key.Id == lobbyId);
-            details = targetLobbyInfo.Value;
+            var targetLobbyInfo = searchedLobbies.FirstOrDefault(m => m.Key.Id == lobbyId);
 
-            _lobbyManager.JoinLobby(lobbyId, details, presenceEnabled: false, result =>
+            if(targetLobbyInfo.Value == default)
             {
-                tcs.TrySetResult(result == Result.Success);
-            });
+                tcs.TrySetResult(false);
+            }
+            else
+            {
+                details = targetLobbyInfo.Value;
+
+                _lobbyManager.JoinLobby(lobbyId, details, presenceEnabled: false, result =>
+                {
+                    tcs.TrySetResult(result == Result.Success);
+                });
+            }
         }
         catch (NullReferenceException)
         {
