@@ -148,6 +148,7 @@ public class EOS_Service : MonoBehaviour, IEosService
     //クイックマッチ============================================================
     public async UniTask<bool> QuickMatch_FindOpponent(CancellationToken token)
     {
+        Debug.Log("クイックマッチサーチ開始");
         return await searchService.QuickMatch_FindOpponent(token);
     }
 

@@ -366,40 +366,51 @@ public sealed class LobbyService_search
 
     //クイックマッチ================================================
     
-    const float retryInterval_quick = 0.5f;
+    const float retryInterval_quick = 0.2f;
     public async UniTask<bool> QuickMatch_FindOpponent(CancellationToken token)
     {
-        int loopCount_quick = 0;
-        int loopLimit_quick = 10;
+        int loopCount = 0;
+        const int loopLimit = 10;
 
-        while (!token.IsCancellationRequested)
-        {
-            var foundLobbies = await SearchLobby_Quick(token);
-
-            if (foundLobbies.Count == 0) continue;
-
-            foreach(var lobby in foundLobbies)
-            {
-                bool r = await JoinLobby_Quick(lobby, token);
-                if (r) return true;
-            }
-
-            //失敗
-            loopCount_quick++;
-
-            if (loopCount_quick > loopLimit_quick)
-            {
-                break;
-            }
-
-            await UniTask.Delay(TimeSpan.FromSeconds(retryInterval_quick), cancellationToken:token);
-        }
-
-        //検索でロビー未発見なら作成
         try
         {
-            bool r = await CreateLobby_Quick(token);
-            
+            while (!token.IsCancellationRequested && loopCount < loopLimit)
+            {
+                Debug.Log($"クイックマッチサーチ試行{loopCount}回目");
+                var foundLobbies = await SearchLobby_Quick(token);
+
+                if (foundLobbies.Count == 0)
+                {
+                    loopCount++;
+                    await UniTask.Delay(TimeSpan.FromSeconds(retryInterval_quick), cancellationToken: token);
+                    continue;
+                }
+
+                foreach (var lobby in foundLobbies)
+                {
+                    bool joinResult = await JoinLobby_Quick(lobby, token);
+                    if (joinResult)
+                    {
+                        Debug.Log($"クイックマッチ:ロビー発見、参加成功");
+                        return true;
+                    }
+                }
+
+                //失敗
+                loopCount++;
+
+                await UniTask.Delay(TimeSpan.FromSeconds(retryInterval_quick), cancellationToken: token);
+            }
+
+            Debug.Log($"クイックマッチサーチ未達、クリエイトに移行");
+
+            //検索でロビー未発見なら作成
+            Debug.Log($"クイックマッチクリエイト開始");
+            bool createResult = await CreateLobby_Quick(token);
+
+            if (!createResult) return false;
+
+            Debug.Log($"クイックマッチ：ロビー作成完了、待機開始");
             //getcurrentlobby一回だと固定値なので、毎フレーム取り直さないといけない
             await UniTask.WaitUntil(() =>
             {
@@ -409,8 +420,9 @@ public sealed class LobbyService_search
 
             return true;
         }
-        catch (Exception ex)
+        catch (OperationCanceledException)
         {
+            Debug.Log($"クイックマッチサーチがキャンセルされました");
             return false;
         }
     }
@@ -454,6 +466,7 @@ public sealed class LobbyService_search
 
                     foreach (var kv in raw)
                     {
+
                         var details = kv.Value;
                         if (details == null) continue;
 
