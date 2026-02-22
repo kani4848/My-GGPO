@@ -29,6 +29,8 @@ public class JoinedLobbyUI : MonoBehaviour
     //キーには名前ではなくPUIDを入力
     Dictionary<string, LobbyMemberNamePlate> namePlateDic = new();
 
+    bool fleezBtns = false;
+
     private void Awake()
     {
         //gameObject.SetActive(false);
@@ -72,6 +74,8 @@ public class JoinedLobbyUI : MonoBehaviour
 
     private void Update()
     {
+        if (fleezBtns) return;
+
         if (Input.GetKeyDown(KeyCode.Z))
         {
             if (readyButton.interactable) readyButton.onClick.Invoke();
@@ -104,6 +108,8 @@ public class JoinedLobbyUI : MonoBehaviour
 
     void ActivatedButtons()
     {
+        fleezBtns = false;
+
         readyButton.interactable = true;
         leaveButton.interactable = true;
 
@@ -156,6 +162,8 @@ public class JoinedLobbyUI : MonoBehaviour
 
     public void DeactivateButtons()
     {
+        fleezBtns = true;
+
         //readyButton.gameObject.SetActive(false);
         //readyCancelButton.gameObject.SetActive(false);
         //leaveButton.gameObject.SetActive(false);
@@ -171,6 +179,11 @@ public class JoinedLobbyUI : MonoBehaviour
 
     public void SwitchButtonsOnReady()
     {
+
+        readyButton.interactable = false;
+        readyCancelButton.interactable = true;
+        leaveButton.interactable = true;
+
         readyButton.gameObject.SetActive(false);
         leaveButton.gameObject.SetActive(true);
         readyCancelButton.gameObject.SetActive(true);

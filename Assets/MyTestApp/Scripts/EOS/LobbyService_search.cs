@@ -140,6 +140,7 @@ public sealed class LobbyService_search
             {
                 if (result != Result.Success)
                 {
+                    Debug.Log("ロビー参加失敗");
                     tcs.TrySetResult(null);
                     return;
                 }
@@ -419,6 +420,7 @@ public sealed class LobbyService_search
                     {
                         Debug.Log($"ロビー参加に成功");
                         findAndJoined.TrySetResult(true);
+                        break;
                     }
                     else
                     {

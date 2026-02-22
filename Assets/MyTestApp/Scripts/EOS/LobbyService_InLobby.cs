@@ -256,10 +256,11 @@ public class LobbyService_InLobby
             EOS_Service.SetDisposedLobbyId(lobby.Id);
         }
 
+
+        Debug.Log($"ロビー退室 ID:{lobby.Id}");
         _lobbyManager.LeaveLobby(result =>
         {
             leaveLobby = false;
-            Debug.Log($"ロビー退室 ID:{lobby.Id}");
             ExitAction();
             tcs.TrySetResult();
         });
