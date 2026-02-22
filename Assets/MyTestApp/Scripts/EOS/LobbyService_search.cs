@@ -466,6 +466,43 @@ public sealed class LobbyService_search
 
         return await findAndJoined.Task;
     }
+
+
+    public async UniTask<PlayerData> WaitApplyOpponentAttribute(CancellationToken token)
+    {
+        var tcs = new UniTaskCompletionSource<PlayerData>();
+        var cancelAction = token.Register(() => tcs.TrySetResult(default));
+
+        try
+        {
+            _lobbyManager.AddNotifyMemberUpdateReceived(AttApplied);
+        }
+        catch (OperationCanceledException)
+        {
+            tcs.TrySetResult(default);
+        }
+        finally
+        {
+            cancelAction.Dispose();
+            _lobbyManager.RemoveNotifyMemberUpdate(AttApplied);
+        }
+
+        return await tcs.Task;
+
+        void AttApplied(string LobbyId, ProductUserId MemberId)
+        {
+            if (MemberId == EosCommonData.myPuid) return;
+
+            var m = _lobbyManager.GetCurrentLobby().Members.FirstOrDefault(x => x.ProductId == MemberId);
+
+            if (!m.MemberAttributes.TryGetValue(EosCommonData.MEMBER_KEY_CHARA, out var cid)) return;
+    
+            var data = CreatePlayerDataFromLobbyMemberData(m);
+
+            LobbyMemberEvent.RaiseUpdatePlayerData(data);
+            tcs.TrySetResult(data);
+        }
+    }
 }
 
 public sealed class LobbySearchGuard

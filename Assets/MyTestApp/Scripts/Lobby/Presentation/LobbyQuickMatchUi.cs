@@ -14,7 +14,7 @@ public class LobbyQuickMatchUi : MonoBehaviour
 
     private void OnDisable()
     {
-        DeativatedButton();
+        DeactivatedButton();
     }
 
     void Update()
@@ -36,10 +36,17 @@ public class LobbyQuickMatchUi : MonoBehaviour
         namePlate_local.UpdateImage(localPlayerData);
     }
 
+    public void UpdateNamePlate(PlayerData memberData)
+    {
+        if (namePlate_local.puid.text == memberData.puid.ToString()) return;
+
+        namePlate_remote.UpdateImage(memberData);
+    }
+
     public void Deactivate()
     {
         gameObject.SetActive(false);
-        DeativatedButton();
+        DeactivatedButton();
     }
 
     public void ChangeLoadingText(string text)
@@ -52,6 +59,7 @@ public class LobbyQuickMatchUi : MonoBehaviour
         loadingUI.SetActive(false);
         namePlate_remote.gameObject.SetActive(true);
         namePlate_remote.UpdateImage(remotePlayerData);
+        DeactivatedButton();
     }
 
     public void ActivateButton()
@@ -61,11 +69,11 @@ public class LobbyQuickMatchUi : MonoBehaviour
         {
             SoundManager.Instance.PlaySE(SE_Handler.SoundType.BUTTON);
             LobbyButtonEvent.RaiseCancelQuickMatch();
-            DeativatedButton();
+            DeactivatedButton();
         });
     }
 
-    public void DeativatedButton()
+    public void DeactivatedButton()
     {
         cancelBtn.interactable = false;
         cancelBtn.onClick.RemoveAllListeners();

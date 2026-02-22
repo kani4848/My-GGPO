@@ -568,7 +568,7 @@ public class UIManager_Main : MonoBehaviour
 
     public void DeacetivateEndMenuButtons_Online()
     {
-        onlineUI.DeacetivateButtons();
+        onlineUI.DeacetivateEndMenuButtons();
     }
 
     public void ShowGameEndScreen_Online(MatchResult matchResult)

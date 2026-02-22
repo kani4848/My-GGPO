@@ -248,14 +248,28 @@ public class EOS_Service : Singleton<EOS_Service>, IEosService
     {
         try
         {
-            await UniTask.WaitUntil(() => lobbyManager.GetCurrentLobby().Members.Count == 2, cancellationToken: token);
+            //対戦相手のアトリビュート適用まで待機
+            await UniTask.WaitUntil(() => 
+                {
+                    var lobby = lobbyManager.GetCurrentLobby();
+                    var m = lobbyManager.GetCurrentLobby().Members.FirstOrDefault(x => x.ProductId != EosCommonData.myPuid);
+                    if (m == default) return false;
+                    if (!m.MemberAttributes.TryGetValue(EosCommonData.MEMBER_KEY_CHARA, out var cid)) return false;
+                    return true;
+                },
+                cancellationToken: token);
+
             var opponent = inLobbyService.GetOpponentMemberData();
+            playerData_Remote = searchService.CreatePlayerDataFromLobbyMemberData(opponent);
+            LobbyMemberEvent.RaiseUpdatePlayerData(playerData_Remote);
 
             bool r = await playerPeer.AcceptRequestP2P(opponent.ProductId, token);
 
             if (!r) return false;
 
             r = await playerPeer.handShakeFlow(token);
+
+            playerData_Remote = searchService.CreatePlayerDataFromLobbyMemberData(opponent);
 
             return r;
         }

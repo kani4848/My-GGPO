@@ -379,6 +379,7 @@ public class MainSceneManager : MonoBehaviour, IMainSceneManager
                 }
 
                 //マッチング成功
+                break;
             }
         }
     }

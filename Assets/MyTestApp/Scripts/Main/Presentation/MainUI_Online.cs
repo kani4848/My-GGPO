@@ -17,7 +17,7 @@ public class MainUI_Online : MonoBehaviour
     {
         searchingUI.SetActive(false);
         networkError.SetActive(false);
-        DeacetivateButtons();
+        DeacetivateEndMenuButtons();
     }
 
     private void Update()
@@ -62,7 +62,7 @@ public class MainUI_Online : MonoBehaviour
         {
             SoundManager.Instance.PlaySE(SE_Handler.SoundType.BUTTON);
             endMenuTask.TrySetResult(MainGameState.QUICK_MATCH);
-            DeacetivateButtons();
+            DeacetivateEndMenuButtons();
             searchingUI.SetActive(true);
         });
 
@@ -70,14 +70,14 @@ public class MainUI_Online : MonoBehaviour
         {
             SoundManager.Instance.PlaySE(SE_Handler.SoundType.BUTTON);
             endMenuTask.TrySetResult(MainGameState.GO_LOBBY);
-            DeacetivateButtons();
+            DeacetivateEndMenuButtons();
         });
 
         goTitleButton.onClick.AddListener(() =>
         {
             SoundManager.Instance.PlaySE(SE_Handler.SoundType.BUTTON);
             endMenuTask.TrySetResult(MainGameState.GO_TITLE);
-            DeacetivateButtons();
+            DeacetivateEndMenuButtons();
         });
 
         return endMenuTask.Task;
@@ -86,7 +86,7 @@ public class MainUI_Online : MonoBehaviour
     public void OnStartQuickMatcn()
     {
         searchingUI.SetActive(true);
-        DeacetivateButtons();
+        DeacetivateEndMenuButtons();
 
         cancelButton.gameObject.SetActive(true);
         cancelButton.interactable = true;
@@ -103,28 +103,25 @@ public class MainUI_Online : MonoBehaviour
         cancelButton.onClick.RemoveAllListeners();
     }
 
-    public void DeacetivateButtons()
+    public void DeacetivateEndMenuButtons()
     {
         qmButton.gameObject.SetActive(false);
         goLobbyButton.gameObject.SetActive(false);
         goTitleButton.gameObject.SetActive(false);
-        cancelButton.gameObject.SetActive(false);
 
         qmButton.interactable = false;
         goLobbyButton.interactable = false;
         goTitleButton.interactable = false;
-        cancelButton.interactable = false;
 
         qmButton.onClick.RemoveAllListeners();
         goLobbyButton.onClick.RemoveAllListeners();
         goTitleButton.onClick.RemoveAllListeners();
-        cancelButton.onClick.RemoveAllListeners();
     }
 
     public void ShowErrorWindow()
     {
         searchingUI.SetActive(false);
-        DeacetivateButtons();
+        DeacetivateEndMenuButtons();
         networkError.SetActive(true);
     }
 }
