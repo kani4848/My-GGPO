@@ -8,9 +8,6 @@ using PlayEveryWare.EpicOnlineServices.Samples;
 
 using Cysharp.Threading.Tasks;
 using System.Threading;
-using UnityEditor.PackageManager.Requests;
-using PlayEveryWare.EpicOnlineServices;
-using log4net.Appender;
 
 public sealed class LobbyService_search
 {

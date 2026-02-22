@@ -167,6 +167,7 @@ public class LobbySceneManager : MonoBehaviour, ILobbySceneManager
     }
 
     int searchResultId = 0;
+    string _searchPass = "";
 
     private async UniTask AutoRefleshLoop(CancellationToken token)
     {
@@ -179,7 +180,7 @@ public class LobbySceneManager : MonoBehaviour, ILobbySceneManager
             //Debug.Log("オートサーチ実行");
             mySearchId = ++searchResultId;
 
-            searchResult = await eosSirvice.SearchLobby();
+            searchResult = await eosSirvice.SearchLobby(_searchPass);
 
             if (token.IsCancellationRequested) break;
             if (mySearchId != searchResultId) continue;
@@ -194,18 +195,20 @@ public class LobbySceneManager : MonoBehaviour, ILobbySceneManager
         }
     }
 
-    void OnSearchLobby(string lobbyPath = "")
+    void OnSearchLobby(string searchPath = "")
     {
         OnSearchLobbyAsync().Forget();
 
         async UniTask OnSearchLobbyAsync()
         {
+            _searchPass = searchPath;
+
             int mySearchId = ++searchResultId;
 
             StopAutoSearch();
 
             uiManager.StartManualSearching();
-            var searchResult = await eosSirvice.SearchLobby(lobbyPath);
+            var searchResult = await eosSirvice.SearchLobby(searchPath);
 
             if (mySearchId == searchResultId)
             {

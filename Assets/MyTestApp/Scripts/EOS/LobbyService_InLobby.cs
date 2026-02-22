@@ -7,7 +7,6 @@ using Epic.OnlineServices.Lobby;
 using PlayEveryWare.EpicOnlineServices.Samples;
 using Cysharp.Threading.Tasks;
 using System.Threading;
-using Codice.Client.Common;
 using PlayEveryWare.EpicOnlineServices;
 
 public class LobbyService_InLobby
