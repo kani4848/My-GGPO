@@ -87,9 +87,9 @@ public sealed class LobbyUIManager : MonoBehaviour
         qmUI.Activate(playerData);
     }
 
-    public void DeactivateButtons_QuickMatch()
+    public void FindOpponent_QuickMatch(PlayerData opponentData)
     {
-        qmUI.DeativatedButton();
+        qmUI.OnFindOpponent(opponentData);
     }
 
     public void DeactivateQuickMatchUI()

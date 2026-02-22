@@ -16,7 +16,6 @@ public sealed class LobbyService_search
 {
     uint maxMembers = 2;
     EOSLobbyManager _lobbyManager;    
-    Dictionary<Lobby, LobbyDetails> searchedLobbies = new();
     LobbySearchGuard searchGuard  = new();
 
     public LobbyService_search(EOSLobbyManager lm)
@@ -124,35 +123,27 @@ public sealed class LobbyService_search
     }
 
     
-    public async UniTask<LobbyData> Join(string lobbyId, PlayerData playerData_local)
+    public async UniTask<LobbyData> Join(string lobbyId,LobbyDetails details, PlayerData playerData_local)
     {
         var tcs = new UniTaskCompletionSource<LobbyData>();
 
         try
         {
-            var targetLobbyInfo = searchedLobbies.FirstOrDefault(m => m.Key.Id == lobbyId);
-            if(targetLobbyInfo.Key == default)
+            _lobbyManager.JoinLobby(lobbyId, details, presenceEnabled: false, result =>
             {
-                tcs.TrySetResult(null);
-            }
-            else
-            {
-                _lobbyManager.JoinLobby(lobbyId, targetLobbyInfo.Value, presenceEnabled: false, result =>
+                if (result != Result.Success)
                 {
-                    if (result != Result.Success)
-                    {
-                        tcs.TrySetResult(null);
-                        return;
-                    }
+                    tcs.TrySetResult(null);
+                    return;
+                }
 
-                    var current = _lobbyManager.GetCurrentLobby();
-                    Debug.Log($"lobbyservice 人数は{current.Members.Count}人");
-                    EOS_Service.SetMyMemberLobbyAttribute(playerData_local);
-                    var lobbyData = CreateLobbyData(current);
+                var current = _lobbyManager.GetCurrentLobby();
+                Debug.Log($"lobbyservice 人数は{current.Members.Count}人");
+                EOS_Service.SetMyMemberLobbyAttribute(playerData_local);
+                var lobbyData = CreateLobbyData(current);
 
-                    tcs.TrySetResult(lobbyData);
-                });
-            }
+                tcs.TrySetResult(lobbyData);
+            });
         }
         catch(NullReferenceException)
         {
@@ -244,10 +235,6 @@ public sealed class LobbyService_search
 
                     uniqueByLobbyId.Add(lobbyId, details);
                 }
-
-                // ついでに class field も「重複なし」に更新したいならここで作り直す
-                // searchedLobbies は Lobbyキーなので、ここではUI用だけ作るのが安全
-                searchedLobbies = raw;
 
                 var lobbyDatas = new List<SearchedLobbyData>(capacity: 8);
 
@@ -365,6 +352,7 @@ public sealed class LobbyService_search
         {
             AttrKey = EosCommonData.LobbyAttributeKey_HAT
         };
+
         r = details.CopyAttributeByKey(ref opt_hat, out var hatInfo);
         if (r == Result.Success && hatInfo.HasValue && hatInfo.Value.Data.HasValue)
         {
@@ -376,7 +364,7 @@ public sealed class LobbyService_search
             }
         }
 
-        SearchedLobbyData data = new SearchedLobbyData(lobbyId, ownerName, charaId, hatCol);
+        var data = new SearchedLobbyData(lobbyId, details, ownerName, charaId, hatCol);
         return data;
     }
 
@@ -415,10 +403,9 @@ public sealed class LobbyService_search
 
                 Debug.Log($"{foundLobbies.Count}のクイックマッチロビーを発見しました");
 
-                foreach (var lobby in searchedLobbies)
+                foreach (var lobby in foundLobbies)
                 {
-
-                    _lobbyManager.JoinLobby(lobby.Key.Id, lobby.Value, presenceEnabled: false, result =>
+                    _lobbyManager.JoinLobby(lobby.id, lobby.details, presenceEnabled: false, result =>
                     {
                         if(result == Result.Success)
                         {

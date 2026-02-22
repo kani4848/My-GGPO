@@ -278,7 +278,7 @@ public class LobbySceneManager : MonoBehaviour, ILobbySceneManager
         }
 
         //ここからキャンセルボタン無効
-        uiManager.DeactivateButtons_QuickMatch();
+        uiManager.FindOpponent_QuickMatch(eosSirvice.GetRemotePlayerData());
         goahead = await eosSirvice.QuickMatch_HandShake(qmCts.Token);
 
         if (!goahead)
@@ -357,11 +357,11 @@ public class LobbySceneManager : MonoBehaviour, ILobbySceneManager
         }
     }
 
-    async UniTask OnJoin(string id)
+    async UniTask OnJoin(SearchedLobbyData searchedLobbyData)
     {
         state = LobbyState.JoiningLobby;
 
-        var lobbyData = await eosSirvice.JoinLobby(id, SceneCts.Token);
+        var lobbyData = await eosSirvice.JoinLobby(searchedLobbyData);
 
         if (lobbyData == null)
         {

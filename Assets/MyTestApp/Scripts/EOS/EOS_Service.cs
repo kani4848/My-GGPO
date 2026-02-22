@@ -114,11 +114,11 @@ public class EOS_Service : MonoBehaviour, IEosService
         return data;
     }
 
-    public async UniTask<LobbyData> JoinLobby(string id, CancellationToken token)
+    public async UniTask<LobbyData> JoinLobby(SearchedLobbyData searched)
     {
         playerData_Local.isOwner = false;
 
-        var data = await searchService.Join(id, playerData_Local);
+        var data = await searchService.Join(searched.id, searched.details, playerData_Local);
         if (data == null) return null;
 
         inLobbyService.EnterLobbyAction();

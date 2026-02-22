@@ -19,14 +19,18 @@ public class SearchedLobbyData_Quick
 
 public class SearchedLobbyData
 {
-    public string lobbyId;
+    public string id;
+    public LobbyDetails details;
+
     public string ownerName;
     public int charaId;
     public Color hatCol;
 
-    public SearchedLobbyData(string lobbyId, string ownerName, int charaId, Color hatCol)
+    public SearchedLobbyData(string lobbyId, LobbyDetails detailes, string ownerName, int charaId, Color hatCol)
     {
-        this.lobbyId = lobbyId;
+        this.id = lobbyId;
+        this.details = detailes;
+
         this.ownerName = ownerName;
         this.charaId = charaId;
         this.hatCol = hatCol;
@@ -38,12 +42,13 @@ public class LobbyData
     public string id;
     public string path;
     public List<PlayerData> playerDatas;
-
-    public LobbyData (string id, string path, List<PlayerData> currentMemberDatas)
+    public LobbyDetails details;
+    public LobbyData (string id, string path, List<PlayerData> currentMemberDatas, LobbyDetails details = null)
     {
         this.id = id;
         this.path = path;
         this.playerDatas = currentMemberDatas;
+        this.details = details;
     }
 }
 
@@ -106,7 +111,7 @@ public interface IEosService
 
     public UniTask<List<SearchedLobbyData>> SearchLobby(string path = "");
 
-    public UniTask<LobbyData> JoinLobby(string id, CancellationToken token);
+    public UniTask<LobbyData> JoinLobby(SearchedLobbyData searched);
 
     public UniTask Ready(CancellationToken token);
 

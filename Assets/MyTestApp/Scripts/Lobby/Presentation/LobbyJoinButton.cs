@@ -17,7 +17,7 @@ public class LobbyJoinButton : MonoBehaviour
 
         btn.onClick.AddListener(() =>
         {
-            LobbyEvent.RaiseRequestJoinLobby(data.lobbyId);
+            LobbyEvent.RaiseRequestJoinLobby(data);
         });
     }
 }
