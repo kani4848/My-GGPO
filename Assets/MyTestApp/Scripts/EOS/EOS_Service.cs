@@ -11,7 +11,7 @@ using System.ComponentModel;
 using Epic.OnlineServices.Logging;
 using System.Data;
 
-public class EOS_Service : MonoBehaviour, IEosService
+public class EOS_Service : Singleton<EOS_Service>, IEosService
 {
     public EOSManager eosManager { get; set; }
     public static EOSLobbyManager lobbyManager { get; set; }

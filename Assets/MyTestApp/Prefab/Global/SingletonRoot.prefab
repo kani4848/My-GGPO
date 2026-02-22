@@ -390,7 +390,6 @@ Transform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
-  - {fileID: 7626648826393916461}
   - {fileID: 8933653361729360952}
   - {fileID: 1197879881007269815}
   - {fileID: 260498824495159507}
@@ -462,7 +461,7 @@ MonoBehaviour:
   signal: {fileID: 8300000, guid: d66b542f8ceeb154bb4616db4281106b, type: 3}
   shot: {fileID: 8300000, guid: 4172243e19ab9254297aee6d0ef2ae7b, type: 3}
   down: {fileID: 8300000, guid: 477b16a5d73205749a525d378782c7c9, type: 3}
-  buttonClick: {fileID: 0}
+  buttonClick: {fileID: 8300000, guid: 7ad0447c5287391459a7631165abb672, type: 3}
 --- !u!1 &4085020703754823147
 GameObject:
   m_ObjectHideFlags: 0
@@ -511,52 +510,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::SoundManager
   bgmHandler: {fileID: 6263067975659493936}
   seHandler: {fileID: 245155810018652030}
---- !u!1 &4086349883736910855
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 7626648826393916461}
-  - component: {fileID: 4537202828085091043}
-  m_Layer: 0
-  m_Name: BootStrap
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &7626648826393916461
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 4086349883736910855}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 5067549044579665919}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &4537202828085091043
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 4086349883736910855}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 341a95f87d50cfc44819e0b291cef93f, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::BootStrap
-  nextSceneName: Title
-  configService: {fileID: 0}
 --- !u!1 &4245480087943827649
 GameObject:
   m_ObjectHideFlags: 0
