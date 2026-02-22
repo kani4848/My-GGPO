@@ -392,8 +392,14 @@ public sealed class LobbyService_search
 
         try
         {
-            while (!token.IsCancellationRequested && loopCount < loopLimit)
+            while (!token.IsCancellationRequested)
             {
+                if (loopCount < loopLimit)
+                {
+                    findAndJoined.TrySetResult(false);
+                    break;
+                }
+
                 Debug.Log($"クイックマッチサーチ試行{loopCount}回目");
                 var foundLobbies = await SearchLobby(
                     EosCommonData.LobbyAttributeKey_MatchingType,
@@ -426,7 +432,6 @@ public sealed class LobbyService_search
 
                 await UniTask.Delay(TimeSpan.FromSeconds(retryInterval_quick), cancellationToken: token);
             }
-
         }
         catch (OperationCanceledException)
         {
