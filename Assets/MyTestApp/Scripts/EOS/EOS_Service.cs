@@ -196,20 +196,7 @@ public class EOS_Service : Singleton<EOS_Service>, IEosService
                 switch (searchResult.Status)
                 {
                     case LobbyService_search.LobbySearchStatus.Success:
-                        var remoteData = 
-                            searchResult.LobbyData.playerDatas.FirstOrDefault(m => m.puid != playerData_Local.puid);
-
-                        if(remoteData.puid != default)
-                        {
-                            Debug.Log($"ロビーを発見し入場しました");
-                            playerData_Remote = remoteData;
-                            return true;
-                        }
-                        else
-                        {
-                            Debug.Log($"入場しましたが、対戦相手の情報を取得できませんでした。");
-                            await inLobbyService.LeaveLobby();
-                        }
+                        Debug.Log($"ロビーを発見し入場しました");
                         break;
 
                     case LobbyService_search.LobbySearchStatus.Cancelled:
@@ -257,7 +244,10 @@ public class EOS_Service : Singleton<EOS_Service>, IEosService
     {
         try
         {
-            bool r = await playerPeer.AcceptRequestP2P(ProductUserId.FromString(playerData_Remote.puid), token);
+            await UniTask.WaitUntil(() => lobbyManager.GetCurrentLobby().Members.Count == 2, cancellationToken: token);
+            var opponent = inLobbyService.GetOpponentMemberData();
+
+            bool r = await playerPeer.AcceptRequestP2P(opponent.ProductId, token);
 
             if (!r) return false;
 

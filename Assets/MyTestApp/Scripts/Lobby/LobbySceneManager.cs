@@ -176,6 +176,7 @@ public class LobbySceneManager : MonoBehaviour, ILobbySceneManager
 
         while (!token.IsCancellationRequested)
         {
+            //Debug.Log("オートサーチ実行");
             mySearchId = ++searchResultId;
 
             searchResult = await eosSirvice.SearchLobby();
@@ -185,7 +186,6 @@ public class LobbySceneManager : MonoBehaviour, ILobbySceneManager
 
             if (searchResult != preSearchResult)
             {
-                //Debug.Log("オートサーチ結果適用");
                 uiManager.ShowAutoSearchResult(searchResult);
             }
 
@@ -297,6 +297,7 @@ public class LobbySceneManager : MonoBehaviour, ILobbySceneManager
         }
 
         state = LobbyState.GoMain;
+        ExitQuickMatch() ;
     }
 
     void ExitQuickMatch()

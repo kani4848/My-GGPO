@@ -409,7 +409,7 @@ public class PeerRouter
 
         var r = p2pInterface.SendPacket(ref sendPacketOptions_Unreliable);
 
-        UnityEngine.Debug.Log($"インプット送信結果:{r}");
+        //UnityEngine.Debug.Log($"インプット送信結果:{r}");
 
         if (r == Result.Success && _input) shotFrame_local = frame;
     }
@@ -418,7 +418,7 @@ public class PeerRouter
         // 最低限の長さチェック
         if (payload == null || payload.Length < BufferSize_input)
         {
-            UnityEngine.Debug.Log("インプットデータに適切なサイズではありません");
+            //UnityEngine.Debug.Log("インプットデータに適切なサイズではありません");
             return;
         }
 
@@ -443,7 +443,7 @@ public class PeerRouter
 
             if (pastData.frame == pastFrame && pastData.input != pastInput)
             {
-                UnityEngine.Debug.Log("ヒストリーと過去記録したインプットが合致しません");
+                //UnityEngine.Debug.Log("ヒストリーと過去記録したインプットが合致しません");
                 continue;
             }
 
@@ -457,12 +457,12 @@ public class PeerRouter
     {
         if (p2pInterface == null)
         {
-            UnityEngine.Debug.Log($"p2pがねえ");
+            //UnityEngine.Debug.Log($"p2pがねえ");
             return;
         }
         if (remotePuid == null)
         {
-            UnityEngine.Debug.Log($"puidがねえ");
+            //UnityEngine.Debug.Log($"puidがねえ");
             return;
         }
 
@@ -484,7 +484,7 @@ public class PeerRouter
 
         r = p2pInterface.SendPacket(ref sendPacketOptions_Reliable);
 
-        UnityEngine.Debug.Log($"インプットリザルト送信結果:{r}");
+        //UnityEngine.Debug.Log($"インプットリザルト送信結果:{r}");
     }
     void UnPackInputResult(byte[] payload)
     {
