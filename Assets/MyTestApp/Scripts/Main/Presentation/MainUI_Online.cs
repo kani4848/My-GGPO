@@ -1,4 +1,5 @@
 using Cysharp.Threading.Tasks;
+using Cysharp.Threading.Tasks.Triggers;
 using Unity.Collections;
 using UnityEngine;
 using UnityEngine.UI;
@@ -46,6 +47,8 @@ public class MainUI_Online : MonoBehaviour
     //オンラインモード===============================================================================
     public UniTask<MainGameState> ActivateEndMenuButtons()
     {
+        gameObject.SetActive(true);
+
         searchingUI.SetActive(false);
 
         qmButton.gameObject.SetActive(true);
@@ -123,5 +126,12 @@ public class MainUI_Online : MonoBehaviour
         searchingUI.SetActive(false);
         DeacetivateEndMenuButtons();
         networkError.SetActive(true);
+    }
+
+    public void OnQuickMatchSuccess()
+    {
+        DeacetivateEndMenuButtons();
+        DeactivateCancelButton();
+        gameObject.SetActive(false);
     }
 }

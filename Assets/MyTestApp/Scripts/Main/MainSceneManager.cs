@@ -379,6 +379,11 @@ public class MainSceneManager : MonoBehaviour, IMainSceneManager
                 }
 
                 //マッチング成功
+                uiManager.OnQuickSearchSuccess();
+                gameSystem.OnRematch();
+                await uiManager.OnRoundReset(true, true);
+                state = MainGameState.ROUND_SETUP;
+
                 break;
             }
         }

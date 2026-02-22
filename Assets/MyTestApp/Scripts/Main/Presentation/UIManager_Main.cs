@@ -619,4 +619,9 @@ public class UIManager_Main : MonoBehaviour
     {
         onlineUI.DeactivateCancelButton();
     }
+
+    public void OnQuickSearchSuccess()
+    {
+        onlineUI.OnQuickMatchSuccess();
+    }
 }
