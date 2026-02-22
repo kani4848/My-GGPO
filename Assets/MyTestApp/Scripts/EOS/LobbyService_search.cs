@@ -375,16 +375,35 @@ public sealed class LobbyService_search
     }
 
     //クイックマッチ================================================
-    
+    public enum LobbySearchStatus
+    {
+        Success,
+        NotFount,
+        Cancelled,
+        Error,
+    }
+
+    public struct LobbyQuickSearchResult
+    {
+        public LobbySearchStatus Status;
+        public LobbyData LobbyData;
+
+        public LobbyQuickSearchResult(LobbySearchStatus status, LobbyData lobbyData)
+        {
+            this.Status = status;
+            this.LobbyData = lobbyData;
+        }
+    }
+
     const float retryInterval_quick = 0.2f;
-    public async UniTask<bool> QuickMatch_Search(PlayerData localPlayerData, CancellationToken token)
+    public async UniTask<LobbyQuickSearchResult> QuickMatch_Search(PlayerData localPlayerData, CancellationToken token)
     {
         int loopCount = 0;
         const int loopLimit = 3;
 
-        var findAndJoined = new UniTaskCompletionSource<bool>();
+        var findAndJoined = new UniTaskCompletionSource<LobbyQuickSearchResult>();
         //キャンセルされたときの処理
-        var cancelAct = token.Register(() => findAndJoined.TrySetResult(false));
+        var cancelAct = token.Register(() => findAndJoined.TrySetResult(new LobbyQuickSearchResult(LobbySearchStatus.Cancelled, null)));
 
         try
         {
@@ -393,7 +412,7 @@ public sealed class LobbyService_search
                 if (loopCount > loopLimit)
                 {
                     Debug.Log($"検索回数上限に到達");
-                    findAndJoined.TrySetResult(false);
+                    findAndJoined.TrySetResult(new LobbyQuickSearchResult(LobbySearchStatus.NotFount, null));
                     break;
                 }
 
@@ -406,37 +425,39 @@ public sealed class LobbyService_search
                 {
                     loopCount++;
                     await UniTask.Delay(TimeSpan.FromSeconds(retryInterval_quick), cancellationToken: token);
-                    continue;
                 }
-
-                Debug.Log($"{foundLobbies.Count}のクイックマッチロビーを発見しました");
-
-                foreach (var lobby in foundLobbies)
+                else
                 {
-                    Debug.Log($"ロビー参加を試みます。ID:{lobby.id}");
-                    var data = await Join(lobby.id, lobby.details, localPlayerData, token);
+                    Debug.Log($"{foundLobbies.Count}のクイックマッチロビーを発見しました");
 
-                    if (data != null)
+                    foreach (var lobby in foundLobbies)
                     {
-                        Debug.Log($"ロビー参加に成功");
-                        return findAndJoined.TrySetResult(true);
+                        Debug.Log($"ロビー参加を試みます。ID:{lobby.id}");
+                        var data = await Join(lobby.id, lobby.details, localPlayerData, token);
+
+                        if (data != null)
+                        {
+                            Debug.Log($"ロビー参加に成功");
+                            findAndJoined.TrySetResult(new LobbyQuickSearchResult(LobbySearchStatus.Success, data));
+                            break;
+                        }
+                        else
+                        {
+                            Debug.Log($"ロビー参加に失敗");
+                        }
                     }
-                    else
-                    {
-                        Debug.Log($"ロビー参加に失敗");
-                    }
+
+                    break;
                 }
-
-                //失敗
-                loopCount++;
-
-                await UniTask.Delay(TimeSpan.FromSeconds(retryInterval_quick), cancellationToken: token);
             }
         }
         catch (OperationCanceledException)
         {
             Debug.Log($"ロビー検索中にクイックマッチがキャンセルされました");
-            findAndJoined.TrySetResult(false);
+        }
+        catch
+        {
+            findAndJoined.TrySetResult(new LobbyQuickSearchResult(LobbySearchStatus.Error, null));
         }
         finally
         {

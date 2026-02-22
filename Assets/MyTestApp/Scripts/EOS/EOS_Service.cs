@@ -10,6 +10,7 @@ using Epic.OnlineServices.Lobby;
 using System.ComponentModel;
 using Epic.OnlineServices.Logging;
 using System.Data;
+using System.Linq;
 
 public class EOS_Service : Singleton<EOS_Service>, IEosService
 {
@@ -189,24 +190,44 @@ public class EOS_Service : Singleton<EOS_Service>, IEosService
                 token.ThrowIfCancellationRequested();//キャンセルされたときここで止まる
 
                 //検索
-                bool searchSuccess = await searchService.QuickMatch_Search(playerData_Local, token);
+                var searchResult = await searchService.QuickMatch_Search(playerData_Local, token);
                 //ロビー未発見ならクリエイト
-                if (searchSuccess)
+
+                switch (searchResult.Status)
                 {
-                    Debug.Log($"ロビーを発見し入場しました");
-                    break;
+                    case LobbyService_search.LobbySearchStatus.Success:
+                        var remoteData = 
+                            searchResult.LobbyData.playerDatas.FirstOrDefault(m => m.puid != playerData_Local.puid);
+
+                        if(remoteData.puid != default)
+                        {
+                            Debug.Log($"ロビーを発見し入場しました");
+                            playerData_Remote = remoteData;
+                            return true;
+                        }
+                        else
+                        {
+                            Debug.Log($"入場しましたが、対戦相手の情報を取得できませんでした。");
+                            await inLobbyService.LeaveLobby();
+                        }
+                        break;
+
+                    case LobbyService_search.LobbySearchStatus.Cancelled:
+                        Debug.Log($"検索がキャンセルされました");
+                        break;
+                    case LobbyService_search.LobbySearchStatus.NotFount:
+                        Debug.Log($"ロビーが見つかりませんでした");
+                        break;
+                    case LobbyService_search.LobbySearchStatus.Error:
+                        Debug.Log($"検索処理でエラーが発生しました");
+                        break;
                 }
 
-
                 token.ThrowIfCancellationRequested();//キャンセルされたときここで止まる
 
-
-                Debug.Log($"クイックマッチサーチ未達、クリエイトに移行");
                 await searchService.CreateAndJoinAsync(playerData_Local, token, quick:true);
 
-
                 token.ThrowIfCancellationRequested();//キャンセルされたときここで止まる
-
 
                 Debug.Log($"ロビー作成、待ち受けを開始");
                 bool oppoJoined = await inLobbyService.QuickMatch_WaitOpponent(token);
@@ -223,8 +244,6 @@ public class EOS_Service : Singleton<EOS_Service>, IEosService
                 }
             }
 
-            var opponent = inLobbyService.GetOpponentMemberData();
-            playerData_Remote = searchService.CreatePlayerDataFromLobbyMemberData(opponent);
             return true;
         }
         catch(OperationCanceledException)
@@ -238,11 +257,7 @@ public class EOS_Service : Singleton<EOS_Service>, IEosService
     {
         try
         {
-            var opponent = inLobbyService.GetOpponentMemberData();
-
-            if (opponent == null) return false;
-
-            bool r = await playerPeer.AcceptRequestP2P(opponent.ProductId, token);
+            bool r = await playerPeer.AcceptRequestP2P(ProductUserId.FromString(playerData_Remote.puid), token);
 
             if (!r) return false;
 
