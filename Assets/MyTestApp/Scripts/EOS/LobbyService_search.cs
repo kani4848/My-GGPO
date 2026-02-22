@@ -211,6 +211,7 @@ public sealed class LobbyService_search
                 }
 
                 var raw = _lobbyManager.GetSearchResults();
+
                 if (raw == null || raw.Count == 0)
                 {
                     tcs.TrySetResult(null);
@@ -246,7 +247,7 @@ public sealed class LobbyService_search
 
                 // ついでに class field も「重複なし」に更新したいならここで作り直す
                 // searchedLobbies は Lobbyキーなので、ここではUI用だけ作るのが安全
-                // searchedLobbies = raw;
+                searchedLobbies = raw;
 
                 var lobbyDatas = new List<SearchedLobbyData>(capacity: 8);
 
@@ -387,6 +388,8 @@ public sealed class LobbyService_search
         int loopCount = 0;
         const int loopLimit = 3;
 
+        var findAndJoined = new UniTaskCompletionSource<bool>(); 
+
         try
         {
             while (!token.IsCancellationRequested && loopCount < loopLimit)
@@ -403,14 +406,19 @@ public sealed class LobbyService_search
                     continue;
                 }
 
-                foreach (var lobby in foundLobbies)
+                Debug.Log($"{foundLobbies.Count}のクイックマッチロビーを発見しました");
+
+                foreach (var lobby in searchedLobbies)
                 {
-                    bool joinResult = await JoinLobby_Quick(lobby.lobbyId);
-                    if (joinResult)
+
+                    _lobbyManager.JoinLobby(lobby.Key.Id, lobby.Value, presenceEnabled: false, result =>
                     {
-                        Debug.Log($"クイックマッチ:ロビー発見、参加成功");
-                        return true;
-                    }
+                        if(result == Result.Success)
+                        {
+                            Debug.Log($"クイックマッチ:ロビー発見、参加成功");
+                            findAndJoined.TrySetResult(true);
+                        }
+                    }); 
                 }
 
                 //失敗
@@ -423,41 +431,10 @@ public sealed class LobbyService_search
         catch (OperationCanceledException)
         {
             Debug.Log($"ロビー検索中にクイックマッチがキャンセルされました");
-            return false;
-        }
-        return false;
-    }
-
-    async UniTask<bool> JoinLobby_Quick(string lobbyId)
-    {
-        LobbyDetails details;
-        var tcs = new UniTaskCompletionSource<bool>();
-
-        try
-        {
-            var targetLobbyInfo = searchedLobbies.FirstOrDefault(m => m.Key.Id == lobbyId);
-
-            if(targetLobbyInfo.Value == default)
-            {
-                tcs.TrySetResult(false);
-            }
-            else
-            {
-                details = targetLobbyInfo.Value;
-
-                _lobbyManager.JoinLobby(lobbyId, details, presenceEnabled: false, result =>
-                {
-                    tcs.TrySetResult(result == Result.Success);
-                });
-            }
-        }
-        catch (NullReferenceException)
-        {
-            Debug.Log("ロビー参加失敗");
-            tcs.TrySetResult(false);
+            findAndJoined.TrySetResult(false);
         }
 
-        return await tcs.Task;
+        return await findAndJoined.Task;
     }
 }
 
