@@ -23,7 +23,10 @@ public sealed class LobbyService_search
         _lobbyManager = lm;
     }
 
-    public async UniTask<LobbyData> CreateAndJoinAsync(PlayerData playerData_local, CancellationToken token, string lobbyPath = "", bool quick = false)
+    public async UniTask<LobbyData> CreateAndJoinAsync(
+        PlayerData playerData_local, 
+        CancellationToken token, string lobbyPath = "", 
+        bool quick = false)
     {
         var lobbySettings = new Lobby
         {
@@ -35,12 +38,18 @@ public sealed class LobbyService_search
             RTCRoomEnabled = false, // 今回不要
         };
 
+        string matchinType;
+
+        if (quick) matchinType = EosCommonData.LobbyAttributeValue_QuickMatch;
+        else matchinType = lobbyPath == "" ? 
+                EosCommonData.LobbyAttributeValue_Common : EosCommonData.LobbyAttributeValue_Password;
+
         //マッチング識別用アトリビュート
         lobbySettings.Attributes.Add(new LobbyAttribute
         {
             Key = EosCommonData .LobbyAttributeKey_MatchingType,
             ValueType = AttributeType.String,
-            AsString = quick ? EosCommonData.LobbyAttributeValue_QuickMatch : EosCommonData.LobbyAttributeValue_Common,
+            AsString = matchinType,
             Visibility = LobbyAttributeVisibility.Public,
         });
 

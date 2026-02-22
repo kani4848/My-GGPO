@@ -27,5 +27,6 @@ public static class EosCommonData
 
     //マッチング識別用アトリビュートバリュー（キーはmatching type）
     public static string LobbyAttributeValue_Common = "commmoooon";
+    public static string LobbyAttributeValue_Password = "password";
     public static string LobbyAttributeValue_QuickMatch = "quickquickquick";
 }
