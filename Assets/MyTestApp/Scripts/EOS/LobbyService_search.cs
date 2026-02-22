@@ -419,8 +419,7 @@ public sealed class LobbyService_search
                     if (data != null)
                     {
                         Debug.Log($"ロビー参加に成功");
-                        findAndJoined.TrySetResult(true);
-                        break;
+                        return findAndJoined.TrySetResult(true);
                     }
                     else
                     {
