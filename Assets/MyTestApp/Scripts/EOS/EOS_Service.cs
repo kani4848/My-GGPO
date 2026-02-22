@@ -195,6 +195,7 @@ public class EOS_Service : Singleton<EOS_Service>, IEosService
 
                 if(searchResult.Status == LobbyService_search.LobbySearchStatus.Success)
                 {
+                    playerData_Local.isOwner = false;
                     Debug.Log($"ロビーを発見し入場しました");
                     return true;
                 }
@@ -223,6 +224,7 @@ public class EOS_Service : Singleton<EOS_Service>, IEosService
 
                 if (oppoJoined)
                 {
+                    playerData_Local.isOwner = true;
                     Debug.Log($"対戦相手がロビーに入りました");
                     break;
                 }
