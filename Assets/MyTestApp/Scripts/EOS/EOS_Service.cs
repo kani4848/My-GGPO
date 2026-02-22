@@ -193,12 +193,14 @@ public class EOS_Service : Singleton<EOS_Service>, IEosService
                 var searchResult = await searchService.QuickMatch_Search(playerData_Local, token);
                 //ロビー未発見ならクリエイト
 
+                if(searchResult.Status == LobbyService_search.LobbySearchStatus.Success)
+                {
+                    Debug.Log($"ロビーを発見し入場しました");
+                    return true;
+                }
+
                 switch (searchResult.Status)
                 {
-                    case LobbyService_search.LobbySearchStatus.Success:
-                        Debug.Log($"ロビーを発見し入場しました");
-                        break;
-
                     case LobbyService_search.LobbySearchStatus.Cancelled:
                         Debug.Log($"検索がキャンセルされました");
                         break;
