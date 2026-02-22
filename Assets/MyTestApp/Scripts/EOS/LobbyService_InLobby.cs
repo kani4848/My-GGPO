@@ -144,16 +144,23 @@ public class LobbyService_InLobby
             //getcurrentlobby一回だと固定値なので、毎フレーム取り直さないといけない
             UniTask waitOppo = UniTask.WaitUntil(() => {
                 var lobby = _lobbyManager.GetCurrentLobby();
-                return lobby != null && lobby.IsValid() && lobby.Members.Count == 2;
+                bool oppoJoined = lobby != null && lobby.IsValid() && lobby.Members.Count == 2;
+                if (oppoJoined) Debug.Log("対戦相手が入室しました");
+                return oppoJoined;
             }, cancellationToken: myCts.Token);
 
             UniTask timeOut = UniTask.Delay(TimeSpan.FromSeconds(timeout),cancellationToken: myCts.Token);
 
             var result = await UniTask.WhenAny(waitOppo, timeOut);
 
+            myCts?.Cancel();
+            myCts?.Dispose();
+            myCts = null;
+
             if (result == 0) return true;
             else
             {
+                Debug.Log("待ち受けタイムアウト");
                 await LeaveLobby(); 
                 return false;
             }
