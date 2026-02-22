@@ -149,7 +149,45 @@ public class EOS_Service : MonoBehaviour, IEosService
     public async UniTask<bool> QuickMatch_FindOpponent(CancellationToken token)
     {
         Debug.Log("クイックマッチサーチ開始");
-        return await searchService.QuickMatch_FindOpponent(token);
+
+        try
+        {
+            while (!token.IsCancellationRequested)
+            {
+                //検索
+                bool searchSuccess = await searchService.QuickMatch_FindOpponent(token);
+                //ロビー未発見ならクリエイト
+                if (searchSuccess)
+                {
+                    Debug.Log($"ロビーを発見し入場しました");
+                    return true;
+                }
+
+                //待ち受け、キャンセル時に退室処理
+                Debug.Log($"クイックマッチサーチ未達、クリエイトに移行");
+                bool createSuccess = await searchService.CreateLobby_Quick();
+                if (!createSuccess) return false;
+
+                bool oppoJoined = await inLobbyService.QuickMatch_WaitOpponent(token);
+
+                if (oppoJoined)
+                {
+                    Debug.Log($"対戦相手がロビーに入りました");
+                    return true;
+                }
+                else
+                {
+                    Debug.Log($"ロビーを破棄し、再検索に移行");
+                    continue;
+                }
+            }
+        }
+        catch(OperationCanceledException)
+        {
+
+        }
+
+        return false;
     }
 
     public async UniTask<bool> QuickMatch_HandShake(CancellationToken token)
@@ -168,7 +206,7 @@ public class EOS_Service : MonoBehaviour, IEosService
 
             return r;
         }
-        catch (Exception ex)
+        catch (OperationCanceledException)
         {
             return false;
         }

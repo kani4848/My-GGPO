@@ -130,8 +130,6 @@ public class SearchLobbyUI : MonoBehaviour
 
     void ActivatedButtons()
     {
-        Debug.Log("ボタン復活");
-
         quickBtn.interactable = true;
         createBtn.interactable = true;
         searchBtn.interactable = true;

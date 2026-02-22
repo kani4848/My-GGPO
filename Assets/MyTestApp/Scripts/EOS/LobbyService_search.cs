@@ -370,7 +370,7 @@ public sealed class LobbyService_search
     public async UniTask<bool> QuickMatch_FindOpponent(CancellationToken token)
     {
         int loopCount = 0;
-        const int loopLimit = 10;
+        const int loopLimit = 3;
 
         try
         {
@@ -402,29 +402,13 @@ public sealed class LobbyService_search
                 await UniTask.Delay(TimeSpan.FromSeconds(retryInterval_quick), cancellationToken: token);
             }
 
-            Debug.Log($"クイックマッチサーチ未達、クリエイトに移行");
-
-            //検索でロビー未発見なら作成
-            Debug.Log($"クイックマッチクリエイト開始");
-            bool createResult = await CreateLobby_Quick(token);
-
-            if (!createResult) return false;
-
-            Debug.Log($"クイックマッチ：ロビー作成完了、待機開始");
-            //getcurrentlobby一回だと固定値なので、毎フレーム取り直さないといけない
-            await UniTask.WaitUntil(() =>
-            {
-                var lobby = _lobbyManager.GetCurrentLobby();
-                return lobby != null && lobby.IsValid() && lobby.Members.Count == 2;
-            }, cancellationToken: token);
-
-            return true;
         }
         catch (OperationCanceledException)
         {
-            Debug.Log($"クイックマッチサーチがキャンセルされました");
+            Debug.Log($"ロビー検索中にクイックマッチがキャンセルされました");
             return false;
         }
+        return false;
     }
 
     async UniTask<HashSet<SearchedLobbyData_Quick>> SearchLobby_Quick(CancellationToken token)
@@ -509,23 +493,30 @@ public sealed class LobbyService_search
         }
     }
 
-    async UniTask<bool> CreateLobby_Quick(CancellationToken token)
+    public async UniTask<bool> CreateLobby_Quick()
     {
-        int loopCount_quick = 0;
-        int loopLimit_quick = 10;
-
-        var lobbySettings = new Lobby
-        {
-            MaxNumLobbyMembers = maxMembers,
-            BucketId = EosCommonData.LobbyCommonId,
-            LobbyPermissionLevel = LobbyPermissionLevel.Publicadvertised, // テスト向け
-            PresenceEnabled = false,
-            AllowInvites = false,
-        };
-
         try
         {
-            while (!token.IsCancellationRequested)
+            return await CreateLobbyLoop();
+        }
+        catch (OperationCanceledException)
+        {
+            Debug.Log($"クイックマッチサーチがキャンセルされました");
+            return false;
+        }
+
+        async UniTask<bool> CreateLobbyLoop()
+        {
+            var lobbySettings = new Lobby
+            {
+                MaxNumLobbyMembers = maxMembers,
+                BucketId = EosCommonData.LobbyCommonId,
+                LobbyPermissionLevel = LobbyPermissionLevel.Publicadvertised, // テスト向け
+                PresenceEnabled = false,
+                AllowInvites = false,
+            };
+
+            try
             {
                 var lobbyCreate = new UniTaskCompletionSource<bool>();
 
@@ -533,35 +524,25 @@ public sealed class LobbyService_search
                 {
                     if (r != Result.Success)
                     {
+                        Debug.Log("クイックロビー作成失敗");
                         lobbyCreate.TrySetResult(false);
                         return;
                     }
 
+                    Debug.Log("ロビーを作成しました");
                     Lobby myLobby = _lobbyManager.GetCurrentLobby();
                     lobbyCreate.TrySetResult(true);
                 });
 
-                bool r = await lobbyCreate.Task;
+                return await lobbyCreate.Task;
 
-                if (!r && loopCount_quick > loopLimit_quick) return false;
-
-                if (!r)
-                {
-                    Debug.Log("クイックロビー作成失敗");
-                    loopCount_quick++;
-                    await UniTask.Delay(TimeSpan.FromSeconds(retryInterval_quick), cancellationToken: token);
-                    continue;
-                }
-
-                return true;
             }
-
+            catch (OperationCanceledException)
+            {
+                Debug.Log($"ロビー作成中にクイックマッチがキャンセルされました");
+                return false;
+            }
         }
-        finally
-        {
-
-        }
-        return false;
     }
 
     async UniTask<bool> JoinLobby_Quick(SearchedLobbyData_Quick lobbyData, CancellationToken token)

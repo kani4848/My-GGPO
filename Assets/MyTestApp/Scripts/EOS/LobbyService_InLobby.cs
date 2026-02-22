@@ -129,6 +129,55 @@ public class LobbyService_InLobby
         preMemberPuids = currentMemberDatas.Select(m=>m.ProductId).ToList();
     }
 
+    //クイックマッチ===============================
+
+    public async UniTask<bool> QuickMatch_WaitOpponent(CancellationToken token)
+    {
+        var myCts = CancellationTokenSource.CreateLinkedTokenSource(token);
+
+        Debug.Log($"クイックマッチ:待ち受けを開始");
+
+        try
+        {
+            //getcurrentlobby一回だと固定値なので、毎フレーム取り直さないといけない
+            UniTask waitOppo = UniTask.WaitUntil(() => {
+                var lobby = _lobbyManager.GetCurrentLobby();
+                return lobby != null && lobby.IsValid() && lobby.Members.Count == 2;
+            }, cancellationToken: myCts.Token);
+
+            UniTask timeOut = UniTask.Delay(TimeSpan.FromSeconds(10),cancellationToken: myCts.Token);
+
+            var result = await UniTask.WhenAny(waitOppo, timeOut);
+
+            myCts?.Cancel();
+            myCts?.Dispose();
+            myCts = null;
+
+            if (result == 0) return true;
+            else
+            {
+                await DisposeQuickLobby();
+                return false;
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            Debug.Log("ロビー待機中にクイックマッチがキャンセルされました");
+            await DisposeQuickLobby();
+            return false;
+        }
+
+        async UniTask DisposeQuickLobby()
+        {
+            myCts?.Cancel();
+            myCts?.Dispose();
+            myCts = null;
+
+            //ロビー破棄処理
+            await LeaveLobby();
+        }
+    }
+
     //レディ===============================
     public void OnReady()
     {
@@ -209,7 +258,7 @@ public class LobbyService_InLobby
 
         if (lobby.Members.Count == 1)
         {
-            DestroyLobbyOptions destOpt = new DestroyLobbyOptions()
+            var destOpt = new DestroyLobbyOptions()
             {
                 LocalUserId = EosCommonData.myPuid,
                 LobbyId = lobby.Id,
