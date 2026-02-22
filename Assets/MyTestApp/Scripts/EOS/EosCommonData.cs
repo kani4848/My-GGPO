@@ -13,13 +13,19 @@ public static class EosCommonData
     public static string MEMBER_KEY_UMA = "UMA";
     public static string MEMBER_KEY_CHARA = "CHARA";
 
-    //ロビーキー、IDは必ず小文字
-    public static string LobbyCommonKey = "common";
-    public static string LobbyCommonId = "commonId";
-    public static string LobbyQuickKey = "quickquickquick";
+    //ロビーのキーは必ず小文字
+    
+    //バケットID…マッチンググループの区別、のはずなんだがそれは何十万という規模のお話。マッチング識別検索はアトリビュートでやる。
+    public static string MyBacketId = "backet";
+    
+    //ロビーアトリビュートキー
+    public static string LobbyAttributeKey_PATH = "pass";
+    public static string LobbyAttributeKey_NAME = "owner";
+    public static string LobbyAttributeKey_CHARA = "chara";
+    public static string LobbyAttributeKey_HAT = "hat";
+    public static string LobbyAttributeKey_MatchingType = "matching";
 
-    public static string LOBBY_KEY_PATH = "pass";
-    public static string LOBBY_KEY_OWNER_NAME = "owner";
-    public static string LOBBY_KEY_CHARA = "chara";
-    public static string LOBBY_KEY_HAT = "hat";
+    //マッチング識別用アトリビュートバリュー（キーはmatching type）
+    public static string LobbyAttributeValue_Common = "quickquickquick";
+    public static string LobbyAttributeValue_QuickMatch = "quickquickquick";
 }

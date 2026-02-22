@@ -57,6 +57,33 @@ public class EOS_Service : MonoBehaviour, IEosService
         peerState = playerPeer.state;
     }
 
+    public static string disposedLobbyId;
+    static float lobbyDisposedTime;
+    const float resetDisposeLobbyIdInterval = 5f;
+
+    public static void SetDisposedLobbyId(string lobbyId)
+    {
+        disposedLobbyId = lobbyId;
+        lobbyDisposedTime = Time.time + resetDisposeLobbyIdInterval;
+    }
+
+    public static bool IsDisposedId(string lobbyId)
+    {
+        if (Time.time >= lobbyDisposedTime)
+        {
+            disposedLobbyId = "";
+            lobbyDisposedTime = 0;
+            return false;
+        }
+
+        if (lobbyId == disposedLobbyId)
+        {
+            Debug.Log("このロビーは既に破棄されています");
+            return true;
+        }
+        else return false;
+    }
+
     //タイトルシーン===============================================
 
     bool loggedin = false;
@@ -83,7 +110,7 @@ public class EOS_Service : MonoBehaviour, IEosService
     //ロビー検索シーン===============================================
     public async UniTask<List<SearchedLobbyData>> SearchLobby(string path = "")
     {
-        var data = await searchService.SearchLobby(path);
+        var data = await searchService.SearchLobby_Common(path);
         return data;
     }
 
@@ -165,9 +192,9 @@ public class EOS_Service : MonoBehaviour, IEosService
 
                 //待ち受け、キャンセル時に退室処理
                 Debug.Log($"クイックマッチサーチ未達、クリエイトに移行");
-                bool createSuccess = await searchService.CreateLobby_Quick();
-                if (!createSuccess) return false;
+                await searchService.CreateAndJoinAsync("", playerData_Local, true);
 
+                Debug.Log($"ロビー作成、待ち受けを開始");
                 bool oppoJoined = await inLobbyService.QuickMatch_WaitOpponent(token);
 
                 if (oppoJoined)

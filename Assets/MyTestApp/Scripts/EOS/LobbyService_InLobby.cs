@@ -267,6 +267,7 @@ public class LobbyService_InLobby
             _lobbyInterface.DestroyLobby(ref destOpt, null, (ref DestroyLobbyCallbackInfo info) =>
             {
                 Debug.Log($"ロビーを破棄 ID:{lobby.Id}");
+                EOS_Service.SetDisposedLobbyId(lobby.Id);
                 ExitAction();
                 tcs.TrySetResult();
             });
