@@ -394,8 +394,9 @@ public sealed class LobbyService_search
         {
             while (!token.IsCancellationRequested)
             {
-                if (loopCount < loopLimit)
+                if (loopCount > loopLimit)
                 {
+                    Debug.Log($"検索回数上限に到達");
                     findAndJoined.TrySetResult(false);
                     break;
                 }
