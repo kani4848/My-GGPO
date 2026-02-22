@@ -15,7 +15,7 @@ public class LoadingAnimation : MonoBehaviour
         }).SetLoops(-1);
     }
 
-    private void OnDisable()
+    private void OnDestroy()
     {
         tween.Kill();
     }

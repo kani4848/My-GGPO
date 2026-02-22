@@ -241,9 +241,6 @@ public class PeerRouter
         //そのため別軸でピンポンできていれば成立とみなす処理も走らせる
 
         var connectTask = new UniTaskCompletionSource<bool>();
-
-        token.Register(() => connectTask.TrySetResult(false));
-
         // キャンセル登録（後でDisposeする）
         var ctr = token.Register(() => connectTask.TrySetResult(false));
 

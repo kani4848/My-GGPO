@@ -50,8 +50,8 @@ public class LobbyQuickMatchUi : MonoBehaviour
     public void OnFindOpponent(PlayerData remotePlayerData)
     {
         loadingUI.SetActive(false);
-        namePlate_local.gameObject.SetActive(true);
-        namePlate_local.UpdateImage(remotePlayerData);
+        namePlate_remote.gameObject.SetActive(true);
+        namePlate_remote.UpdateImage(remotePlayerData);
     }
 
     public void ActivateButton()

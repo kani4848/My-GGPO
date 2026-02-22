@@ -23,7 +23,7 @@ public sealed class LobbyService_search
         _lobbyManager = lm;
     }
 
-    public async UniTask<LobbyData> CreateAndJoinAsync(string lobbyPath, PlayerData playerData_local, bool quick = false)
+    public async UniTask<LobbyData> CreateAndJoinAsync(PlayerData playerData_local, CancellationToken token, string lobbyPath = "", bool quick = false)
     {
         var lobbySettings = new Lobby
         {
@@ -86,39 +86,46 @@ public sealed class LobbyService_search
         }
         var myLobby = await CreateLobbyAwait();
 
+        if (myLobby == null) return null;
+
         return await ModifyLobbyAwait(myLobby);
         
         UniTask<Lobby> CreateLobbyAwait()
         {
-            var tcs = new UniTaskCompletionSource<Lobby>();
+            var getLobby = new UniTaskCompletionSource<Lobby>();
+            var cancelAct = token.Register(() => getLobby.TrySetResult(null));
 
             _lobbyManager.CreateLobby(lobbySettings, r =>
             {
+                cancelAct.Dispose();
                 Lobby myLobby = _lobbyManager.GetCurrentLobby();
-                tcs.TrySetResult(myLobby);
+                getLobby.TrySetResult(myLobby);
             });
 
-            return tcs.Task;
+            return getLobby.Task;
         }
 
         UniTask<LobbyData> ModifyLobbyAwait(Lobby lobby)
         {
-            var modifyTask = new UniTaskCompletionSource<LobbyData>();
+            var getLobbyData = new UniTaskCompletionSource<LobbyData>();
+            var cancelAct = token.Register(() => getLobbyData.TrySetResult(null));
 
             _lobbyManager.ModifyLobby(lobby, modifyResult =>
             {
+                cancelAct.Dispose();
+
                 if (modifyResult != Result.Success)
                 {
-                    modifyTask.TrySetResult(null);
+                    getLobbyData.TrySetResult(null);
                     return;
                 }
 
                 var lobbyData = CreateLobbyData(_lobbyManager.GetCurrentLobby());
                 EOS_Service.SetMyMemberLobbyAttribute(playerData_local);
-                modifyTask.TrySetResult(lobbyData);
+                getLobbyData.TrySetResult(lobbyData);
             });
 
-            return modifyTask.Task;
+            return getLobbyData.Task;
         }
     }
 
@@ -376,11 +383,13 @@ public sealed class LobbyService_search
         int loopCount = 0;
         const int loopLimit = 3;
 
-        var findAndJoined = new UniTaskCompletionSource<bool>(); 
+        var findAndJoined = new UniTaskCompletionSource<bool>();
+        //キャンセルされたときの処理
+        var cancelAct = token.Register(() => findAndJoined.TrySetResult(false));
 
         try
         {
-            while (!token.IsCancellationRequested)
+            while (true)
             {
                 if (loopCount > loopLimit)
                 {
@@ -425,6 +434,10 @@ public sealed class LobbyService_search
         {
             Debug.Log($"ロビー検索中にクイックマッチがキャンセルされました");
             findAndJoined.TrySetResult(false);
+        }
+        finally
+        {
+            cancelAct.Dispose();
         }
 
         return await findAndJoined.Task;

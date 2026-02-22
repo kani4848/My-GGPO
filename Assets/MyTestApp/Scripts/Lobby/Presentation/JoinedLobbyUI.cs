@@ -101,7 +101,6 @@ public class JoinedLobbyUI : MonoBehaviour
         readyButton.gameObject.SetActive(true);
     }
 
-    bool _busy = false;
 
     void ActivatedButtons()
     {

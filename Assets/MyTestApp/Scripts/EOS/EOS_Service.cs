@@ -130,7 +130,7 @@ public class EOS_Service : Singleton<EOS_Service>, IEosService
         path ??= "";
 
         playerData_Local.isOwner = true;
-        var data = await searchService.CreateAndJoinAsync(path, playerData_Local);
+        var data = await searchService.CreateAndJoinAsync(playerData_Local, token, path);
 
         if (data == null)
         {
@@ -179,8 +179,10 @@ public class EOS_Service : Singleton<EOS_Service>, IEosService
 
         try
         {
-            while (!token.IsCancellationRequested)
+            while (true)
             {
+                token.ThrowIfCancellationRequested();//キャンセルされたときここで止まる
+
                 //検索
                 bool searchSuccess = await searchService.QuickMatch_Search(token);
                 //ロビー未発見ならクリエイト
@@ -190,9 +192,16 @@ public class EOS_Service : Singleton<EOS_Service>, IEosService
                     break;
                 }
 
-                //待ち受け、キャンセル時に退室処理
+
+                token.ThrowIfCancellationRequested();//キャンセルされたときここで止まる
+
+
                 Debug.Log($"クイックマッチサーチ未達、クリエイトに移行");
-                await searchService.CreateAndJoinAsync("", playerData_Local, true);
+                await searchService.CreateAndJoinAsync(playerData_Local, token, quick:true);
+
+
+                token.ThrowIfCancellationRequested();//キャンセルされたときここで止まる
+
 
                 Debug.Log($"ロビー作成、待ち受けを開始");
                 bool oppoJoined = await inLobbyService.QuickMatch_WaitOpponent(token);
@@ -215,10 +224,9 @@ public class EOS_Service : Singleton<EOS_Service>, IEosService
         }
         catch(OperationCanceledException)
         {
-
+            Debug.Log($"クイックマッチがキャンセルされました。");
+            return false;
         }
-
-        return false;
     }
 
     public async UniTask<bool> QuickMatch_HandShake(CancellationToken token)
