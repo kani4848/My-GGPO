@@ -111,7 +111,7 @@ public interface IEosService
 
     public UniTask<List<SearchedLobbyData>> SearchLobby(string path = "");
 
-    public UniTask<LobbyData> JoinLobby(SearchedLobbyData searched);
+    public UniTask<LobbyData> JoinLobby(SearchedLobbyData searched, CancellationToken token);
 
     public UniTask Ready(CancellationToken token);
 

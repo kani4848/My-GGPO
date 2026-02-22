@@ -114,12 +114,17 @@ public class EOS_Service : Singleton<EOS_Service>, IEosService
         return data;
     }
 
-    public async UniTask<LobbyData> JoinLobby(SearchedLobbyData searched)
+    public async UniTask<LobbyData> JoinLobby(SearchedLobbyData searched, CancellationToken token)
     {
         playerData_Local.isOwner = false;
 
-        var data = await searchService.Join(searched.id, searched.details, playerData_Local);
-        if (data == null) return null;
+        var data = await searchService.Join(searched.id, searched.details, playerData_Local, token);
+        
+        if (data == null)
+        {
+            await inLobbyService.LeaveLobby();
+            return null;
+        }
 
         inLobbyService.EnterLobbyAction();
         return data;
@@ -184,7 +189,7 @@ public class EOS_Service : Singleton<EOS_Service>, IEosService
                 token.ThrowIfCancellationRequested();//キャンセルされたときここで止まる
 
                 //検索
-                bool searchSuccess = await searchService.QuickMatch_Search(token);
+                bool searchSuccess = await searchService.QuickMatch_Search(playerData_Local, token);
                 //ロビー未発見ならクリエイト
                 if (searchSuccess)
                 {

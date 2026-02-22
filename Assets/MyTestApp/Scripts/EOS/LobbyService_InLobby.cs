@@ -133,6 +133,8 @@ public class LobbyService_InLobby
 
     public async UniTask<bool> QuickMatch_WaitOpponent(CancellationToken token)
     {
+        float timeout = 10;
+
         var myCts = CancellationTokenSource.CreateLinkedTokenSource(token);
 
         Debug.Log($"クイックマッチ:待ち受けを開始");
@@ -145,36 +147,28 @@ public class LobbyService_InLobby
                 return lobby != null && lobby.IsValid() && lobby.Members.Count == 2;
             }, cancellationToken: myCts.Token);
 
-            UniTask timeOut = UniTask.Delay(TimeSpan.FromSeconds(10),cancellationToken: myCts.Token);
+            UniTask timeOut = UniTask.Delay(TimeSpan.FromSeconds(timeout),cancellationToken: myCts.Token);
 
             var result = await UniTask.WhenAny(waitOppo, timeOut);
-
-            myCts?.Cancel();
-            myCts?.Dispose();
-            myCts = null;
 
             if (result == 0) return true;
             else
             {
-                await DisposeQuickLobby();
+                await LeaveLobby(); 
                 return false;
             }
         }
         catch (OperationCanceledException)
         {
             Debug.Log("ロビー待機中にクイックマッチがキャンセルされました");
-            await DisposeQuickLobby();
+            await LeaveLobby(); 
             return false;
         }
-
-        async UniTask DisposeQuickLobby()
+        finally
         {
             myCts?.Cancel();
             myCts?.Dispose();
             myCts = null;
-
-            //ロビー破棄処理
-            await LeaveLobby();
         }
     }
 
@@ -252,37 +246,42 @@ public class LobbyService_InLobby
 
         if(string.IsNullOrEmpty(lobby.Id)) return;
         if (leaveLobby) return;
+
         leaveLobby = true;
 
         var tcs = new UniTaskCompletionSource();
 
         if (lobby.Members.Count == 1)
         {
-            var destOpt = new DestroyLobbyOptions()
-            {
-                LocalUserId = EosCommonData.myPuid,
-                LobbyId = lobby.Id,
-            };
+            EOS_Service.SetDisposedLobbyId(lobby.Id);
+        }
 
-            _lobbyInterface.DestroyLobby(ref destOpt, null, (ref DestroyLobbyCallbackInfo info) =>
-            {
-                Debug.Log($"ロビーを破棄 ID:{lobby.Id}");
-                EOS_Service.SetDisposedLobbyId(lobby.Id);
-                ExitAction();
-                tcs.TrySetResult();
-            });
-        }
-        else
+        _lobbyManager.LeaveLobby(result =>
         {
-            _lobbyManager.LeaveLobby(result =>
-            {
-                Debug.Log($"ロビー退室 ID:{lobby.Id}");
-                ExitAction();
-                tcs.TrySetResult();
-            });
-        }
+            leaveLobby = false;
+            Debug.Log($"ロビー退室 ID:{lobby.Id}");
+            ExitAction();
+            tcs.TrySetResult();
+        });
 
         await tcs.Task;
+
+        /*ロビー破棄処理が退室できてない扱いになってそうなのでいったん使用せず
+        var destOpt = new DestroyLobbyOptions()
+        {
+            LocalUserId = EosCommonData.myPuid,
+            LobbyId = lobby.Id,
+        };
+
+        _lobbyInterface.DestroyLobby(ref destOpt, null, (ref DestroyLobbyCallbackInfo info) =>
+        {
+            leaveLobby = false;
+            Debug.Log($"ロビーを破棄 ID:{lobby.Id}");
+            EOS_Service.SetDisposedLobbyId(lobby.Id);
+            ExitAction();
+            tcs.TrySetResult();
+        });
+        */
     }
 
     // データ取得 ===============================

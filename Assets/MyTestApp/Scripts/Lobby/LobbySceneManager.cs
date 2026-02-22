@@ -361,7 +361,7 @@ public class LobbySceneManager : MonoBehaviour, ILobbySceneManager
     {
         state = LobbyState.JoiningLobby;
 
-        var lobbyData = await eosSirvice.JoinLobby(searchedLobbyData);
+        var lobbyData = await eosSirvice.JoinLobby(searchedLobbyData, SceneCts.Token);
 
         if (lobbyData == null)
         {

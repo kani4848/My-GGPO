@@ -129,10 +129,10 @@ public sealed class LobbyService_search
         }
     }
 
-    
-    public async UniTask<LobbyData> Join(string lobbyId,LobbyDetails details, PlayerData playerData_local)
+    public async UniTask<LobbyData> Join(string lobbyId,LobbyDetails details, PlayerData playerData_local, CancellationToken token)
     {
         var tcs = new UniTaskCompletionSource<LobbyData>();
+        var cancelAction = token.Register(() => tcs.TrySetResult(null));
 
         try
         {
@@ -145,7 +145,6 @@ public sealed class LobbyService_search
                 }
 
                 var current = _lobbyManager.GetCurrentLobby();
-                Debug.Log($"lobbyservice 人数は{current.Members.Count}人");
                 EOS_Service.SetMyMemberLobbyAttribute(playerData_local);
                 var lobbyData = CreateLobbyData(current);
 
@@ -157,12 +156,13 @@ public sealed class LobbyService_search
             Debug.Log("ロビー参加失敗");
             tcs.TrySetResult(null);
         }
-
+        finally
+        {
+            cancelAction.Dispose();
+        }
 
         return await tcs.Task;
     }
-
-    string disposedLobbyId;
 
     public async UniTask<List<SearchedLobbyData>> SearchLobby_Common(string lobbyPath = "")
     {
@@ -234,8 +234,6 @@ public sealed class LobbyService_search
 
                     // 同じ LobbyId がすでにあれば上書きしない（先勝ちでOK）
                     if (uniqueByLobbyId.ContainsKey(lobbyId)) continue;
-
-                    if (lobbyId == disposedLobbyId) continue;
 
                     //既に破棄され削除待ちのロビーを除外
                     if (EOS_Service.IsDisposedId(lobbyId)) continue;
@@ -378,7 +376,7 @@ public sealed class LobbyService_search
     //クイックマッチ================================================
     
     const float retryInterval_quick = 0.2f;
-    public async UniTask<bool> QuickMatch_Search(CancellationToken token)
+    public async UniTask<bool> QuickMatch_Search(PlayerData localPlayerData, CancellationToken token)
     {
         int loopCount = 0;
         const int loopLimit = 3;
@@ -414,14 +412,18 @@ public sealed class LobbyService_search
 
                 foreach (var lobby in foundLobbies)
                 {
-                    _lobbyManager.JoinLobby(lobby.id, lobby.details, presenceEnabled: false, result =>
+                    Debug.Log($"ロビー参加を試みます。ID:{lobby.id}");
+                    var data = await Join(lobby.id, lobby.details, localPlayerData, token);
+
+                    if (data != null)
                     {
-                        if(result == Result.Success)
-                        {
-                            Debug.Log($"クイックマッチ:ロビー発見、参加成功");
-                            findAndJoined.TrySetResult(true);
-                        }
-                    }); 
+                        Debug.Log($"ロビー参加に成功");
+                        findAndJoined.TrySetResult(true);
+                    }
+                    else
+                    {
+                        Debug.Log($"ロビー参加に失敗");
+                    }
                 }
 
                 //失敗
