@@ -265,7 +265,7 @@ public class LobbySceneManager : MonoBehaviour, ILobbySceneManager
         if (!goahead)
         {
             ExitQuickMatch();
-            await uiManager.ShowErrorWindow();
+            //await uiManager.ShowErrorWindow();
             state = LobbyState.InLobbySearchRoom;
             return;
         }
@@ -284,7 +284,7 @@ public class LobbySceneManager : MonoBehaviour, ILobbySceneManager
         if (!goahead)
         {
             ExitQuickMatch();
-            await uiManager.ShowErrorWindow();
+            //await uiManager.ShowErrorWindow();
             state = LobbyState.InLobbySearchRoom;
             return;
         }

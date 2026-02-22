@@ -182,7 +182,7 @@ public class EOS_Service : MonoBehaviour, IEosService
             while (!token.IsCancellationRequested)
             {
                 //検索
-                bool searchSuccess = await searchService.QuickMatch_FindOpponent(token);
+                bool searchSuccess = await searchService.QuickMatch_Search(token);
                 //ロビー未発見ならクリエイト
                 if (searchSuccess)
                 {

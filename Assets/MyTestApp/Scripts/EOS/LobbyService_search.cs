@@ -377,7 +377,7 @@ public sealed class LobbyService_search
     //クイックマッチ================================================
     
     const float retryInterval_quick = 0.2f;
-    public async UniTask<bool> QuickMatch_FindOpponent(CancellationToken token)
+    public async UniTask<bool> QuickMatch_Search(CancellationToken token)
     {
         int loopCount = 0;
         const int loopLimit = 3;
@@ -391,7 +391,7 @@ public sealed class LobbyService_search
                     EosCommonData.LobbyAttributeKey_MatchingType,
                     EosCommonData.LobbyAttributeValue_QuickMatch);
 
-                if (foundLobbies.Count == 0)
+                if (foundLobbies == null || foundLobbies.Count == 0)
                 {
                     loopCount++;
                     await UniTask.Delay(TimeSpan.FromSeconds(retryInterval_quick), cancellationToken: token);
