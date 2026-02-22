@@ -187,7 +187,7 @@ public class EOS_Service : MonoBehaviour, IEosService
                 if (searchSuccess)
                 {
                     Debug.Log($"ロビーを発見し入場しました");
-                    return true;
+                    break;
                 }
 
                 //待ち受け、キャンセル時に退室処理
@@ -200,7 +200,7 @@ public class EOS_Service : MonoBehaviour, IEosService
                 if (oppoJoined)
                 {
                     Debug.Log($"対戦相手がロビーに入りました");
-                    return true;
+                    break;
                 }
                 else
                 {
@@ -208,6 +208,10 @@ public class EOS_Service : MonoBehaviour, IEosService
                     continue;
                 }
             }
+
+            var opponent = inLobbyService.GetOpponentMemberData();
+            playerData_Remote = searchService.CreatePlayerDataFromLobbyMemberData(opponent);
+            return true;
         }
         catch(OperationCanceledException)
         {
@@ -451,6 +455,11 @@ public class EOS_Service : MonoBehaviour, IEosService
 
     public PlayerData GetRemotePlayerData()
     {
+        if (playerData_Remote.puid == default)
+        {
+            return new PlayerData();
+        }
+
         return playerData_Remote;
     }
 
