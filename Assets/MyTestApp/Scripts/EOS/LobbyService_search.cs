@@ -69,7 +69,6 @@ public sealed class LobbyService_search
             Visibility = LobbyAttributeVisibility.Public,
         });
 
-
         //帽子アトリビュート
         lobbySettings.Attributes.Add(new LobbyAttribute
         {
@@ -90,6 +89,16 @@ public sealed class LobbyService_search
                 Visibility = LobbyAttributeVisibility.Public,
             });
         }
+
+        //ランクポイントアトリビュート
+        lobbySettings.Attributes.Add(new LobbyAttribute
+        {
+            Key = EosCommonData.LobbyAttributeKey_RankPoint,
+            ValueType = AttributeType.Int64,
+            AsInt64 = playerData_local.rankPoint,
+            Visibility = LobbyAttributeVisibility.Public,
+        });
+
         var myLobby = await CreateLobbyAwait();
 
         if (myLobby == null) return null;
@@ -135,7 +144,8 @@ public sealed class LobbyService_search
         }
     }
 
-    public async UniTask<LobbyData> Join(string lobbyId,LobbyDetails details, PlayerData playerData_local, CancellationToken token)
+    public async UniTask<LobbyData> Join(
+        string lobbyId,LobbyDetails details, PlayerData playerData_local, CancellationToken token)
     {
         var tcs = new UniTaskCompletionSource<LobbyData>();
         var cancelAction = token.Register(() => tcs.TrySetResult(null));
@@ -278,7 +288,7 @@ public sealed class LobbyService_search
         {
             foreach (var member in lobby.Members)
             {
-                var pd = CreatePlayerDataFromLobbyMemberData(member);
+                var pd = EOS_Service.CreatePlayerData(member);
                 playerDatas.Add(pd);
             }
         }
@@ -286,40 +296,11 @@ public sealed class LobbyService_search
         return new LobbyData(lobby.Id, path, playerDatas);
     }
 
-    public PlayerData CreatePlayerDataFromLobbyMemberData(LobbyMember member)
-    {
-        string puid = member.ProductId == null ? "" : member.ProductId.ToString();
-        string name = member.DisplayName == null ? "" : member.DisplayName;
-
-        int charaId = -1;
-        if (member.MemberAttributes.TryGetValue(EosCommonData.MEMBER_KEY_CHARA, out var cid))
-            charaId = (int)cid.AsInt64.GetValueOrDefault();
-
-        Color hatCol = default;
-        if (member.MemberAttributes.TryGetValue(EosCommonData.MEMBER_KEY_HAT, out var hc))
-        {
-            var packed = hc.AsInt64.GetValueOrDefault();
-            hatCol = EOS_Service.UnpackRgb(packed);
-        }
-
-        Color umaCol = default;
-        if (member.MemberAttributes.TryGetValue(EosCommonData.MEMBER_KEY_UMA, out var uc))
-        {
-            var packed = uc.AsInt64.GetValueOrDefault();
-            umaCol = EOS_Service.UnpackRgb(packed);
-        }
-
-        bool ready = false;
-        if (member.MemberAttributes.TryGetValue(EosCommonData.MEMBER_KEY_READY, out var r))
-            ready = (bool)r.AsBool;
-
-        return new PlayerData(puid, name, new PlayerImageData(charaId, hatCol, umaCol), ready);
-    }
-
     SearchedLobbyData CreateSearchedLobbyData(LobbyDetails details)
     {
         string lobbyId = "";
         string ownerName = "";
+        int rankPoint = 0;
         int charaId = -1;
         Color hatCol = default;
 
@@ -345,6 +326,18 @@ public sealed class LobbyService_search
         else
         {
             Debug.Log("ownerattのデータはありません");
+        }
+
+        //ランクポイントを取得
+        var opt_rank = new LobbyDetailsCopyAttributeByKeyOptions
+        {
+            AttrKey = EosCommonData.LobbyAttributeKey_RankPoint
+        };
+        r = details.CopyAttributeByKey(ref opt_rank, out var rankInfo);
+        if (r == Result.Success && rankInfo.HasValue && rankInfo.Value.Data.HasValue)
+        {
+            var d = rankInfo.Value.Data.Value.Value;
+            if (d.ValueType == AttributeType.Int64) rankPoint = (int)d.AsInt64.GetValueOrDefault();
         }
 
         //同様にキャラを取得
@@ -376,7 +369,7 @@ public sealed class LobbyService_search
             }
         }
 
-        var data = new SearchedLobbyData(lobbyId, details, ownerName, charaId, hatCol);
+        var data = new SearchedLobbyData(lobbyId, details, ownerName, rankPoint, charaId, hatCol);
         return data;
     }
 
@@ -503,7 +496,7 @@ public sealed class LobbyService_search
 
             if (!m.MemberAttributes.TryGetValue(EosCommonData.MEMBER_KEY_CHARA, out var cid)) return;
     
-            var data = CreatePlayerDataFromLobbyMemberData(m);
+            var data = EOS_Service.CreatePlayerData(m);
 
             LobbyMemberEvent.RaiseUpdatePlayerData(data);
             tcs.TrySetResult(data);

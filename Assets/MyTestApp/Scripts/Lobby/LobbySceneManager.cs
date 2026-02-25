@@ -50,6 +50,7 @@ public class LobbySceneManager : MonoBehaviour, ILobbySceneManager
 
         LobbyButtonEvent.CreateLobbyEvent += OnCreateLobby;
         LobbyButtonEvent.SearchLobbyEvent += OnSearchLobby;
+        LobbyButtonEvent.GoRankingEvent += OnGoRanking;
         LobbyButtonEvent.GoTitleEvent += OnGoTitle;
 
         LobbyButtonEvent.ReadyEvent += OnReady;
@@ -66,6 +67,7 @@ public class LobbySceneManager : MonoBehaviour, ILobbySceneManager
 
         LobbyButtonEvent.CreateLobbyEvent -= OnCreateLobby;
         LobbyButtonEvent.SearchLobbyEvent -= OnSearchLobby;
+        LobbyButtonEvent.GoRankingEvent -= OnGoRanking;
         LobbyButtonEvent.GoTitleEvent -= OnGoTitle;
 
         LobbyButtonEvent.ReadyEvent -= OnReady;
@@ -112,7 +114,8 @@ public class LobbySceneManager : MonoBehaviour, ILobbySceneManager
         {
             await SearchFlow();
 
-            if (state == LobbyState.GoTitle) break;
+            if (state == LobbyState.GoTitle
+                || state == LobbyState.GoRanking) break;
 
             if(state == LobbyState.QuickMatch)
             {
@@ -152,7 +155,7 @@ public class LobbySceneManager : MonoBehaviour, ILobbySceneManager
 
         StartAutoSearch();
 
-        uiManager.ActivateSearchLobbyUI();//検索画面表示
+        uiManager.ActivateSearchLobbyUI(eosSirvice.GetLocalPlayerData());//検索画面表示
         
         await UniTask.WaitUntil(() => state != LobbyState.InLobbySearchRoom, cancellationToken: searchCts.Token);
         
@@ -221,6 +224,16 @@ public class LobbySceneManager : MonoBehaviour, ILobbySceneManager
         }
     }
 
+    void OnGoRanking()
+    {
+        GoRanking().Forget();
+
+        async UniTask GoRanking()
+        {
+            await ColorFadeService.Instance.BlackFadeIn();
+            state = LobbyState.GoRanking;
+        }
+    }
     void OnGoTitle()
     {
         GoTitleAsync().Forget();

@@ -889,7 +889,7 @@ GameObject:
   - component: {fileID: 5458989696429357515}
   - component: {fileID: 6213323628888379535}
   m_Layer: 5
-  m_Name: player name (1)
+  m_Name: bounty
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1109,6 +1109,7 @@ MonoBehaviour:
   chara: {fileID: 7267589020277569354}
   ownerRabel: {fileID: 1134759746828549317}
   userName: {fileID: 1527038596005882744}
+  bounty: {fileID: 6213323628888379535}
   disconnect: {fileID: 7208964003736653788}
   heartBeat: {fileID: 3272756594386156947}
   ready: {fileID: 6320069111234701021}

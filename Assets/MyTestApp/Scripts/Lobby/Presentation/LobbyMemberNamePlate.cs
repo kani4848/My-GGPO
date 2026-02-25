@@ -10,6 +10,7 @@ public class LobbyMemberNamePlate : MonoBehaviour
 
     [SerializeField] GameObject ownerRabel;
     [SerializeField] TextMeshProUGUI userName;
+    [SerializeField] TextMeshProUGUI bounty;
     [SerializeField] GameObject disconnect;
     [SerializeField] GameObject heartBeat;
     [SerializeField] GameObject ready;
@@ -48,6 +49,8 @@ public class LobbyMemberNamePlate : MonoBehaviour
             chara.gameObject.SetActive(true);
             chara.sprite = CharaImageHandler.Instance.GetCharaSpriteById(memberData.imageData.charaId);
         }
+
+        bounty.text = "$" + memberData.rankPoint.ToString("N0");
 
         ownerRabel.SetActive(memberData.isOwner);
         puid.text = memberData.puid;

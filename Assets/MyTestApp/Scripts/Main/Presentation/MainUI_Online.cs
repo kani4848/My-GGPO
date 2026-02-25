@@ -1,5 +1,7 @@
 using Cysharp.Threading.Tasks;
 using Cysharp.Threading.Tasks.Triggers;
+using DG.Tweening;
+using TMPro;
 using Unity.Collections;
 using UnityEngine;
 using UnityEngine.UI;
@@ -13,6 +15,9 @@ public class MainUI_Online : MonoBehaviour
 
     [SerializeField] GameObject searchingUI;
     [SerializeField] GameObject networkError;
+
+    [SerializeField] TextMeshProUGUI myBounty;
+    [SerializeField] TextMeshProUGUI bountyChanged;
 
     private void Awake()
     {
@@ -133,5 +138,17 @@ public class MainUI_Online : MonoBehaviour
         DeacetivateEndMenuButtons();
         DeactivateCancelButton();
         gameObject.SetActive(false);
+    }
+
+    public async UniTask ChangeBounty(int current, int changed)
+    {
+        int targetVal = current + changed;
+
+        string _changed = changed >= 0 ? "+" + changed.ToString("N0") : changed.ToString("N0");
+        bountyChanged.text = _changed;
+
+        await DOVirtual.Int(current, changed, 1, val => { 
+            myBounty.text = "$" + val.ToString("N0"); 
+        });
     }
 }

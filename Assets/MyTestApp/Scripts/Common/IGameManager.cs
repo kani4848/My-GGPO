@@ -5,4 +5,6 @@ public interface IGameManager
     public static IMainSceneManager mainSceneManager;
 
     public static ITitleSceneManager titleSceneManager;
+
+    public static IRankingSceneManager rankingManager;
 }

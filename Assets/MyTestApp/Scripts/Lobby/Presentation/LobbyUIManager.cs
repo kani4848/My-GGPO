@@ -9,9 +9,9 @@ using Cysharp.Threading.Tasks;
 public sealed class LobbyUIManager : MonoBehaviour
 {
     [Header("UI")]
-    [SerializeField] SearchLobbyUI searchUI;
-    [SerializeField] JoinedLobbyUI inLobbyUI;
-    [SerializeField] LobbyQuickMatchUi qmUI;
+    [SerializeField] LobbyUI_Search searchUI;
+    [SerializeField] LobbyUI_InLobby inLobbyUI;
+    [SerializeField] LobbyUi_QuickMatch qmUI;
 
     [SerializeField] TextMeshProUGUI systemMessage;
     [SerializeField] GameObject loading;
@@ -55,9 +55,9 @@ public sealed class LobbyUIManager : MonoBehaviour
     }
 
     //ロビー検索画面===================================
-    public void ActivateSearchLobbyUI()
+    public void ActivateSearchLobbyUI(PlayerData playerData)
     {
-        searchUI.Activated();
+        searchUI.Activated(playerData);
     }
 
     public void StartManualSearching()

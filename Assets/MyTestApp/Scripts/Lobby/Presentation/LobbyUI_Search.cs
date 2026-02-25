@@ -2,7 +2,7 @@ using TMPro;
 using UnityEngine;
 using System.Collections.Generic;
 
-public class SearchLobbyUI : MonoBehaviour
+public class LobbyUI_Search : MonoBehaviour
 {
     [SerializeField] private RectTransform contentRoot; // VerticalLayoutGroup推奨
     [SerializeField] LobbyJoinButton lobbyJoinButtonPrefab;
@@ -10,21 +10,27 @@ public class SearchLobbyUI : MonoBehaviour
     [SerializeField] UnityEngine.UI.Button quickBtn;
     [SerializeField] UnityEngine.UI.Button createBtn;
     [SerializeField] UnityEngine.UI.Button searchBtn;
+    [SerializeField] UnityEngine.UI.Button rankingBtn;
     [SerializeField] UnityEngine.UI.Button titleBtn;
 
+    
     [SerializeField] TMP_InputField lobbyPath_create;
     [SerializeField] TMP_InputField lobbyPath_search;
 
-
     [SerializeField] GameObject searchingUI;
     [SerializeField] GameObject noLobbies;
-    public void Activated()
+
+    [SerializeField] TextMeshProUGUI myBounty;
+
+    public void Activated(PlayerData playerData)
     {
         gameObject.SetActive(true);
         ActivatedButtons();
         ClearLobbyButtons(); 
         SwitchNoLobbiesText(false);
         SwitchSearcingUI(true);
+
+        myBounty.text = "your bounty:$" + playerData.rankPoint.ToString("N0");
     }
 
     public void Deactivated()
@@ -53,7 +59,12 @@ public class SearchLobbyUI : MonoBehaviour
             searchBtn.onClick.Invoke();
         }
 
-        if (Input.GetKeyDown(KeyCode.V) && titleBtn.interactable)
+        if (Input.GetKeyDown(KeyCode.V) && rankingBtn.interactable)
+        {
+            rankingBtn.onClick.Invoke();
+        }
+
+        if (Input.GetKeyDown(KeyCode.B) && titleBtn.interactable)
         {
             titleBtn.onClick.Invoke();
         }
@@ -131,6 +142,7 @@ public class SearchLobbyUI : MonoBehaviour
         quickBtn.interactable = true;
         createBtn.interactable = true;
         searchBtn.interactable = true;
+        rankingBtn.interactable = true;
         titleBtn.interactable = true;
 
         quickBtn.onClick.AddListener(() =>
@@ -154,6 +166,13 @@ public class SearchLobbyUI : MonoBehaviour
             DeactivatedButtons();
         });
 
+        rankingBtn.onClick.AddListener(() =>
+        {
+            SoundManager.Instance.PlaySE(SE_Handler.SoundType.BUTTON);
+            LobbyButtonEvent.RaiseGoRanking();
+            DeactivatedButtons();
+        });
+
         titleBtn.onClick.AddListener(() =>
         {
             SoundManager.Instance.PlaySE(SE_Handler.SoundType.BUTTON);
@@ -167,11 +186,13 @@ public class SearchLobbyUI : MonoBehaviour
         quickBtn.interactable = false;
         createBtn.interactable = false;
         searchBtn.interactable = false;
+        rankingBtn.interactable = false;
         titleBtn.interactable = false;
 
         quickBtn.onClick.RemoveAllListeners();
         createBtn.onClick.RemoveAllListeners();
         searchBtn.onClick.RemoveAllListeners();
+        rankingBtn.onClick.RemoveAllListeners();
         titleBtn.onClick.RemoveAllListeners();
     }
 }

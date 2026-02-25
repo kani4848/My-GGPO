@@ -8,7 +8,7 @@ using System;
 using System.Threading;
 using System.IO;
 
-public class JoinedLobbyUI : MonoBehaviour
+public class LobbyUI_InLobby : MonoBehaviour
 {
     [SerializeField] TextMeshProUGUI id;
     [SerializeField] TextMeshProUGUI path;

@@ -2,7 +2,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
-public class LobbyQuickMatchUi : MonoBehaviour
+public class LobbyUi_QuickMatch : MonoBehaviour
 {
     [SerializeField] LobbyMemberNamePlate namePlate_local;
     [SerializeField] LobbyMemberNamePlate namePlate_remote;

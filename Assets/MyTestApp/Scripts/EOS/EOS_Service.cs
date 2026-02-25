@@ -6,10 +6,10 @@ using UnityEngine;
 using Epic.OnlineServices;
 using System.Collections.Generic;
 using System;
+
+using Epic.OnlineServices.Stats;
 using Epic.OnlineServices.Lobby;
-using System.ComponentModel;
 using Epic.OnlineServices.Logging;
-using System.Data;
 using System.Linq;
 
 public class EOS_Service : Singleton<EOS_Service>, IEosService
@@ -25,6 +25,7 @@ public class EOS_Service : Singleton<EOS_Service>, IEosService
     LobbyService_search searchService;
     LobbyService_InLobby inLobbyService;
     EOS_LoginService loginService;
+    StatService statService;
     PlayerPeer playerPeer;
 
     [SerializeField] double ping = -1;
@@ -37,7 +38,9 @@ public class EOS_Service : Singleton<EOS_Service>, IEosService
         lobbyManager = EOSManager.Instance.GetOrCreateManager<EOSLobbyManager>();
         searchService = new LobbyService_search(lobbyManager);
         inLobbyService = new LobbyService_InLobby(lobbyManager);
+        statService = new StatService();
         loginService = new();
+        
         playerData_Local = new PlayerData();
         playerData_Local.imageData = new PlayerImageData();
 
@@ -102,7 +105,10 @@ public class EOS_Service : Singleton<EOS_Service>, IEosService
             lobbyManager.OnLoggedIn();
             EosCommonData.myPuid = EOSManager.Instance.GetProductUserId();
             playerData_Local.puid = EosCommonData.myPuid.ToString();
+            playerData_Local.rankPoint = await statService.GetRankPoint(EosCommonData.myPuid);
             playerPeer = new();
+
+            await statService.IngestPlayerName(playerData_Local.name);
 
             loggedin = true;
         }
@@ -155,6 +161,9 @@ public class EOS_Service : Singleton<EOS_Service>, IEosService
 
         string memberName = lobbyMember.DisplayName;
 
+        var r = lobbyMember.MemberAttributes.TryGetValue(EosCommonData.LobbyAttributeKey_RankPoint, out var rank);
+        int rankPoint = r ? (int)rank.AsInt64.GetValueOrDefault() : 0;
+
         LobbyAttribute hatAtt; 
         bool a = lobbyMember.MemberAttributes.TryGetValue(EosCommonData.MEMBER_KEY_HAT, out hatAtt);
         Color hatCol = a ? UnpackRgb((long)hatAtt.AsInt64) : Color.black;
@@ -175,7 +184,15 @@ public class EOS_Service : Singleton<EOS_Service>, IEosService
 
         var imageData = new PlayerImageData(charaId, hatCol, umaCol);
 
-        return new PlayerData(puid, memberName, imageData, ready, isOwner);
+        return new PlayerData(puid, memberName, rankPoint, imageData, ready, isOwner);
+    }
+
+
+    //ランキング============================================================
+
+    public async UniTask<List<RankRow>> GetRankingDatas()
+    {
+        return await statService.QueryTopRanksAsync();
     }
 
     //クイックマッチ============================================================
@@ -222,6 +239,8 @@ public class EOS_Service : Singleton<EOS_Service>, IEosService
                 Debug.Log($"ロビー作成、待ち受けを開始");
                 bool oppoJoined = await inLobbyService.QuickMatch_WaitOpponent(token);
 
+
+
                 if (oppoJoined)
                 {
                     playerData_Local.isOwner = true;
@@ -260,7 +279,7 @@ public class EOS_Service : Singleton<EOS_Service>, IEosService
                 cancellationToken: token);
 
             var opponent = inLobbyService.GetOpponentMemberData();
-            playerData_Remote = searchService.CreatePlayerDataFromLobbyMemberData(opponent);
+            playerData_Remote = CreatePlayerData(opponent);
             LobbyMemberEvent.RaiseUpdatePlayerData(playerData_Remote);
 
             bool r = await playerPeer.AcceptRequestP2P(opponent.ProductId, token);
@@ -269,7 +288,7 @@ public class EOS_Service : Singleton<EOS_Service>, IEosService
 
             r = await playerPeer.handShakeFlow(token);
 
-            playerData_Remote = searchService.CreatePlayerDataFromLobbyMemberData(opponent);
+            playerData_Remote = CreatePlayerData(opponent);
 
             return r;
         }
@@ -349,7 +368,7 @@ public class EOS_Service : Singleton<EOS_Service>, IEosService
 
             Debug.Log("インプット通信成功、ハンドシェイク完了");
             var opponent = inLobbyService.GetOpponentMemberData();
-            playerData_Remote = searchService.CreatePlayerDataFromLobbyMemberData(opponent);
+            playerData_Remote = CreatePlayerData(opponent);
             return true;
         }
         finally
@@ -415,6 +434,8 @@ public class EOS_Service : Singleton<EOS_Service>, IEosService
     {
         return playerPeer.TryGetRemoteInput();
     }
+
+    //スタッツ処理===============================================
 
     //シーン共通===============================================
     public static void SetMyMemberLobbyAttribute(PlayerData playerData)
@@ -504,4 +525,10 @@ public class EOS_Service : Singleton<EOS_Service>, IEosService
         playerData_Local.name = playerName;
     }
 
+    public async UniTask<int> GetBountyChangedAmount()
+    {
+        var delta = StatService.GetWinnerDelta(playerData_Local.rankPoint, playerData_Remote.rankPoint);
+        await statService.IngestRankPoint(delta);
+        return delta;
+    }
 }

@@ -9,6 +9,7 @@ public enum SceneName
 {
     Title,
     Lobby,
+    Ranking,
     Main,
 }
 
@@ -109,10 +110,16 @@ public class GameManager : Singleton<GameManager>
         {
             var nextScene = await LobbyFlow();
 
+            if (nextScene == LobbyState.GoRanking)
+            {
+                await RankingFlow();
+                continue;
+            }
+
             if (nextScene == LobbyState.GoTitle) break;
 
             var nextState = await MainGameFlow(currentGameMode);
-
+            
             if (nextState == MainGameState.GO_TITLE) break;
         }
         
@@ -122,7 +129,8 @@ public class GameManager : Singleton<GameManager>
 
             state = GameState.Lobby;
 
-            if (IGameManager.lobbySceneManager == null) await UniTask.WaitUntil(() => IGameManager.lobbySceneManager != null, cancellationToken: cts.Token);
+            if (IGameManager.lobbySceneManager == null) 
+                await UniTask.WaitUntil(() => IGameManager.lobbySceneManager != null, cancellationToken: cts.Token);
 
             await eos_Service.LogInAsync(cts.Token);
             var nextState = await IGameManager.lobbySceneManager.StartFlow(eos_Service);
@@ -134,6 +142,16 @@ public class GameManager : Singleton<GameManager>
             IGameManager.lobbySceneManager = null;
 
             return nextState;
+        }
+
+        async UniTask RankingFlow()
+        {
+            var sceneName = SceneName.Ranking.ToString();
+            if (SceneManager.GetActiveScene().name != sceneName) SceneManager.LoadScene(sceneName);
+            if (IGameManager.rankingManager == null) await UniTask.WaitUntil(() => IGameManager.rankingManager != null, cancellationToken: cts.Token);
+            await IGameManager.rankingManager.Init(eos_Service);
+            await UniTask.WaitUntil(() => IGameManager.rankingManager.State == RankingSceneState.GoLobby, cancellationToken: cts.Token);
+            IGameManager.rankingManager = null;
         }
     }
 

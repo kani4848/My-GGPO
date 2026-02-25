@@ -344,6 +344,12 @@ public class MainSceneManager : MonoBehaviour, IMainSceneManager
             {
                 uiManager.ShowGameEndScreen_Online(matchResult);
 
+                var data = eosService.GetLocalPlayerData();
+                var changed = await eosService.GetBountyChangedAmount();
+
+                //スタッツ変動
+                await uiManager.ChangeRankPoints(data.rankPoint, changed);
+
                 await eosService.CloseConnection();
                 
                 state = await uiManager.OnGameEnd_Online();

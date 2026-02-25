@@ -24,6 +24,7 @@ public static class EosCommonData
     public static string LobbyAttributeKey_CHARA = "chara";
     public static string LobbyAttributeKey_HAT = "hat";
     public static string LobbyAttributeKey_MatchingType = "matching";
+    public static string LobbyAttributeKey_RankPoint = "rank";
 
     //マッチング識別用アトリビュートバリュー（キーはmatching type）
     public static string LobbyAttributeValue_Common = "commmoooon";

@@ -624,4 +624,9 @@ public class UIManager_Main : MonoBehaviour
     {
         onlineUI.OnQuickMatchSuccess();
     }
+
+    public async UniTask ChangeRankPoints(int current, int changed)
+    {
+        await onlineUI.ChangeBounty(current, changed);
+    }
 }

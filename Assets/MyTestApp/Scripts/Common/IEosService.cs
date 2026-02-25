@@ -21,17 +21,19 @@ public class SearchedLobbyData
 {
     public string id;
     public LobbyDetails details;
-
+    
     public string ownerName;
+    public int rankPoint;
     public int charaId;
     public Color hatCol;
 
-    public SearchedLobbyData(string lobbyId, LobbyDetails detailes, string ownerName, int charaId, Color hatCol)
+    public SearchedLobbyData(string lobbyId, LobbyDetails detailes, string ownerName, int rankPoint, int charaId, Color hatCol)
     {
         this.id = lobbyId;
         this.details = detailes;
 
         this.ownerName = ownerName;
+        this.rankPoint = rankPoint;
         this.charaId = charaId;
         this.hatCol = hatCol;
     }
@@ -60,16 +62,20 @@ public struct PlayerData
     public PlayerImageData imageData;
     public bool ready;
     public bool isOwner;
+    public int rankPoint;
 
     public PlayerData(
         string puid = "",
         string name = "no name",
+        int rankPoint = 0,
         PlayerImageData imageData = default,
         bool ready = false,
-        bool isOwner = false)
+        bool isOwner = false
+        )
     {
         this.puid = puid;
         this.name = name;
+        this.rankPoint = rankPoint;
         this.imageData = imageData == default ? new PlayerImageData() : imageData;
         this.ready = ready;
         this.isOwner = isOwner;
@@ -134,6 +140,10 @@ public interface IEosService
 
     public double GetPing();
 
+    //ランキング==================================================
+
+    public UniTask<List<RankRow>> GetRankingDatas();
+
     //メインゲーム==================================================
     public void SendInput(int frame, bool pressed);
     public bool GetRemoteInput_MainLoop();
@@ -148,4 +158,6 @@ public interface IEosService
     public UniTask<bool> QuickMatch_HandShake(CancellationToken token);
 
     public UniTask CloseConnection();
+
+    public UniTask<int> GetBountyChangedAmount();
 }

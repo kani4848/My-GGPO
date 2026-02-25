@@ -14,6 +14,9 @@ public static class LobbyButtonEvent
     public static event Action GoTitleEvent;
     public static void RaiseGoTitle() => GoTitleEvent?.Invoke();
 
+    public static event Action GoRankingEvent;
+    public static void RaiseGoRanking() => GoRankingEvent?.Invoke();
+
     public static event Action ReadyEvent;
     public static void RaiseReady() => ReadyEvent?.Invoke();
 

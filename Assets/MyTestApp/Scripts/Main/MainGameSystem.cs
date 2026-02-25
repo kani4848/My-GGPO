@@ -21,14 +21,6 @@ public enum RoundResult
     TIME_UP = 7,
 }
 
-public enum MatchResult
-{
-    NONE = 0,
-    WIN_P1 = 1,
-    WIN_P2 = 2,
-    DRAW = 3,
-}
-
 public struct MainGameResultData
 {
     public int finishFrame;
