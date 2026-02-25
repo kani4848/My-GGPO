@@ -105,7 +105,9 @@ public class EOS_Service : Singleton<EOS_Service>, IEosService
             lobbyManager.OnLoggedIn();
             EosCommonData.myPuid = EOSManager.Instance.GetProductUserId();
             playerData_Local.puid = EosCommonData.myPuid.ToString();
+            
             playerData_Local.rankPoint = await statService.GetRankPoint(EosCommonData.myPuid);
+            
             playerPeer = new();
 
             await statService.IngestPlayerName(playerData_Local.name);

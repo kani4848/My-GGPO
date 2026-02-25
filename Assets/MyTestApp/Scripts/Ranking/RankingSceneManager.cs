@@ -64,9 +64,9 @@ public class RankingSceneManager : MonoBehaviour, IRankingSceneManager
         namePlatesRoot.SetActive(false);
         LoadingUI.SetActive(true);
 
+        ClearNamePlates();
         var rankDatas = await eosService.GetRankingDatas();
 
-        namePlates.Clear();
         for (int i = 0; i < rankDatas.Count; i++)
         {
             var namePlate = Instantiate(namePlatePrefab, namePlatesRoot.transform);
@@ -88,7 +88,7 @@ public class RankingSceneManager : MonoBehaviour, IRankingSceneManager
 
         var rankDatas = await eosService.GetRankingDatas();
 
-        namePlates.Clear();
+        ClearNamePlates();
         for (int i = 0; i < rankDatas.Count; i++)
         {
             var namePlate = Instantiate(namePlatePrefab, namePlatesRoot.transform);
@@ -111,7 +111,7 @@ public class RankingSceneManager : MonoBehaviour, IRankingSceneManager
     {
         var childCount = namePlatesRoot.GetComponentsInChildren<Transform>();
 
-        for (int i = childCount.Length; i > 0; i--)
+        for (int i = childCount.Length - 1; i > 0; i--)
         {
             Destroy(childCount[i].gameObject);
         }

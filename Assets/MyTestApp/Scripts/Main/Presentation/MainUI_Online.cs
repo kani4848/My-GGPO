@@ -103,6 +103,7 @@ public class MainUI_Online : MonoBehaviour
         {
             SoundManager.Instance.PlaySE(SE_Handler.SoundType.BUTTON);
             MainGameEvent.RaiseQuickMatchCancel();
+            DeactivateCancelButton();
         });
     }
 
@@ -141,15 +142,15 @@ public class MainUI_Online : MonoBehaviour
         gameObject.SetActive(false);
     }
 
-    public async UniTask ChangeBounty(int current, int changed)
+    public async UniTask ChangeBounty(int current, int delta)
     {
-        int targetVal = current + changed;
+        int targetVal = current + delta;
 
-        string _changed = changed >= 0 ? "+" + changed.ToString("N0") : changed.ToString("N0");
+        string _changed = delta >= 0 ? "+" + delta.ToString("N0") : delta.ToString("N0");
         bountyChanged.text = _changed;
 
-        await DOVirtual.Int(current, changed, 1, val => { 
-            myBounty.text = "$" + val.ToString("N0"); 
+        await DOVirtual.Int(current, targetVal, 1, val => { 
+            myBounty.text = val.ToString("N0"); 
         });
     }
 }
