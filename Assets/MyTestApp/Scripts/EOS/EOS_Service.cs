@@ -163,23 +163,19 @@ public class EOS_Service : Singleton<EOS_Service>, IEosService
 
         string memberName = lobbyMember.DisplayName;
 
-        var r = lobbyMember.MemberAttributes.TryGetValue(EosCommonData.LobbyAttributeKey_RankPoint, out var rank);
+        var r = lobbyMember.MemberAttributes.TryGetValue(EosCommonData.MEMBER_KEY_RANK, out var rank);
         int rankPoint = r ? (int)rank.AsInt64.GetValueOrDefault() : 0;
 
-        LobbyAttribute hatAtt; 
-        bool a = lobbyMember.MemberAttributes.TryGetValue(EosCommonData.MEMBER_KEY_HAT, out hatAtt);
+        bool a = lobbyMember.MemberAttributes.TryGetValue(EosCommonData.MEMBER_KEY_HAT, out var hatAtt);
         Color hatCol = a ? UnpackRgb((long)hatAtt.AsInt64) : Color.black;
 
-        LobbyAttribute umaAtt;
-        bool b = lobbyMember.MemberAttributes.TryGetValue(EosCommonData.MEMBER_KEY_UMA, out umaAtt);
+        bool b = lobbyMember.MemberAttributes.TryGetValue(EosCommonData.MEMBER_KEY_UMA, out var umaAtt);
         Color umaCol = b ? UnpackRgb((long)umaAtt.AsInt64) : Color.black;
 
-        LobbyAttribute charaAtt;
-        bool c = lobbyMember.MemberAttributes.TryGetValue(EosCommonData.MEMBER_KEY_CHARA, out charaAtt);
+        bool c = lobbyMember.MemberAttributes.TryGetValue(EosCommonData.MEMBER_KEY_CHARA, out var charaAtt);
         int charaId = c ? (int)charaAtt.AsInt64 : -1;
 
-        LobbyAttribute readyAtt;
-        bool d = lobbyMember.MemberAttributes.TryGetValue(EosCommonData.MEMBER_KEY_READY, out readyAtt);
+        bool d = lobbyMember.MemberAttributes.TryGetValue(EosCommonData.MEMBER_KEY_READY, out var readyAtt);
         bool ready = d ? (bool)readyAtt.AsBool : false;
 
         bool isOwner = lobbyManager.GetCurrentLobby().IsOwner(_puid);
@@ -187,6 +183,66 @@ public class EOS_Service : Singleton<EOS_Service>, IEosService
         var imageData = new PlayerImageData(charaId, hatCol, umaCol);
 
         return new PlayerData(puid, memberName, rankPoint, imageData, ready, isOwner);
+    }
+
+    public static void SetMyMemberLobbyAttribute(PlayerData playerData)
+    {
+        List<LobbyAttribute> atts = new();
+
+        //名前
+        var name_att = new LobbyAttribute()
+        {
+            Key = LobbyMember.DisplayNameKey, // "DISPLAYNAME"
+            AsString = playerData.name,
+            ValueType = AttributeType.String,
+            Visibility = LobbyAttributeVisibility.Public
+        };
+
+        //帽子の色
+        var hatCol = PackRgb(playerData.imageData.hatCol);
+        var hat_att = new LobbyAttribute()
+        {
+            Key = EosCommonData.MEMBER_KEY_HAT,
+            AsInt64 = hatCol,
+            ValueType = AttributeType.Int64,
+            Visibility = LobbyAttributeVisibility.Public
+        };
+
+        //馬の色
+        var umaCol = PackRgb(playerData.imageData.umaCol);
+        var uma_att = new LobbyAttribute()
+        {
+            Key = EosCommonData.MEMBER_KEY_UMA,
+            AsInt64 = umaCol,
+            ValueType = AttributeType.Int64,
+            Visibility = LobbyAttributeVisibility.Public
+        };
+
+        //キャラスプライトID
+        var chara_att = new LobbyAttribute()
+        {
+            Key = EosCommonData.MEMBER_KEY_CHARA,
+            AsInt64 = playerData.imageData.charaId,
+            ValueType = AttributeType.Int64,
+            Visibility = LobbyAttributeVisibility.Public
+        };
+
+        //ランクポイント
+        var rank_att = new LobbyAttribute()
+        {
+            Key = EosCommonData.LobbyAttributeKey_RankPoint,
+            AsInt64 = playerData.rankPoint,
+            ValueType = AttributeType.Int64,
+            Visibility = LobbyAttributeVisibility.Public
+        };
+
+        atts.Add(name_att);
+        atts.Add(hat_att);
+        atts.Add(uma_att);
+        atts.Add(chara_att);
+        atts.Add(rank_att);
+
+        lobbyManager.SetMemberAttributesBatch(atts);
     }
 
 
@@ -440,66 +496,6 @@ public class EOS_Service : Singleton<EOS_Service>, IEosService
     //スタッツ処理===============================================
 
     //シーン共通===============================================
-    public static void SetMyMemberLobbyAttribute(PlayerData playerData)
-    {
-        List<LobbyAttribute> atts = new();
-
-        //名前
-        var name_att = new LobbyAttribute()
-        {
-            Key = LobbyMember.DisplayNameKey, // "DISPLAYNAME"
-            AsString = playerData.name,
-            ValueType = AttributeType.String,
-            Visibility = LobbyAttributeVisibility.Public
-        };
-
-        //帽子の色
-        var hatCol = PackRgb(playerData.imageData.hatCol);
-        var hat_att = new LobbyAttribute()
-        {
-            Key = EosCommonData.MEMBER_KEY_HAT,
-            AsInt64 = hatCol,
-            ValueType = AttributeType.Int64,
-            Visibility = LobbyAttributeVisibility.Public
-        };
-
-        //馬の色
-        var umaCol = PackRgb(playerData.imageData.umaCol);
-        var uma_att = new LobbyAttribute()
-        {
-            Key = EosCommonData.MEMBER_KEY_UMA,
-            AsInt64 = umaCol,
-            ValueType = AttributeType.Int64,
-            Visibility = LobbyAttributeVisibility.Public
-        };
-
-        //キャラスプライトID
-        var chara_att = new LobbyAttribute()
-        {
-            Key = EosCommonData.MEMBER_KEY_CHARA,
-            AsInt64 = playerData.imageData.charaId,
-            ValueType = AttributeType.Int64,
-            Visibility = LobbyAttributeVisibility.Public
-        };
-
-        //ランクポイント
-        var rank_att = new LobbyAttribute()
-        {
-            Key = EosCommonData.LobbyAttributeKey_RankPoint,
-            AsInt64 = playerData.rankPoint,
-            ValueType = AttributeType.Int64,
-            Visibility = LobbyAttributeVisibility.Public
-        };
-
-        atts.Add(name_att);
-        atts.Add(hat_att);
-        atts.Add(uma_att);
-        atts.Add(chara_att);
-        atts.Add(rank_att);
-
-        lobbyManager.SetMemberAttributesBatch(atts);
-    }
-
     //色データを送信するためlong型に変更
     public static long PackRgb(Color32 c)
     {

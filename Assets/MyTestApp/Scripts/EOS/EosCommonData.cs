@@ -12,9 +12,10 @@ public static class EosCommonData
     public static string MEMBER_KEY_HAT = "HAT";
     public static string MEMBER_KEY_UMA = "UMA";
     public static string MEMBER_KEY_CHARA = "CHARA";
+    public static string MEMBER_KEY_RANK = "RANK";
 
     //ロビーのキーは必ず小文字
-    
+
     //バケットID…マッチンググループの区別、のはずなんだがそれは何十万という規模のお話。マッチング識別検索はアトリビュートでやる。
     public static string MyBacketId = "backet";
     
