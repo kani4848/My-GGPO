@@ -1,6 +1,7 @@
 using Cysharp.Threading.Tasks;
 using NUnit.Framework;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -34,7 +35,7 @@ public class RankingSceneManager : MonoBehaviour, IRankingSceneManager
 
         if (Input.GetKeyDown(KeyCode.Z))
         {
-            goLobbyBtn.onClick.Invoke();
+            globalBtn.onClick.Invoke();
             return;
         }
 
@@ -84,6 +85,17 @@ public class RankingSceneManager : MonoBehaviour, IRankingSceneManager
         namePlatesRoot.SetActive(false);
         LoadingUI.SetActive(true);
 
+
+        var rankDatas = await eosService.GetRankingDatas();
+
+        namePlates.Clear();
+        for (int i = 0; i < rankDatas.Count; i++)
+        {
+            var namePlate = Instantiate(namePlatePrefab, namePlatesRoot.transform);
+            namePlates.Add(namePlate);
+            namePlate.SetData(rankDatas[i]);
+        }
+
         namePlatesRoot.SetActive(true);
         LoadingUI.SetActive(false);
         ActivateButtons();
@@ -97,10 +109,13 @@ public class RankingSceneManager : MonoBehaviour, IRankingSceneManager
 
     void ClearNamePlates()
     {
-        foreach(var item in namePlates)
+        var childCount = namePlatesRoot.GetComponentsInChildren<Transform>();
+
+        for (int i = childCount.Length; i > 0; i--)
         {
-            Destroy(item.gameObject);
+            Destroy(childCount[i].gameObject);
         }
+
         namePlates.Clear();
     }
 
@@ -127,9 +142,10 @@ public class RankingSceneManager : MonoBehaviour, IRankingSceneManager
             await ShowMyRank();
         });
 
-        goLobbyBtn.onClick.AddListener(() =>
+        goLobbyBtn.onClick.AddListener(async() =>
         {
             DeactivateButtons();
+            await ColorFadeService.Instance.BlackFadeIn();
             State = RankingSceneState.GoLobby;
         });
     }

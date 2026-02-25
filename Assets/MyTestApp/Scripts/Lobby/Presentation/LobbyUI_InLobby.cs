@@ -26,6 +26,8 @@ public class LobbyUI_InLobby : MonoBehaviour
 
     [SerializeField] GameObject errorWindow;
 
+    [SerializeField] Canvas InfoCanvas;
+
     //キーには名前ではなくPUIDを入力
     Dictionary<string, LobbyMemberNamePlate> namePlateDic = new();
 

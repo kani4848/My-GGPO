@@ -480,11 +480,21 @@ public class EOS_Service : Singleton<EOS_Service>, IEosService
             Visibility = LobbyAttributeVisibility.Public
         };
 
+        //ランクポイント
+        var rank_att = new LobbyAttribute()
+        {
+            Key = EosCommonData.LobbyAttributeKey_RankPoint,
+            AsInt64 = playerData.rankPoint,
+            ValueType = AttributeType.Int64,
+            Visibility = LobbyAttributeVisibility.Public
+        };
+
         atts.Add(name_att);
         atts.Add(hat_att);
         atts.Add(uma_att);
         atts.Add(chara_att);
-        
+        atts.Add(rank_att);
+
         lobbyManager.SetMemberAttributesBatch(atts);
     }
 

@@ -11624,7 +11624,7 @@ GameObject:
   - component: {fileID: 532507345}
   - component: {fileID: 532507344}
   m_Layer: 5
-  m_Name: bouty (1)
+  m_Name: 'bouty '
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -16728,7 +16728,7 @@ GameObject:
   - component: {fileID: 2028576552}
   - component: {fileID: 2028576551}
   m_Layer: 5
-  m_Name: bouty (2)
+  m_Name: delta
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -17350,6 +17350,8 @@ MonoBehaviour:
   cancelButton: {fileID: 521747293}
   searchingUI: {fileID: 1891593021}
   networkError: {fileID: 1221232288}
+  myBounty: {fileID: 532507344}
+  bountyChanged: {fileID: 2028576551}
 --- !u!1001 &2082439097
 PrefabInstance:
   m_ObjectHideFlags: 0
