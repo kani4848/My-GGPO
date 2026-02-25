@@ -1,5 +1,6 @@
 using Cysharp.Threading.Tasks;
 using NUnit.Framework;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
@@ -33,19 +34,19 @@ public class RankingSceneManager : MonoBehaviour, IRankingSceneManager
     {
         if (!goLobbyBtn.interactable) return;
 
-        if (Input.GetKeyDown(KeyCode.Z))
+        if (Input.GetKeyDown(KeyCode.Z) && globalBtn.interactable)
         {
             globalBtn.onClick.Invoke();
             return;
         }
 
-        if (Input.GetKeyDown(KeyCode.X))
+        if (Input.GetKeyDown(KeyCode.X) && myRankBtn.interactable)
         {
             myRankBtn.onClick.Invoke();
             return;
         }
 
-        if (Input.GetKeyDown(KeyCode.C))
+        if (Input.GetKeyDown(KeyCode.C) && goLobbyBtn.interactable)
         {
             goLobbyBtn.onClick.Invoke();
             return;
@@ -60,52 +61,42 @@ public class RankingSceneManager : MonoBehaviour, IRankingSceneManager
 
     public async UniTask ShowGlobalRanking()
     {
-        DeactivateButtons();
-        namePlatesRoot.SetActive(false);
-        LoadingUI.SetActive(true);
-
-        ClearNamePlates();
-        var rankDatas = await eosService.GetRankingDatas();
-
-        for (int i = 0; i < rankDatas.Count; i++)
-        {
-            var namePlate = Instantiate(namePlatePrefab, namePlatesRoot.transform);
-            namePlates.Add(namePlate);
-            namePlate.SetData(rankDatas[i]);
-        }
-
-        namePlatesRoot.SetActive(true);
-        LoadingUI.SetActive(false);
-        ActivateButtons();
+        await UpdatePlate(eosService.GetRankingDatas);
     }
 
     public async UniTask ShowMyRank()
     {
+        await UpdatePlate(eosService.GetMyRankingDatas);
+    }
+
+    async UniTask UpdatePlate(Func<UniTask<List<RankRow>>> GetRankDataFunc)
+    {
         DeactivateButtons();
         namePlatesRoot.SetActive(false);
         LoadingUI.SetActive(true);
 
-
-        var rankDatas = await eosService.GetRankingDatas();
-
         ClearNamePlates();
-        for (int i = 0; i < rankDatas.Count; i++)
+
+        var rankRows = await GetRankDataFunc();
+
+        for (int i = 0; i < rankRows.Count; i++)
         {
+            var rankData = rankRows[i];
             var namePlate = Instantiate(namePlatePrefab, namePlatesRoot.transform);
+
+            if (rankData.UserId == eosService.GetLocalPlayerData().puid)
+            {
+                namePlate.Hilight();
+            }
+
             namePlates.Add(namePlate);
-            namePlate.SetData(rankDatas[i]);
+            namePlate.SetData(rankRows[i]);
         }
 
         namePlatesRoot.SetActive(true);
         LoadingUI.SetActive(false);
         ActivateButtons();
     }
-
-    public void GoTitle()
-    {
-        State = RankingSceneState.GoLobby;
-    }
-
 
     void ClearNamePlates()
     {
@@ -124,6 +115,10 @@ public class RankingSceneManager : MonoBehaviour, IRankingSceneManager
         globalBtn.interactable = false;
         myRankBtn.interactable = false;
         goLobbyBtn.interactable = false;
+
+        globalBtn.onClick.RemoveAllListeners();
+        myRankBtn.onClick.RemoveAllListeners();
+        goLobbyBtn.onClick.RemoveAllListeners();
     }
 
     void ActivateButtons()

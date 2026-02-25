@@ -377,7 +377,7 @@ public class StatService
                     {
                         Rank = (int)record.Value.Rank,
                         Score = record.Value.Score,
-                        UserId = record.Value.UserId,
+                        UserId = record.Value.UserId.ToString(),
                     });
                 }
 
@@ -394,13 +394,89 @@ public class StatService
         for(int i = 0; i < rows.Count; i++)
         {
             var row = rows[i];
-            var codec = await QueryPlayerName(row.UserId);
+            var codec = await QueryPlayerName(ProductUserId.FromString(row.UserId));
             string userName = codec.result == QueryResult.Success ? codec.val : "---";
-            Debug.Log(userName);
             row.playerName = userName;
         }
 
         return rows;
+    }
+
+    public async UniTask<List<RankRow>> QueryAroundMeFallbackAsync(
+    int around = 10,
+    int topLimit = 2000,
+    CancellationToken token = default)
+    {
+        // 1) 自分の順位
+        int myRank = await QueryMyRankAsync(EosCommonData.myPuid, token);
+           
+        Debug.Log($"私のランクは{myRank}");
+
+        if (myRank <= 0)
+        {
+            return new List<RankRow>();
+        }
+
+        // 2) Top を多めに取得（myRank+around まで）
+        int needTop = Math.Min(myRank + around, topLimit);
+        var topRows = await QueryTopRanksAsync(token);
+
+        // 3) ローカルで前後を切り出す（rank は 1-based と仮定）
+        int centerIndex = myRank - 1;
+        int startIndex = Math.Max(0, centerIndex - around);
+        int endIndex = Math.Min(topRows.Count - 1, centerIndex + around);
+
+        // Top が足りない場合（未反映/同点等でズレた等）に備えて安全に
+        if (topRows.Count == 0 || startIndex > endIndex) return new List<RankRow>();
+
+        int count = endIndex - startIndex + 1;
+        return topRows.GetRange(startIndex, count);
+    }
+
+    UniTask<int> QueryMyRankAsync(ProductUserId localUserId, CancellationToken token)
+    {
+        var tcs = new UniTaskCompletionSource<int>();
+
+        var opt = new QueryLeaderboardRanksOptions
+        {
+            LeaderboardId = boardId,
+            LocalUserId = localUserId,
+        };
+
+        _leaderboards.QueryLeaderboardRanks(ref opt, null, (ref OnQueryLeaderboardRanksCompleteCallbackInfo info) =>
+        {
+            try
+            {
+                if (token.IsCancellationRequested) { tcs.TrySetCanceled(token); return; }
+                if (info.ResultCode != Result.Success) { tcs.TrySetResult(-1); return; }
+
+                // 取得した自分のスコア情報を Copy で抜く
+                var copyOpt = new CopyLeaderboardRecordByUserIdOptions
+                {
+                    UserId = localUserId,
+                };
+
+
+                LeaderboardRecord? score;
+                var r = _leaderboards.CopyLeaderboardRecordByUserId(ref copyOpt, out score);
+                if (r != Result.Success || score == null)
+                {
+                    Debug.Log("マイスコアクエリ失敗");
+                    tcs.TrySetResult(-1);
+                    return;
+                }
+
+                int rank = (int)score.Value.Rank; // だいたい 1-based
+                
+                tcs.TrySetResult(rank);
+            }
+            catch (Exception e)
+            {
+                tcs.TrySetException(e);
+            }
+        });
+
+        return tcs.Task;
     }
 }
 

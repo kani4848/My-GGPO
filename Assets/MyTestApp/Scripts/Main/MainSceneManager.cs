@@ -346,19 +346,17 @@ public class MainSceneManager : MonoBehaviour, IMainSceneManager
 
             state = MainGameState.END_MENU;
 
+            uiManager.ShowGameEndScreen_Online(matchResult);
+
+            var data = eosService.GetLocalPlayerData();
+            var changed = await eosService.GetBountyChangedAmount(matchResult);
+            //スタッツ変動
+            await uiManager.ChangeRankPoints(data.rankPoint, changed);
+            await eosService.CloseConnection();
+
             //エンド画面ループ
             while (true)
             {
-                uiManager.ShowGameEndScreen_Online(matchResult);
-
-                var data = eosService.GetLocalPlayerData();
-                var changed = await eosService.GetBountyChangedAmount(matchResult);
-
-                //スタッツ変動
-                await uiManager.ChangeRankPoints(data.rankPoint, changed);
-
-                await eosService.CloseConnection();
-                
                 state = await uiManager.OnGameEnd_Online();
 
                 if (state != MainGameState.QUICK_MATCH) return;//クイックマッチしないならループ終了
@@ -375,10 +373,11 @@ public class MainSceneManager : MonoBehaviour, IMainSceneManager
                 if (!r)
                 {
                     //uiManager.ShowErrorWindow();
-                    await UniTask.Delay(TimeSpan.FromSeconds(2), cancellationToken: SceneCts.Token);
+                    //await UniTask.Delay(TimeSpan.FromSeconds(2), cancellationToken: SceneCts.Token);
                     continue;
                 }
 
+                //ハンドシェイク完了
                 uiManager.DeactivateQuickMatchCancelButton();
 
                 r = await eosService.QuickMatch_HandShake(SceneCts.Token);
@@ -386,7 +385,7 @@ public class MainSceneManager : MonoBehaviour, IMainSceneManager
                 if (!r)
                 {
                     //uiManager.ShowErrorWindow();
-                    await UniTask.Delay(TimeSpan.FromSeconds(2), cancellationToken: SceneCts.Token);
+                    //await UniTask.Delay(TimeSpan.FromSeconds(2), cancellationToken: SceneCts.Token);
                     continue;
                 }
 

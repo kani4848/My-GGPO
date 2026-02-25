@@ -144,6 +144,8 @@ public interface IEosService
 
     public UniTask<List<RankRow>> GetRankingDatas();
 
+    public UniTask<List<RankRow>> GetMyRankingDatas();
+
     //メインゲーム==================================================
     public void SendInput(int frame, bool pressed);
     public bool GetRemoteInput_MainLoop();

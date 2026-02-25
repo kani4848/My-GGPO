@@ -253,6 +253,12 @@ public class EOS_Service : Singleton<EOS_Service>, IEosService
         return await statService.QueryTopRanksAsync();
     }
 
+    public async UniTask<List<RankRow>> GetMyRankingDatas()
+    {
+        return await statService.QueryAroundMeFallbackAsync();
+    }
+
+
     //クイックマッチ============================================================
     public async UniTask<bool> QuickMatch_FindOpponent(CancellationToken token)
     {

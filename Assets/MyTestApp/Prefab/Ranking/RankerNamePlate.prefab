@@ -231,6 +231,8 @@ MonoBehaviour:
   rank: {fileID: 1859672230731453098}
   playerName: {fileID: 6258094791666640963}
   point: {fileID: 3017624224689407035}
+  baseImage: {fileID: 2705745519468342414}
+  hilightCol: {r: 0.8490566, g: 0, b: 0, a: 1}
 --- !u!1 &8710970588674544006
 GameObject:
   m_ObjectHideFlags: 0
