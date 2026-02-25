@@ -159,5 +159,5 @@ public interface IEosService
 
     public UniTask CloseConnection();
 
-    public UniTask<int> GetBountyChangedAmount();
+    public UniTask<int> GetBountyChangedAmount(MatchResult result);
 }

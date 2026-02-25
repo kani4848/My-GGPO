@@ -19,13 +19,6 @@ public class MainSceneManager : MonoBehaviour, IMainSceneManager
 
     Action<int> fixedUpdateAction = null;
 
-    private void OnDisable()
-    {
-        SceneCts?.Cancel();
-        SceneCts?.Dispose();
-        SceneCts = null;
-    }
-
     GameMode mode;
 
     IEosService eosService;
@@ -37,6 +30,20 @@ public class MainSceneManager : MonoBehaviour, IMainSceneManager
         Application.targetFrameRate = 60;
         IGameManager.mainSceneManager = this;
         gameSystem = new();
+    }
+
+    private void OnEnable()
+    {
+        MainGameEvent.QuickMatchCancelEvent += OnQuickMatchCancel;
+    }
+
+    private void OnDisable()
+    {
+        MainGameEvent.QuickMatchCancelEvent -= OnQuickMatchCancel;
+
+        SceneCts?.Cancel();
+        SceneCts?.Dispose();
+        SceneCts = null;
     }
 
     public async UniTask<MainGameState> StartFlow
@@ -345,7 +352,7 @@ public class MainSceneManager : MonoBehaviour, IMainSceneManager
                 uiManager.ShowGameEndScreen_Online(matchResult);
 
                 var data = eosService.GetLocalPlayerData();
-                var changed = await eosService.GetBountyChangedAmount();
+                var changed = await eosService.GetBountyChangedAmount(matchResult);
 
                 //スタッツ変動
                 await uiManager.ChangeRankPoints(data.rankPoint, changed);
@@ -417,6 +424,13 @@ public class MainSceneManager : MonoBehaviour, IMainSceneManager
         SceneCts?.Cancel();
         SceneCts?.Dispose();
         SceneCts = null;
+    }
+
+    void OnQuickMatchCancel()
+    {
+        qmCts?.Cancel();
+        qmCts?.Dispose();
+        qmCts = null;
     }
 
     //モード共通==================================================

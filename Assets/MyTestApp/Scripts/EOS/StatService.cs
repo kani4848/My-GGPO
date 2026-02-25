@@ -13,7 +13,7 @@ using System;
 
 public class StatService
 {
-    const int startRankPoint = 1000;
+    const int startRankPoint = 5000;
     const int baseChangePoint = 10;   // 基本変動
     const float coefMax = 2f;         // 格下が勝った時の最大倍率
     const float coefMin = 0.1f;       // 格上が勝った時の最小倍率
@@ -275,7 +275,10 @@ public class StatService
         return await tcs.Task;
     }
 
-
+    public int DecoratePoint(int point)
+    {
+        return point * decorateScale;
+    }
 
     /// <summary>
     /// 勝者の獲得ポイントを返す（常に正の値）

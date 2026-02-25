@@ -535,10 +535,26 @@ public class EOS_Service : Singleton<EOS_Service>, IEosService
         playerData_Local.name = playerName;
     }
 
-    public async UniTask<int> GetBountyChangedAmount()
+    public async UniTask<int> GetBountyChangedAmount(MatchResult result)
     {
-        var delta = StatService.GetWinnerDelta(playerData_Local.rankPoint, playerData_Remote.rankPoint);
+        int delta;
+
+        switch (result)
+        {
+            case MatchResult.WIN_P1:
+                delta = StatService.GetWinnerDelta(playerData_Local.rankPoint, playerData_Remote.rankPoint);
+                break;
+                
+            case MatchResult.WIN_P2:
+                //勝者のポイントなのでマイナスが付きます
+                delta = -StatService.GetWinnerDelta(playerData_Remote.rankPoint, playerData_Local.rankPoint);
+                break;
+
+            default:
+                return 0;
+        }
+
         await statService.IngestRankPoint(delta);
-        return delta;
+        return statService.DecoratePoint(delta);
     }
 }

@@ -21,6 +21,7 @@ public class MainUI_Online : MonoBehaviour
 
     private void Awake()
     {
+        gameObject.SetActive(false);
         searchingUI.SetActive(false);
         networkError.SetActive(false);
         DeacetivateEndMenuButtons();
@@ -101,7 +102,7 @@ public class MainUI_Online : MonoBehaviour
         cancelButton.onClick.AddListener(() =>
         {
             SoundManager.Instance.PlaySE(SE_Handler.SoundType.BUTTON);
-
+            MainGameEvent.RaiseQuickMatchCancel();
         });
     }
 
