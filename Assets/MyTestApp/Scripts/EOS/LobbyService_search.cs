@@ -136,7 +136,7 @@ public sealed class LobbyService_search
                 }
 
                 var lobbyData = CreateLobbyData(_lobbyManager.GetCurrentLobby());
-                EOS_Service.SetMyMemberLobbyAttribute(playerData_local);
+                EOS_Service.SetMyMemberAttribute(playerData_local);
                 getLobbyData.TrySetResult(lobbyData);
             });
 
@@ -162,7 +162,7 @@ public sealed class LobbyService_search
                 }
 
                 var current = _lobbyManager.GetCurrentLobby();
-                EOS_Service.SetMyMemberLobbyAttribute(playerData_local);
+                EOS_Service.SetMyMemberAttribute(playerData_local);
                 var lobbyData = CreateLobbyData(current);
 
                 tcs.TrySetResult(lobbyData);

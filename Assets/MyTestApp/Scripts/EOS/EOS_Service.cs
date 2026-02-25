@@ -185,7 +185,7 @@ public class EOS_Service : Singleton<EOS_Service>, IEosService
         return new PlayerData(puid, memberName, rankPoint, imageData, ready, isOwner);
     }
 
-    public static void SetMyMemberLobbyAttribute(PlayerData playerData)
+    public static void SetMyMemberAttribute(PlayerData playerData)
     {
         List<LobbyAttribute> atts = new();
 
@@ -230,7 +230,7 @@ public class EOS_Service : Singleton<EOS_Service>, IEosService
         //ランクポイント
         var rank_att = new LobbyAttribute()
         {
-            Key = EosCommonData.LobbyAttributeKey_RankPoint,
+            Key = EosCommonData.MEMBER_KEY_RANK,
             AsInt64 = playerData.rankPoint,
             ValueType = AttributeType.Int64,
             Visibility = LobbyAttributeVisibility.Public
