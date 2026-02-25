@@ -149,7 +149,7 @@ public class MainUI_Online : MonoBehaviour
         string _changed = delta >= 0 ? "+" + delta.ToString("N0") : delta.ToString("N0");
         bountyChanged.text = _changed;
 
-        await DOVirtual.Int(current, targetVal, 1, val => { 
+        await DOVirtual.Int(current, targetVal, 3, val => { 
             myBounty.text = val.ToString("N0"); 
         });
     }

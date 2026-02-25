@@ -553,6 +553,6 @@ public class EOS_Service : Singleton<EOS_Service>, IEosService
         }
 
         await statService.IngestRankPoint(delta);
-        return statService.DecoratePoint(delta);
+        return delta;
     }
 }

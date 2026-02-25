@@ -374,19 +374,19 @@ public class MainSceneManager : MonoBehaviour, IMainSceneManager
 
                 if (!r)
                 {
-                    uiManager.ShowErrorWindow();
-                    await UniTask.Delay(TimeSpan.FromSeconds(2), cancellationToken: qmCts.Token);
+                    //uiManager.ShowErrorWindow();
+                    await UniTask.Delay(TimeSpan.FromSeconds(2), cancellationToken: SceneCts.Token);
                     continue;
                 }
 
                 uiManager.DeactivateQuickMatchCancelButton();
 
-                r = await eosService.QuickMatch_HandShake(qmCts.Token);
+                r = await eosService.QuickMatch_HandShake(SceneCts.Token);
 
                 if (!r)
                 {
-                    uiManager.ShowErrorWindow();
-                    await UniTask.Delay(TimeSpan.FromSeconds(2), cancellationToken: qmCts.Token);
+                    //uiManager.ShowErrorWindow();
+                    await UniTask.Delay(TimeSpan.FromSeconds(2), cancellationToken: SceneCts.Token);
                     continue;
                 }
 

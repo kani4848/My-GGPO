@@ -13,14 +13,12 @@ using System;
 
 public class StatService
 {
-    const int startRankPoint = 5000;
-    const int baseChangePoint = 10;   // 基本変動
+    const int startRankPoint = 50000;
+    const int baseChangePoint = 1000;   // 基本変動
     const float coefMax = 2f;         // 格下が勝った時の最大倍率
     const float coefMin = 0.1f;       // 格上が勝った時の最小倍率
-    const int noChangeGap = 50;       // 同格とみなす差
-    const int maxGap = 500;           // 最大補正がかかる差
-
-    const int decorateScale = 100;
+    const int noChangeGap = 5000;       // 同格とみなす差
+    const int maxGap = 50000;           // 最大補正がかかる差
 
     const string statName_rankPoint = "RankPoint";
     const string statName_NameCodec_Hi = "NameCodec_Hi";
@@ -70,7 +68,7 @@ public class StatService
                 break;
         }
 
-        return Mathf.RoundToInt(rawPoint * decorateScale);
+        return rawPoint;
     }
 
     //EOSに保存されている値を取得
@@ -273,11 +271,6 @@ public class StatService
         });
 
         return await tcs.Task;
-    }
-
-    public int DecoratePoint(int point)
-    {
-        return point * decorateScale;
     }
 
     /// <summary>
