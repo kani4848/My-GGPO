@@ -60,9 +60,10 @@ public class PlayerPeer: IDisposable
             case PeerState.P2P_CONNECTED:
                 if (!router.OpponentIsAlive())
                 {
+                    UnityEngine.Debug.Log("通信が途絶えました");
                     state = PeerState.SLEEP;
                     CloseConnection();
-                    LobbyMemberEvent.RaiseDeath(remoteId.ToString());
+                    LobbyMemberEvent.RaiseLostConnection(remoteId.ToString());
                     return;
                 }
                 break;

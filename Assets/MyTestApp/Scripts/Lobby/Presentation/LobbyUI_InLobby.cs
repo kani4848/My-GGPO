@@ -222,7 +222,10 @@ public class LobbyUI_InLobby : MonoBehaviour
 
     public void OnLeft(string puid)
     {
-        Debug.Log("退室");
+        //オーナー変更とメンバー変更で二重に呼ばれることがあるため
+        if (!namePlateDic.ContainsKey(puid)) return;
+
+        Debug.Log("UI退室イベント処理");
         var remover = namePlateDic[puid];
 
         CreateLog(puid, remover.GetPlayerName(), LobbyLogType.LEAVE);
@@ -231,19 +234,18 @@ public class LobbyUI_InLobby : MonoBehaviour
         namePlateDic.Remove(puid);
     }
 
-    public void OnMemberSleep(PlayerData memberData)
+    public void OnLostConnection(string puid)
     {
-        var tagetNamePlate = namePlateDic[memberData.puid];
-        if (tagetNamePlate == null) return;
-        tagetNamePlate.SetDisconnect(true);
-        CreateLog(memberData.puid, memberData.name, LobbyLogType.DISCONNECT);
+        var tagetNamePlate = namePlateDic[puid];
+        if (tagetNamePlate == null) Debug.Log("見つからねえ");
+        if (tagetNamePlate != null) tagetNamePlate.SetDisconnect(true);
+        CreateLog(puid, tagetNamePlate.GetPlayerName(), LobbyLogType.DISCONNECT);
     }
 
     public void OnRevive(PlayerData memberData)
     {
         var taget = namePlateDic[memberData.puid];
-        if (taget == null) return;
-        taget.SetDisconnect(false);
+        if (taget != null) taget.SetDisconnect(false);
         CreateLog(memberData.puid, memberData.name, LobbyLogType.REVIVE);
     }
 
@@ -259,16 +261,6 @@ public class LobbyUI_InLobby : MonoBehaviour
         }
 
     }
-
-    public void HeartBeat(PlayerData member)
-    {
-        LobbyMemberNamePlate target;
-        bool find = namePlateDic.TryGetValue(member.puid, out target);
-        if (!find) return;
-
-        target.HeartBeat();
-    }
-
 
     //その他=========================================================
 

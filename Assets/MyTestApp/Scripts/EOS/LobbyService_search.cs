@@ -8,6 +8,8 @@ using PlayEveryWare.EpicOnlineServices.Samples;
 
 using Cysharp.Threading.Tasks;
 using System.Threading;
+using PlayEveryWare.EpicOnlineServices;
+using System.IO;
 
 public sealed class LobbyService_search
 {
@@ -141,6 +143,86 @@ public sealed class LobbyService_search
             });
 
             return getLobbyData.Task;
+        }
+    }
+
+    public void UpdateLobbyAttributeOnOwnerChanged(PlayerData newPlayerData)
+    {
+        var mody = new LobbyModification();
+
+        try
+        {
+            var lobbyInterface = EOSManager.Instance.GetEOSLobbyInterface();
+
+            var opt = new UpdateLobbyModificationOptions
+            {
+                LocalUserId = ProductUserId.FromString(newPlayerData.puid),
+                LobbyId = _lobbyManager.GetCurrentLobby().Id,
+            };
+
+            var r = lobbyInterface.UpdateLobbyModification(ref opt, out mody);
+
+            if (r != Result.Success)
+            {
+                Debug.Log("更新失敗");
+                return;
+            }
+
+            var nameAtt = new LobbyModificationAddAttributeOptions
+            {
+                Attribute = new AttributeData
+                {
+                    Key = EosCommonData.LobbyAttributeKey_NAME,
+                    Value = newPlayerData.name,
+                }
+            };
+
+            var charaAtt = new LobbyModificationAddAttributeOptions
+            {
+                Attribute = new AttributeData
+                {
+                    Key = EosCommonData.LobbyAttributeKey_CHARA,
+                    Value = newPlayerData.imageData.charaId,
+                }
+            };
+            var hatAtt = new LobbyModificationAddAttributeOptions
+            {
+                Attribute = new AttributeData
+                {
+                    Key = EosCommonData.LobbyAttributeKey_HAT,
+                    Value = EOS_Service.PackRgb(newPlayerData.imageData.hatCol),
+                }
+            };
+            var rankAtt = new LobbyModificationAddAttributeOptions
+            {
+                Attribute = new AttributeData
+                {
+                    Key = EosCommonData.LobbyAttributeKey_RankPoint,
+                    Value = newPlayerData.rankPoint,
+                }
+            };
+
+            mody.AddAttribute(ref nameAtt);
+            mody.AddAttribute(ref charaAtt);
+            mody.AddAttribute(ref hatAtt);
+            mody.AddAttribute(ref rankAtt);
+
+            var upOpt = new UpdateLobbyOptions
+            {
+                LobbyModificationHandle = mody,
+            };
+
+            lobbyInterface.UpdateLobby(ref upOpt, null, (ref UpdateLobbyCallbackInfo info) =>
+            {
+                if (info.ResultCode != Result.Success)
+                {
+                    Debug.Log("ロビーの更新に失敗");
+                }
+            });
+        }
+        finally
+        {
+            mody.Release();
         }
     }
 

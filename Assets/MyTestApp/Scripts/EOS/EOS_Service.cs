@@ -49,12 +49,13 @@ public class EOS_Service : Singleton<EOS_Service>, IEosService
     private void OnEnable()
     {
         LobbyMemberEvent.MemberLeftEvent += OnMemberLeft;
+        LobbyMemberEvent.OwnerChangedEvent += OnOwnerChanged;
     }
 
     private void OnDisable()
     {
-
         LobbyMemberEvent.MemberLeftEvent -= OnMemberLeft;
+        LobbyMemberEvent.OwnerChangedEvent -= OnOwnerChanged;
 
         inLobbyService?.ExitAction();
         playerPeer?.Dispose();
@@ -252,6 +253,13 @@ public class EOS_Service : Singleton<EOS_Service>, IEosService
         lobbyManager.SetMemberAttributesBatch(atts);
     }
 
+    public void OnOwnerChanged(PlayerData playerData)
+    {
+        //オーナーが自分でなければスルー
+        if (playerData_Local.puid != playerData.puid) return;
+
+        searchService.UpdateLobbyAttributeOnOwnerChanged(playerData);
+    }
 
     //ランキング============================================================
 

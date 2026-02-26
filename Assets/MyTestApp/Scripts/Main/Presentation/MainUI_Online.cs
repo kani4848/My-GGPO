@@ -16,15 +16,15 @@ public class MainUI_Online : MonoBehaviour
     [SerializeField] GameObject searchingUI;
     [SerializeField] GameObject networkError;
 
+    [SerializeField] GameObject bountyUI;
     [SerializeField] TextMeshProUGUI myBounty;
     [SerializeField] TextMeshProUGUI bountyChanged;
 
     private void Awake()
     {
         gameObject.SetActive(false);
-        searchingUI.SetActive(false);
-        networkError.SetActive(false);
         DeacetivateEndMenuButtons();
+        DeactivateQmCancelButton();
     }
 
     private void Update()
@@ -51,6 +51,15 @@ public class MainUI_Online : MonoBehaviour
     }
 
     //オンラインモード===============================================================================
+    public void ActivateBountyUI()
+    {
+        gameObject.SetActive(true);
+        bountyUI.SetActive(true);
+        searchingUI.SetActive(false);
+        networkError.SetActive(false);
+        DeacetivateEndMenuButtons();
+    }
+
     public UniTask<MainGameState> ActivateEndMenuButtons()
     {
         gameObject.SetActive(true);
@@ -103,11 +112,11 @@ public class MainUI_Online : MonoBehaviour
         {
             SoundManager.Instance.PlaySE(SE_Handler.SoundType.BUTTON);
             MainGameEvent.RaiseQuickMatchCancel();
-            DeactivateCancelButton();
+            DeactivateQmCancelButton();
         });
     }
 
-    public void DeactivateCancelButton()
+    public void DeactivateQmCancelButton()
     {
         cancelButton.interactable = false;
         cancelButton.onClick.RemoveAllListeners();
@@ -138,7 +147,7 @@ public class MainUI_Online : MonoBehaviour
     public void OnQuickMatchSuccess()
     {
         DeacetivateEndMenuButtons();
-        DeactivateCancelButton();
+        DeactivateQmCancelButton();
         gameObject.SetActive(false);
     }
 

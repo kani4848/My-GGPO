@@ -25,10 +25,9 @@ public sealed class LobbyUIManager : MonoBehaviour
         LobbyMemberEvent.MemberJoinedEvent += inLobbyUI.OnJoined;
 
         LobbyMemberEvent.MemberLeftEvent += inLobbyUI.OnLeft;
-        LobbyMemberEvent.MemberHbStopEvent += inLobbyUI.OnMemberSleep;
         LobbyMemberEvent.MemberReviveEvent += inLobbyUI.OnRevive;
         LobbyMemberEvent.OwnerChangedEvent += inLobbyUI.OnOwnerChanged;
-        LobbyMemberEvent.HeartBeatEvent += inLobbyUI.HeartBeat;
+        LobbyMemberEvent.MemberLostConnectionEvent += inLobbyUI.OnLostConnection;
 
         LobbyMemberEvent.UpdatePlayerData += qmUI.UpdateNamePlate;
 
@@ -41,10 +40,9 @@ public sealed class LobbyUIManager : MonoBehaviour
         LobbyMemberEvent.UpdatePlayerData -= inLobbyUI.UpdateOrCreateNamePlate;
         LobbyMemberEvent.MemberJoinedEvent -= inLobbyUI.OnJoined;
         LobbyMemberEvent.MemberLeftEvent -= inLobbyUI.OnLeft;
-        LobbyMemberEvent.MemberHbStopEvent -= inLobbyUI.OnMemberSleep;
         LobbyMemberEvent.MemberReviveEvent -= inLobbyUI.OnRevive;
         LobbyMemberEvent.OwnerChangedEvent -= inLobbyUI.OnOwnerChanged;
-        LobbyMemberEvent.HeartBeatEvent -= inLobbyUI.HeartBeat;
+        LobbyMemberEvent.MemberLostConnectionEvent -= inLobbyUI.OnLostConnection;
 
         LobbyMemberEvent.UpdatePlayerData -= qmUI.UpdateNamePlate;
     }

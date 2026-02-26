@@ -573,6 +573,8 @@ public class UIManager_Main : MonoBehaviour
 
     public void ShowGameEndScreen_Online(MatchResult matchResult)
     {
+        onlineUI.ActivateBountyUI();
+
         switch (matchResult)
         {
             case MatchResult.WIN_P1:
@@ -617,7 +619,7 @@ public class UIManager_Main : MonoBehaviour
 
     public void DeactivateQuickMatchCancelButton()
     {
-        onlineUI.DeactivateCancelButton();
+        onlineUI.DeactivateQmCancelButton();
     }
 
     public void OnQuickSearchSuccess()

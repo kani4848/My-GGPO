@@ -12,7 +12,6 @@ public class LobbyMemberNamePlate : MonoBehaviour
     [SerializeField] TextMeshProUGUI userName;
     [SerializeField] TextMeshProUGUI bounty;
     [SerializeField] GameObject disconnect;
-    [SerializeField] GameObject heartBeat;
     [SerializeField] GameObject ready;
 
     public TextMeshProUGUI puid;
@@ -66,12 +65,6 @@ public class LobbyMemberNamePlate : MonoBehaviour
     public void SetDisconnect(bool active)
     {
         disconnect.SetActive(active);
-    }
-
-    public void HeartBeat()
-    {
-        Vector3 scale = heartBeat.transform.localScale;
-        heartBeat.transform.localScale = new Vector3(scale.x * -1, scale.y, scale.z);
     }
 
     public string GetPlayerName()
