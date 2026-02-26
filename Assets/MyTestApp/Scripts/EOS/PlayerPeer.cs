@@ -15,8 +15,7 @@ public class PlayerPeer: IDisposable
     {
         SLEEP,
      
-        P2P_CONNECTING_GUEST,
-        P2P_CONNECTING_OWNER,
+        P2P_CONNECTING,
         P2P_CONNECTED,
 
         INPUT_TEST,
@@ -56,7 +55,7 @@ public class PlayerPeer: IDisposable
 
         switch (state)
         {
-            case PeerState.P2P_CONNECTING_OWNER:
+            case PeerState.P2P_CONNECTING:
                 router.SendPing();
                 break;
 
@@ -76,9 +75,9 @@ public class PlayerPeer: IDisposable
 
     //ｐ２ｐ接続フロー===================================================
 
-    public async UniTask<bool> AcceptRequestP2P(bool isOwner, ProductUserId remote, CancellationToken token)
+    public async UniTask<bool> AcceptRequestP2P(ProductUserId remote, CancellationToken token)
     {
-        state = isOwner? PeerState.P2P_CONNECTING_OWNER : PeerState.P2P_CONNECTING_GUEST;
+        state = PeerState.P2P_CONNECTING;
 
         bool r = await router.RegisterConnectionRequestAccept(remote, token);
 

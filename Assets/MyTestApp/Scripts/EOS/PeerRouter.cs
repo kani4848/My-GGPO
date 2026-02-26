@@ -294,7 +294,7 @@ public class PeerRouter
             }
 
             // ping/pong成立待ち と Accept待ち を競争。この処理はキャンセルボタンで操作できるので時間切れはなし
-            var pingpongTask = UniTask.WaitUntil(() => gotPing || gotPong, cancellationToken: token);
+            var pingpongTask = UniTask.WaitUntil(() => gotPing && gotPong, cancellationToken: token);
 
             var winner = await UniTask.WhenAny(pingpongTask, connectTask.Task);
 
@@ -307,7 +307,7 @@ public class PeerRouter
                 acceptOk = await connectTask.Task; // true/falseを取得
             }
 
-            bool pingpongOk = (gotPing || gotPong);
+            bool pingpongOk = (gotPing && gotPong);
             bool success = pingpongOk || acceptOk;
 
             if (!success)

@@ -353,7 +353,7 @@ public class EOS_Service : Singleton<EOS_Service>, IEosService
             playerData_Remote = CreatePlayerData(opponent);
             LobbyMemberEvent.RaiseUpdatePlayerData(playerData_Remote);
 
-            bool r = await playerPeer.AcceptRequestP2P(playerData_Local.isOwner, opponent.ProductId, token);
+            bool r = await playerPeer.AcceptRequestP2P(opponent.ProductId, token);
 
             if (!r) return false;
 
@@ -389,7 +389,7 @@ public class EOS_Service : Singleton<EOS_Service>, IEosService
             if(opponent == null) continue;
 
             //データ受け入れ設定を登録&待ち受け
-            var r = await playerPeer.AcceptRequestP2P(playerData_Local.isOwner, opponent.ProductId, token);
+            var r = await playerPeer.AcceptRequestP2P(opponent.ProductId, token);
 
             if (r)
             {
