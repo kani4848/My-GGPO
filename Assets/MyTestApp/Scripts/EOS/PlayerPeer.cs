@@ -52,7 +52,6 @@ public class PlayerPeer: IDisposable
         if (state != PeerState.SLEEP)
         {
             router.ReceivePump();
-            pingMs = router.GetPingMs();
         }
 
         switch (state)
@@ -67,7 +66,10 @@ public class PlayerPeer: IDisposable
                     state = PeerState.SLEEP;
                     CloseConnection();
                     LobbyMemberEvent.RaiseDeath(remoteId.ToString());
+                    return;
                 }
+
+                pingMs = router.GetPingMs();
                 break;
         }
     }

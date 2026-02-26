@@ -247,8 +247,6 @@ public class PeerRouter
         {
             remotePuid = _remotePuid;
 
-            UnityEngine.Debug.Log("p2p接続リクエスト許可");
-
             var opt_request = new AddNotifyPeerConnectionRequestOptions()
             {
                 LocalUserId = EosCommonData.myPuid,
@@ -283,6 +281,7 @@ public class PeerRouter
                         return;
                     }
 
+                    UnityEngine.Debug.Log("p2p接続リクエスト許可");
                     acceptConnection.Add(data.RemoteUserId);
                     connectTask.TrySetResult(true);
                 }
@@ -308,7 +307,7 @@ public class PeerRouter
                 acceptOk = await connectTask.Task; // true/falseを取得
             }
 
-            bool pingpongOk = (gotPing && gotPong);
+            bool pingpongOk = (gotPing || gotPong);
             bool success = pingpongOk || acceptOk;
 
             if (!success)
@@ -667,7 +666,7 @@ public sealed class HeartbeatSession
 
         // 未返信ぶんだけ保存
         _pending[seq] = nowTs;
-
+        UnityEngine.Debug.Log("pingを送信");
         var ping = NetMsg.PackHbPing(seq);
         _send(ping);
     }
