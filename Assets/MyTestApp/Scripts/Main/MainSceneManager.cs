@@ -352,7 +352,7 @@ public class MainSceneManager : MonoBehaviour, IMainSceneManager
             var changed = await eosService.GetBountyChangedAmount(matchResult);
             //スタッツ変動
             await uiManager.ChangeRankPoints(data.rankPoint, changed);
-            await eosService.CloseConnection();
+            await eosService.LeaveLobby();
 
             //エンド画面ループ
             while (true)
@@ -414,7 +414,7 @@ public class MainSceneManager : MonoBehaviour, IMainSceneManager
     async UniTask OnError()
     {
         uiManager.ShowErrorWindow();
-        await eosService.CloseConnection();
+        await eosService.LeaveLobby();
         state = MainGameState.GO_LOBBY;
 
         triggerAction_1p = null;

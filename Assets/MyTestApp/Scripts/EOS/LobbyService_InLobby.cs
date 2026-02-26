@@ -50,6 +50,7 @@ public class LobbyService_InLobby
         if (currentMembers.Count <= 0) return;
 
         CheckOwnerChanged();//オーナー変更イベント発行
+        CheckMemberLeft();
 
         void CheckOwnerChanged()
         {
@@ -62,6 +63,26 @@ public class LobbyService_InLobby
                 Debug.Log("オーナー変更");
                 LobbyMemberEvent.RaiseOwnerChanged(EOS_Service.CreatePlayerData(newOwner));
                 prevOwnerId = newOwner.ProductId;
+            }
+        }
+
+        void CheckMemberLeft()
+        {
+            if (currentMembers.Count == preMemberPuids.Count) return;
+
+            var currrentPuid = currentMembers.Select(m => m.ProductId).ToList();
+
+            List<ProductUserId> leftMembers = new();
+
+            if (currrentPuid.Count < preMemberPuids.Count)
+            {
+                leftMembers = preMemberPuids.Except(currrentPuid).ToList();
+            }
+
+            foreach(var leftMember in leftMembers)
+            {
+                Debug.Log("メンバー退室");
+                LobbyMemberEvent.RaiseLeft(leftMember.ToString());//情報適用イベント
             }
         }
     }
@@ -115,7 +136,7 @@ public class LobbyService_InLobby
         if (preExists && !currentExists)
         {
             Debug.Log("メンバー退室");
-            LobbyMemberEvent.RaiseLeft(playerData);//情報適用イベント
+            LobbyMemberEvent.RaiseLeft(targetMemberData.ProductId.ToString());//情報適用イベント
         }
 
         //データのアップデート

@@ -111,8 +111,6 @@ public class RoundData
 
 public interface IEosService
 {
-    public bool p2pConnected { get; set; }
-
     public void Init();
 
     public UniTask<List<SearchedLobbyData>> SearchLobby(string path = "");
@@ -158,8 +156,6 @@ public interface IEosService
 
     public UniTask<bool> QuickMatch_FindOpponent(CancellationToken token);
     public UniTask<bool> QuickMatch_HandShake(CancellationToken token);
-
-    public UniTask CloseConnection();
 
     public UniTask<int> GetBountyChangedAmount(MatchResult result);
 }

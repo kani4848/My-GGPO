@@ -33,11 +33,6 @@ public class LobbyUI_InLobby : MonoBehaviour
 
     bool fleezBtns = false;
 
-    private void Awake()
-    {
-        //gameObject.SetActive(false);
-    }
-
     public void Activated(LobbyData lobbyData)
     {
         gameObject.SetActive(true);
@@ -195,7 +190,7 @@ public class LobbyUI_InLobby : MonoBehaviour
     public void OnJoined(PlayerData memberData)
     {
         UpdateOrCreateNamePlate(memberData);
-        CreateLog(memberData, LobbyLogType.JOIN);
+        CreateLog(memberData.puid, memberData.name, LobbyLogType.JOIN);
     }
 
     public void UpdateOrCreateNamePlate(PlayerData memberData)
@@ -225,23 +220,23 @@ public class LobbyUI_InLobby : MonoBehaviour
         leaveButton.interactable = true;
     }
 
-    public void OnLeft(PlayerData memberData)
+    public void OnLeft(string puid)
     {
         Debug.Log("退室");
-        var remover = namePlateDic[memberData.puid];
+        var remover = namePlateDic[puid];
 
-        CreateLog(memberData, LobbyLogType.LEAVE);
+        CreateLog(puid, remover.GetPlayerName(), LobbyLogType.LEAVE);
 
         Destroy(remover.gameObject);
-        namePlateDic.Remove(memberData.puid);
+        namePlateDic.Remove(puid);
     }
 
-    public void OnDisconnect(PlayerData memberData)
+    public void OnMemberSleep(PlayerData memberData)
     {
         var tagetNamePlate = namePlateDic[memberData.puid];
         if (tagetNamePlate == null) return;
         tagetNamePlate.SetDisconnect(true);
-        CreateLog(memberData, LobbyLogType.DISCONNECT);
+        CreateLog(memberData.puid, memberData.name, LobbyLogType.DISCONNECT);
     }
 
     public void OnRevive(PlayerData memberData)
@@ -249,13 +244,13 @@ public class LobbyUI_InLobby : MonoBehaviour
         var taget = namePlateDic[memberData.puid];
         if (taget == null) return;
         taget.SetDisconnect(false);
-        CreateLog(memberData, LobbyLogType.REVIVE);
+        CreateLog(memberData.puid, memberData.name, LobbyLogType.REVIVE);
     }
 
     public void OnOwnerChanged(PlayerData newOwnerData)
     {
         if (namePlateDic.Count == 0) return;
-        CreateLog(newOwnerData, LobbyLogType.OWNER_CHANGED);
+        CreateLog(newOwnerData.puid, newOwnerData.name, LobbyLogType.OWNER_CHANGED);
 
         foreach (var memberData in namePlateDic)
         {
@@ -279,13 +274,11 @@ public class LobbyUI_InLobby : MonoBehaviour
 
     List<LobbyActionLog> logs = new();
 
-    void CreateLog(PlayerData playerData, LobbyLogType logType)
+    void CreateLog(string puid, string playerName, LobbyLogType logType)
     {
-        Debug.Log($"インロビー起動：{playerData.puid},{playerData.name},{playerData.imageData.charaId},{playerData.imageData.umaCol}");
-
         var _log = Instantiate(logPrefab, logRoot);
         var log = _log.GetComponent<LobbyActionLog>();
-        log.UpdateData(playerData.puid, playerData.name, logType);
+        log.UpdateData(puid, playerName, logType);
         logs.Add(log);
     }
 

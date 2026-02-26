@@ -31,8 +31,7 @@ public class EOS_Service : Singleton<EOS_Service>, IEosService
     [SerializeField] double ping = -1;
 
     public bool inLobby;
-    public bool p2pConnected { get; set; } = false;
-    
+
     public void Init()
     {
         lobbyManager = EOSManager.Instance.GetOrCreateManager<EOSLobbyManager>();
@@ -47,8 +46,16 @@ public class EOS_Service : Singleton<EOS_Service>, IEosService
         LoggingInterface.SetLogLevel(LogCategory.AllCategories, LogLevel.Error);
     }
 
+    private void OnEnable()
+    {
+        LobbyMemberEvent.MemberLeftEvent += OnMemberLeft;
+    }
+
     private void OnDisable()
     {
+
+        LobbyMemberEvent.MemberLeftEvent -= OnMemberLeft;
+
         inLobbyService?.ExitAction();
         playerPeer?.Dispose();
     }
@@ -346,7 +353,7 @@ public class EOS_Service : Singleton<EOS_Service>, IEosService
             playerData_Remote = CreatePlayerData(opponent);
             LobbyMemberEvent.RaiseUpdatePlayerData(playerData_Remote);
 
-            bool r = await playerPeer.AcceptRequestP2P(opponent.ProductId, token);
+            bool r = await playerPeer.AcceptRequestP2P(playerData_Local.isOwner, opponent.ProductId, token);
 
             if (!r) return false;
 
@@ -364,15 +371,6 @@ public class EOS_Service : Singleton<EOS_Service>, IEosService
 
 
     //インロビーシーン===============================================
-
-    public async UniTask LeaveLobby()
-    {
-        p2pConnected = false;
-
-        playerPeer.CloseConnection();
-        await inLobbyService.LeaveLobby();
-    }
-
     public async UniTask AutoP2pConnect(CancellationToken token)
     {
         while (!token.IsCancellationRequested)
@@ -391,7 +389,7 @@ public class EOS_Service : Singleton<EOS_Service>, IEosService
             if(opponent == null) continue;
 
             //データ受け入れ設定を登録&待ち受け
-            var r = await playerPeer.AcceptRequestP2P(opponent.ProductId, token);
+            var r = await playerPeer.AcceptRequestP2P(playerData_Local.isOwner, opponent.ProductId, token);
 
             if (r)
             {
@@ -452,9 +450,18 @@ public class EOS_Service : Singleton<EOS_Service>, IEosService
         return playerPeer.pingMs;
     }
 
-    public async UniTask CloseConnection()
+
+    public async UniTask LeaveLobby()
     {
+        Debug.Log("リーブによる通信終了");
+
+        playerPeer.CloseConnection();
         await inLobbyService.LeaveLobby();
+    }
+
+    public void OnMemberLeft(string puid)
+    {
+        Debug.Log("イベントによる通信終了");
         playerPeer.CloseConnection();
     }
 
