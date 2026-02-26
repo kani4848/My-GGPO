@@ -211,6 +211,11 @@ public class PeerRouter
         ClearRingBuffer();
     }
 
+    public bool OpponentIsAlive()
+    {
+        return heartBeat.IsAlive();
+    }
+
     //P2P接続確率=======================================================
 
     public async UniTask<bool> RegisterConnectionRequestAccept(ProductUserId _remotePuid, CancellationToken token)
