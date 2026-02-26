@@ -155,8 +155,11 @@ public class MainUI_Online : MonoBehaviour
     {
         int targetVal = current + delta;
 
-        string _changed = delta >= 0 ? "+" + delta.ToString("N0") : delta.ToString("N0");
+        bool amountIsPlus = delta >= 0;
+
+        string _changed = amountIsPlus ? "+" + delta.ToString("N0") : delta.ToString("N0");
         bountyChanged.text = _changed;
+        bountyChanged.color = amountIsPlus? Color.yellow : Color.red;
 
         await DOVirtual.Int(current, targetVal, 3, val => { 
             myBounty.text = val.ToString("N0"); 
