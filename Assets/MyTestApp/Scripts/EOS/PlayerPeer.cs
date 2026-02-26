@@ -35,6 +35,8 @@ public class PlayerPeer: IDisposable
     const float timeOutSeconds = 5f;
     const float resendInterval = 0.2f;
 
+    ProductUserId remoteId;
+
     public PlayerPeer()
     {
         router = new();
@@ -58,6 +60,15 @@ public class PlayerPeer: IDisposable
             case PeerState.P2P_CONNECTING_OWNER:
                 router.SendPing();
                 break;
+
+            case PeerState.P2P_CONNECTED:
+                if (router.OpponentIsAlive())
+                {
+                    state = PeerState.SLEEP;
+                    CloseConnection();
+                    LobbyMemberEvent.RaiseDeath(remoteId.ToString());
+                }
+                break;
         }
     }
 
@@ -71,6 +82,7 @@ public class PlayerPeer: IDisposable
 
         if (r)
         {
+            remoteId = remote;
             state = PeerState.P2P_CONNECTED;
         }
 
@@ -248,5 +260,4 @@ public class PlayerPeer: IDisposable
         router.CloseConnection();
         router.ResetBuffers();
     }
-
 }

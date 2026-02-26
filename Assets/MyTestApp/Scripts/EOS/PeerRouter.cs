@@ -60,6 +60,8 @@ public class PeerRouter
 
     //ピンポン
     HeartbeatSession heartBeat;
+    bool gotPong = false;
+    bool gotPing = false;
 
     public PeerRouter()
     {
@@ -133,10 +135,12 @@ public class PeerRouter
                 switch (pt)
                 {
                     case PacketType.HbPing:
+                        gotPing = true;
                         heartBeat.TryPing(_recvBuffer);
                         break;
 
                     case PacketType.HbPong:
+                        gotPong = true;
                         heartBeat.TryPong(_recvBuffer);
                         break;
 
@@ -279,7 +283,37 @@ public class PeerRouter
                 }
             );
 
-            return await connectTask.Task;
+            if (notifyPeerRequestId == 0)
+            {
+                UnityEngine.Debug.Log("AddNotifyPeerConnectionRequest 登録失敗");
+                return false;
+            }
+
+            // ping/pong成立待ち と Accept待ち を競争。この処理はキャンセルボタンで操作できるので時間切れはなし
+            var pingpongTask = UniTask.WaitUntil(() => gotPing || gotPong, cancellationToken: token);
+
+            var winner = await UniTask.WhenAny(pingpongTask, connectTask.Task);
+
+            // どちらが勝っても、最終成功条件はここで決める
+            bool acceptOk = false;
+
+            if (winner == 1)
+            {
+                // connectTcsが先に完了
+                acceptOk = await connectTask.Task; // true/falseを取得
+            }
+
+            bool pingpongOk = (gotPing && gotPong);
+            bool success = pingpongOk || acceptOk;
+
+            if (!success)
+            {
+                UnityEngine.Debug.Log("接続確立に失敗（pingpong/accept とも不成立）");
+                return false;
+            }
+
+            UnityEngine.Debug.Log("接続確立（pingpong or accept）");
+            return true;
         }
         finally
         {
@@ -296,6 +330,9 @@ public class PeerRouter
     }
     public void CloseConnection()
     {
+        gotPong = false;
+        gotPing = false;
+
         PeerInputData inputData = new();
 
         for (int i = 0; i < ringBuffer_MaxSize; i++)
