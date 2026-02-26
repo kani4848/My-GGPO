@@ -318,8 +318,6 @@ public class EOS_Service : Singleton<EOS_Service>, IEosService
                 Debug.Log($"ロビー作成、待ち受けを開始");
                 bool oppoJoined = await inLobbyService.QuickMatch_WaitOpponent(token);
 
-
-
                 if (oppoJoined)
                 {
                     playerData_Local.isOwner = true;
