@@ -281,7 +281,7 @@ public class PeerRouter
                         return;
                     }
 
-                    UnityEngine.Debug.Log("p2p接続リクエスト許可");
+                    UnityEngine.Debug.Log("p2pリクエストを待ちます");
                     acceptConnection.Add(data.RemoteUserId);
                     connectTask.TrySetResult(true);
                 }

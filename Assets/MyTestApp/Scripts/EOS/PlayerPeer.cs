@@ -61,7 +61,7 @@ public class PlayerPeer: IDisposable
                 break;
 
             case PeerState.P2P_CONNECTED:
-                if (router.OpponentIsAlive())
+                if (!router.OpponentIsAlive())
                 {
                     state = PeerState.SLEEP;
                     CloseConnection();
