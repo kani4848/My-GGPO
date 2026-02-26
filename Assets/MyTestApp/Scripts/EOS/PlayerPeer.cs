@@ -51,14 +51,12 @@ public class PlayerPeer: IDisposable
         if (state != PeerState.SLEEP)
         {
             router.ReceivePump();
+            router.SendPing();
+            pingMs = router.GetPingMs();
         }
 
         switch (state)
         {
-            case PeerState.P2P_CONNECTING:
-                router.SendPing();
-                break;
-
             case PeerState.P2P_CONNECTED:
                 if (!router.OpponentIsAlive())
                 {
@@ -67,8 +65,6 @@ public class PlayerPeer: IDisposable
                     LobbyMemberEvent.RaiseDeath(remoteId.ToString());
                     return;
                 }
-
-                pingMs = router.GetPingMs();
                 break;
         }
     }
